@@ -1,107 +1,72 @@
 // app/api/debug/route.ts
-// XOÁ file này sau khi hệ thống hoạt động ổn định
-
 import { NextResponse } from 'next/server'
 
-const NOCODB_URL     = process.env.NOCODB_URL     || '(chưa đặt)'
-const NOCODB_SUBPATH = process.env.NOCODB_SUBPATH || ''
-const NOCODB_TOKEN   = process.env.NOCODB_TOKEN   || '(chưa đặt)'
-const NOCODB_BASE_ID = process.env.NOCODB_BASE_ID || '(chưa đặt)'
-const API_BASE       = `${NOCODB_URL}${NOCODB_SUBPATH}/api/v1`
+const NOCODB_URL   = process.env.NOCODB_URL   || ''
+const TOKEN        = process.env.NOCODB_TOKEN || ''
+const BASE_ID      = process.env.NOCODB_BASE_ID || ''
 
-export async function GET() {
-  const results: Record<string, any> = {
-    buoc0_cau_hinh: {
-      NOCODB_URL,
-      NOCODB_SUBPATH: NOCODB_SUBPATH || '(trống)',
-      NOCODB_TOKEN:   NOCODB_TOKEN.substring(0, 15) + '...',
-      NOCODB_BASE_ID,
-      API_BASE,
-    }
-  }
-
-  // Bước 1: Lấy danh sách tables — dùng /bases/ (NocoDB 2026.x)
+async function t(url: string, label: string) {
   try {
-    const url = `${API_BASE}/db/meta/bases/${NOCODB_BASE_ID}/tables`
-    const res = await fetch(url, {
-      headers: { 'xc-auth': NOCODB_TOKEN, 'Content-Type': 'application/json' },
-      signal: AbortSignal.timeout(8000),
+    const r = await fetch(url, {
+      headers: { 'xc-auth': TOKEN, 'xc-token': TOKEN, 'Content-Type': 'application/json' },
+      signal: AbortSignal.timeout(4000),
+      cache: 'no-store',
     })
-    const text = await res.text()
-    let data: any = null
-    try { data = JSON.parse(text) } catch {}
-
-    results.buoc1_lay_tables = {
-      url,
-      status: res.status,
-      ok: res.ok,
-      soTable: data?.list?.length ?? 0,
-      tenCacTable: data?.list?.map((t: any) => t.title) ?? [],
-      loi: res.ok ? null : text.substring(0, 200),
+    const text = await r.text()
+    let json: any = null
+    try { json = JSON.parse(text) } catch {}
+    return {
+      label, url, status: r.status, ok: r.ok,
+      tables: json?.list?.length ?? null,
+      tableNames: json?.list?.map((x: any) => x.title) ?? null,
+      preview: (json ? JSON.stringify(json) : text).substring(0, 100),
     }
   } catch (e: any) {
-    results.buoc1_lay_tables = { loi: e.message }
+    return { label, url, status: 0, ok: false, tables: null, tableNames: null, preview: e.message }
   }
+}
 
-  // Bước 2: Tìm và đọc bảng Tài khoản
-  const tableList = results.buoc1_lay_tables?.tenCacTable || []
-  const tkTable   = results.buoc1_lay_tables?.tenCacTable?.find(
-    (n: string) => n.includes('Tài khoản') || n.includes('Tai khoan') || n.includes('16')
-  )
+export async function GET() {
+  const base = NOCODB_URL
 
-  if (!tkTable) {
-    results.buoc2_doc_tai_khoan = {
-      loi: 'Không tìm thấy bảng Tài khoản trong danh sách',
-      tatCaBang: tableList,
-      goi_y: 'Kiểm tra tên bảng trong NocoDB có đúng "16_Tài khoản" không',
-    }
-  } else {
-    try {
-      // Lấy table ID
-      const urlTables = `${API_BASE}/db/meta/bases/${NOCODB_BASE_ID}/tables`
-      const rTables   = await fetch(urlTables, { headers: { 'xc-auth': NOCODB_TOKEN } })
-      const dataTables = await rTables.json()
-      const found = dataTables?.list?.find((t: any) => t.title === tkTable)
+  // Thử tất cả endpoint có thể có
+  const results = await Promise.all([
+    // API v1 cũ
+    t(`${base}/api/v1/db/meta/projects/${BASE_ID}/tables`,   'v1/projects'),
+    t(`${base}/api/v1/db/meta/bases/${BASE_ID}/tables`,      'v1/bases'),
+    // API v1 mới
+    t(`${base}/api/v1/meta/bases/${BASE_ID}/tables`,         'v1/meta/bases'),
+    t(`${base}/api/v1/tables?baseId=${BASE_ID}`,             'v1/tables?baseId'),
+    // API v2
+    t(`${base}/api/v2/meta/bases/${BASE_ID}/tables`,         'v2/meta/bases'),
+    t(`${base}/api/v2/tables?baseId=${BASE_ID}`,             'v2/tables?baseId'),
+    t(`${base}/api/v2/tables`,                               'v2/tables'),
+    // Auth check
+    t(`${base}/api/v1/auth/user/me`,                         'auth/user/me'),
+    t(`${base}/api/v2/auth/user/me`,                         'v2/auth/user/me'),
+    // Health
+    t(`${base}/api/v1/health`,                               'health'),
+    t(`${base}/healthz`,                                     'healthz'),
+  ])
 
-      if (!found) {
-        results.buoc2_doc_tai_khoan = { loi: 'Không lấy được ID bảng' }
-      } else {
-        const urlData = `${API_BASE}/db/data/noco/${NOCODB_BASE_ID}/${found.id}?limit=10`
-        const rData   = await fetch(urlData, { headers: { 'xc-auth': NOCODB_TOKEN } })
-        const data    = await rData.json()
+  const working = results.filter(r => r.ok && (r.tables ?? 0) > 0)
+  const authOk  = results.find(r => r.label === 'auth/user/me' && r.ok)
 
-        results.buoc2_doc_tai_khoan = {
-          tableId:   found.id,
-          tableName: found.title,
-          soRecord:  data?.list?.length ?? 0,
-          records:   data?.list?.map((t: any) => ({
-            maTK:        t['Mã tài khoản'],
-            tenDangNhap: t['Tên đăng nhập'],
-            hoTen:       t['Họ tên'],
-            vaiTro:      t['Vai trò'],
-            trangThai:   t['Trạng thái'],
-            coCotMatKhau: !!t['Mật khẩu'],
-          })) ?? [],
-        }
-      }
-    } catch (e: any) {
-      results.buoc2_doc_tai_khoan = { loi: e.message }
-    }
-  }
-
-  // Kết luận
-  const b1ok = (results.buoc1_lay_tables?.soTable ?? 0) > 0
-  const b2ok = (results.buoc2_doc_tai_khoan?.soRecord ?? 0) > 0
-
-  results.ket_luan = {
-    lay_tables:    b1ok ? '✅ OK' : '❌ LỖI',
-    doc_tai_khoan: b2ok ? '✅ OK' : '❌ LỖI hoặc bảng trống',
-    huong_dan:     !b1ok
-      ? '→ Sửa NOCODB_BASE_ID trong .env.local. Lấy từ URL NocoDB sau /w96o40k/'
-      : !b2ok
-      ? '→ Bảng 16_Tài khoản chưa có dữ liệu hoặc tên bảng sai'
-      : '→ Tất cả OK! Thử đăng nhập tại /login với admin/admin',
-  }
-
-  return NextResponse.json(results, { status: 200 })
+  return NextResponse.json({
+    config: {
+      NOCODB_URL,
+      BASE_ID,
+      TOKEN: TOKEN.substring(0, 15) + '...',
+    },
+    ket_luan: {
+      ket_noi: authOk ? '✅ Token OK' : '❌ Không kết nối được',
+      endpoint_OK: working.length > 0
+        ? `✅ ${working[0].label} — ${working[0].tables} bảng`
+        : '❌ Không endpoint nào hoạt động',
+      buoc_tiep: working.length > 0
+        ? `Dùng: ${working[0].url}`
+        : 'Xem chi tiết bên dưới để tìm lỗi',
+    },
+    chi_tiet: results,
+  }, { status: 200 })
 }
