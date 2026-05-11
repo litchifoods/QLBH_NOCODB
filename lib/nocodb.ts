@@ -1,28 +1,18 @@
-// lib/nocodb.ts - Kết nối NocoDB API (tương thích phiên bản 2026.x)
-// ============================================================
-// Khi dùng cho dự án khác: chỉ sửa file .env.local
-// KHÔNG cần sửa file này.
-//
-// Thay đổi so với phiên bản cũ:
-//   /db/meta/projects/ → /db/meta/bases/   (NocoDB 2026.x)
-// ============================================================
+// lib/nocodb.ts - PHIÊN BẢN HOẠT ĐỘNG
+// Endpoint đúng: /api/v1/db/meta/projects/ (NocoDB 2026.x trên Railway)
 
-const NOCODB_URL     = process.env.NOCODB_URL     || ''
-const NOCODB_SUBPATH = process.env.NOCODB_SUBPATH || ''
-const NOCODB_TOKEN   = process.env.NOCODB_TOKEN   || ''
-const NOCODB_BASE_ID = process.env.NOCODB_BASE_ID || ''
-
-// URL gốc API — kết hợp URL + subpath
-// VD: https://nocodb-xxx.railway.app/dashboard/api/v1
-const API_BASE = `${NOCODB_URL}${NOCODB_SUBPATH}/api/v1`
+const NOCODB_URL   = process.env.NOCODB_URL   || ''
+const NOCODB_TOKEN = process.env.NOCODB_TOKEN || ''
+const BASE_ID      = process.env.NOCODB_BASE_ID || ''
+const API_BASE     = `${NOCODB_URL}/api/v1`
 
 const headers = {
-  'xc-auth': NOCODB_TOKEN,
+  'xc-auth':      NOCODB_TOKEN,
+  'xc-token':     NOCODB_TOKEN,
   'Content-Type': 'application/json',
 }
 
-// ── Tên bảng trong NocoDB ────────────────────────────────────
-// Sửa đây nếu đổi tên bảng trong NocoDB
+// Tên bảng trong NocoDB
 export const TABLES = {
   KHACH_HANG:     '1_Khách hàng',
   SAN_PHAM:       '2_Sản phẩm',
@@ -43,47 +33,34 @@ export const TABLES = {
   KIEM_KHO:       '17_Kiểm kho',
 }
 
-// ── Cache table ID ───────────────────────────────────────────
-let tableIdCache: Record<string, string> = {}
+// Cache table ID
+let tableCache: Record<string, string> = {}
 
 export async function getTableId(tableName: string): Promise<string> {
-  if (tableIdCache[tableName]) return tableIdCache[tableName]
+  if (tableCache[tableName]) return tableCache[tableName]
 
-  // NocoDB 2026.x dùng /bases/ thay vì /projects/
-  const url = `${API_BASE}/db/meta/bases/${NOCODB_BASE_ID}/tables`
-  try {
-    const res  = await fetch(url, { headers, cache: 'no-store' })
-    if (!res.ok) {
-      const text = await res.text()
-      throw new Error(`HTTP ${res.status}: ${text.substring(0, 200)}`)
-    }
-    const data = await res.json()
-    const list = data.list || []
+  // Endpoint đúng cho NocoDB 2026.x
+  const url = `${API_BASE}/db/meta/projects/${BASE_ID}/tables`
+  const res = await fetch(url, { headers, cache: 'no-store' })
 
-    const table = list.find((t: any) => t.title === tableName)
-    if (table) {
-      tableIdCache[tableName] = table.id
-      return table.id
-    }
+  if (!res.ok) throw new Error(`Lấy danh sách bảng thất bại: HTTP ${res.status}`)
 
-    const available = list.map((t: any) => t.title).join(', ')
-    throw new Error(`Không tìm thấy bảng "${tableName}". Có: ${available}`)
-  } catch (error) {
-    console.error('getTableId error:', error)
-    throw error
-  }
+  const data = await res.json()
+  const list = data.list || []
+
+  list.forEach((t: any) => {
+    if (t.id && t.title) tableCache[t.title] = t.id
+  })
+
+  if (tableCache[tableName]) return tableCache[tableName]
+
+  const names = list.map((t: any) => t.title).join(', ')
+  throw new Error(`Không tìm thấy bảng "${tableName}". Có: ${names}`)
 }
 
-// ── Lấy danh sách records ────────────────────────────────────
 export async function getRecords(
   tableName: string,
-  options: {
-    where?:  string
-    limit?:  number
-    offset?: number
-    sort?:   string
-    fields?: string
-  } = {}
+  options: { where?: string; limit?: number; offset?: number; sort?: string; fields?: string } = {}
 ) {
   try {
     const tableId = await getTableId(tableName)
@@ -94,98 +71,61 @@ export async function getRecords(
     if (options.sort)   params.set('sort',   options.sort)
     if (options.fields) params.set('fields', options.fields)
 
-    const url = `${API_BASE}/db/data/noco/${NOCODB_BASE_ID}/${tableId}?${params}`
+    const url = `${API_BASE}/db/data/noco/${BASE_ID}/${tableId}?${params}`
     const res = await fetch(url, { headers, cache: 'no-store' })
-
-    if (!res.ok) {
-      console.error(`getRecords "${tableName}" HTTP ${res.status}`)
-      return { list: [], pageInfo: { totalRows: 0 } }
-    }
+    if (!res.ok) return { list: [], pageInfo: { totalRows: 0 } }
     return await res.json()
-  } catch (error) {
-    console.error(`getRecords "${tableName}":`, error)
+  } catch (err) {
+    console.error(`getRecords "${tableName}":`, err)
     return { list: [], pageInfo: { totalRows: 0 } }
   }
 }
 
-// ── Lấy 1 record theo Row ID ─────────────────────────────────
 export async function getRecord(tableName: string, rowId: number) {
   try {
     const tableId = await getTableId(tableName)
-    const url = `${API_BASE}/db/data/noco/${NOCODB_BASE_ID}/${tableId}/${rowId}`
-    const res = await fetch(url, { headers, cache: 'no-store' })
+    const res = await fetch(
+      `${API_BASE}/db/data/noco/${BASE_ID}/${tableId}/${rowId}`,
+      { headers, cache: 'no-store' }
+    )
     return res.ok ? await res.json() : null
-  } catch (error) {
-    console.error(`getRecord "${tableName}" id=${rowId}:`, error)
-    return null
-  }
+  } catch { return null }
 }
 
-// ── Tìm 1 record theo điều kiện ──────────────────────────────
 export async function findRecord(tableName: string, field: string, value: string) {
-  const result = await getRecords(tableName, {
-    where: `(${field},eq,${value})`,
-    limit: 1,
-  })
-  return result.list?.[0] || null
+  const r = await getRecords(tableName, { where: `(${field},eq,${value})`, limit: 1 })
+  return r.list?.[0] || null
 }
 
-// ── Tạo record mới ──────────────────────────────────────────
 export async function createRecord(tableName: string, body: Record<string, any>) {
   try {
     const tableId = await getTableId(tableName)
-    const url = `${API_BASE}/db/data/noco/${NOCODB_BASE_ID}/${tableId}`
-    const res = await fetch(url, {
-      method: 'POST', headers, body: JSON.stringify(body),
-    })
+    const res = await fetch(
+      `${API_BASE}/db/data/noco/${BASE_ID}/${tableId}`,
+      { method: 'POST', headers, body: JSON.stringify(body) }
+    )
     return res.ok ? await res.json() : null
-  } catch (error) {
-    console.error(`createRecord "${tableName}":`, error)
-    return null
-  }
+  } catch { return null }
 }
 
-// ── Cập nhật record ──────────────────────────────────────────
-export async function updateRecord(
-  tableName: string, rowId: number, body: Record<string, any>
-) {
+export async function updateRecord(tableName: string, rowId: number, body: Record<string, any>) {
   try {
     const tableId = await getTableId(tableName)
-    const url = `${API_BASE}/db/data/noco/${NOCODB_BASE_ID}/${tableId}/${rowId}`
-    const res = await fetch(url, {
-      method: 'PATCH', headers, body: JSON.stringify(body),
-    })
+    const res = await fetch(
+      `${API_BASE}/db/data/noco/${BASE_ID}/${tableId}/${rowId}`,
+      { method: 'PATCH', headers, body: JSON.stringify(body) }
+    )
     return res.ok ? await res.json() : null
-  } catch (error) {
-    console.error(`updateRecord "${tableName}" id=${rowId}:`, error)
-    return null
-  }
+  } catch { return null }
 }
 
-// ── Xoá record ──────────────────────────────────────────────
 export async function deleteRecord(tableName: string, rowId: number) {
   try {
     const tableId = await getTableId(tableName)
-    const url = `${API_BASE}/db/data/noco/${NOCODB_BASE_ID}/${tableId}/${rowId}`
-    const res = await fetch(url, { method: 'DELETE', headers })
+    const res = await fetch(
+      `${API_BASE}/db/data/noco/${BASE_ID}/${tableId}/${rowId}`,
+      { method: 'DELETE', headers }
+    )
     return res.ok
-  } catch (error) {
-    console.error(`deleteRecord "${tableName}" id=${rowId}:`, error)
-    return false
-  }
-}
-
-// ── Kiểm tra kết nối ─────────────────────────────────────────
-export async function checkConnection() {
-  try {
-    const url = `${API_BASE}/db/meta/bases/${NOCODB_BASE_ID}/tables`
-    const res = await fetch(url, { headers })
-    if (res.ok) {
-      const data = await res.json()
-      return { ok: true, tables: data.list?.map((t: any) => t.title) || [] }
-    }
-    return { ok: false, error: `HTTP ${res.status}` }
-  } catch (e: any) {
-    return { ok: false, error: e.message }
-  }
+  } catch { return false }
 }
