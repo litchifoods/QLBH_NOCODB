@@ -62,7 +62,7 @@ export default function DonHangClient({
             {filtered.length} đơn • Tổng: {formatVND(tongTien)}đ
           </p>
         </div>
-        <Link href="/dashboard/don-hang/tao" className="btn btn-primary">
+        <Link href="/dashboard/don-hang/tao" className="btn btn-primary" style={{ whiteSpace:'nowrap' }}>
           ➕ Tạo đơn mới
         </Link>
       </div>
