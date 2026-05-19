@@ -51,32 +51,37 @@ export default function DonHangClient({
   const tongTien = filtered.reduce((s: number, d: any) => s + (Number(d['Tổng tiền đơn']) || 0), 0)
 
   return (
-    <div style={{ padding: '28px 32px' }}>
+    <div style={{ padding: '24px 28px' }}>
       {/* Header */}
-      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'24px', gap:'12px' }}>
+      <div style={{
+        display:'flex', justifyContent:'space-between', alignItems:'center',
+        marginBottom:'20px', gap:'16px',
+      }}>
         <div>
-          <h1 style={{ fontFamily:'Playfair Display,serif', fontSize:'24px', fontWeight:700 }}>
+          <h1 style={{ fontFamily:'Playfair Display,serif', fontSize:'22px', fontWeight:700 }}>
             📋 Đơn hàng
           </h1>
-          <p style={{ color:'var(--text-secondary)', fontSize:'14px', marginTop:'2px' }}>
+          <p style={{ color:'var(--text-secondary)', fontSize:'13px', marginTop:'2px' }}>
             {filtered.length} đơn • Tổng: {formatVND(tongTien)}đ
           </p>
         </div>
-        <Link href="/dashboard/don-hang/tao" className="btn btn-primary" style={{ whiteSpace:'nowrap', flexShrink:0 }}>
+        <Link
+          href="/dashboard/don-hang/tao"
+          className="btn btn-primary"
+          style={{ whiteSpace:'nowrap', flexShrink:0 }}
+        >
           ➕ Tạo đơn mới
         </Link>
       </div>
 
       {/* Filters */}
-      <div className="card" style={{ padding:'16px', marginBottom:'20px' }}>
-        <div style={{ display:'flex', gap:'12px', flexWrap:'wrap', alignItems:'center' }}>
-          {/* Search */}
+      <div className="card" style={{ padding:'14px 16px', marginBottom:'16px' }}>
+        <div style={{ display:'flex', gap:'10px', flexWrap:'wrap', alignItems:'center' }}>
           <input
             className="input" placeholder="🔍 Tìm mã đơn, mã KH, nhân viên..."
             value={search} onChange={e => setSearch(e.target.value)}
-            style={{ flex:'1', minWidth:'200px', maxWidth:'320px' }}
+            style={{ flex:'1', minWidth:'180px', maxWidth:'300px' }}
           />
-          {/* Trạng thái */}
           <div style={{ display:'flex', gap:'6px', flexWrap:'wrap' }}>
             {TRANG_THAI.map(tt => (
               <button key={tt}
@@ -85,10 +90,9 @@ export default function DonHangClient({
               >{tt}</button>
             ))}
           </div>
-          {/* Kênh */}
           <select
             className="input" value={kenh} onChange={e => setKenh(e.target.value)}
-            style={{ width:'auto', minWidth:'140px' }}
+            style={{ width:'auto', minWidth:'130px' }}
           >
             {KENH.map(k => <option key={k}>{k}</option>)}
           </select>
@@ -135,14 +139,14 @@ export default function DonHangClient({
                   <td style={{ fontSize:'13px' }}>{formatDate(don['Ngày hẹn giao'])}</td>
                   <td>
                     {don['Hình thức giao hàng'] && (
-                      <span style={{ fontSize:'11px', background:'var(--primary-pale)', color:'var(--primary)', padding:'2px 7px', borderRadius:'4px', fontWeight:600 }}>
-                        {don['Hình thức giao hàng'] === 'Cửa hàng giao' ? '🚚' : '🏃'} {don['Hình thức giao hàng']}
+                      <span style={{ fontSize:'11px', background:'var(--primary-pale)', color:'var(--primary)', padding:'2px 6px', borderRadius:'4px', fontWeight:600, whiteSpace:'nowrap' }}>
+                        {don['Hình thức giao hàng'] === 'Giao hàng cho khách' ? '🚚' : '🏃'} {don['Hình thức giao hàng']}
                       </span>
                     )}
                   </td>
-                  <td style={{ fontWeight:700 }}>{formatVND(Number(don['Tổng tiền đơn']))}đ</td>
-                  <td style={{ color:'var(--success)', fontWeight:600 }}>{formatVND(Number(don['Đặt cọc']))}đ</td>
-                  <td style={{ color: Number(don['Còn phải thu']) > 0 ? 'var(--danger)' : 'var(--text-muted)', fontWeight:600 }}>
+                  <td style={{ fontWeight:700, whiteSpace:'nowrap' }}>{formatVND(Number(don['Tổng tiền đơn']))}đ</td>
+                  <td style={{ color:'var(--success)', fontWeight:600, whiteSpace:'nowrap' }}>{formatVND(Number(don['Đặt cọc']))}đ</td>
+                  <td style={{ color: Number(don['Còn phải thu']) > 0 ? 'var(--danger)' : 'var(--text-muted)', fontWeight:600, whiteSpace:'nowrap' }}>
                     {formatVND(Number(don['Còn phải thu']))}đ
                   </td>
                   <td><span className={`badge ${badge(don['Trạng thái'])}`}>{don['Trạng thái'] || 'Mới'}</span></td>
