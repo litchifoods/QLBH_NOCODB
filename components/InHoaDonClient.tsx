@@ -1,5 +1,6 @@
 'use client'
 // components/InHoaDonClient.tsx
+import { useState, useRef } from 'react'
 
 function formatVND(n: number | string) {
   return Number(n || 0).toLocaleString('vi-VN') + 'đ'
@@ -11,31 +12,22 @@ function formatDate(s: string) {
 }
 function soTienBangChu(n: number): string {
   if (n === 0) return 'Không đồng'
-  const dvDon = ['', 'nghìn', 'triệu', 'tỷ']
-  const ch = ['không', 'một', 'hai', 'ba', 'bốn', 'năm', 'sáu', 'bảy', 'tám', 'chín']
-  function docNhom(n: number): string {
-    const tr = Math.floor(n / 100)
-    const ch_tr = n % 100
-    const ch10 = Math.floor(ch_tr / 10)
-    const dv = ch_tr % 10
+  const ch = ['không','một','hai','ba','bốn','năm','sáu','bảy','tám','chín']
+  function docNhom(x: number): string {
+    const tr = Math.floor(x/100), ch_tr = x%100, ch10 = Math.floor(ch_tr/10), dv = ch_tr%10
     let s = ''
     if (tr > 0) s += ch[tr] + ' trăm '
-    if (ch10 > 1) s += ch[ch10] + ' mươi '
-    else if (ch10 === 1) s += 'mười '
-    if (dv > 0) {
-      if (ch10 > 1 && dv === 1) s += 'mốt '
-      else if (ch10 > 1 && dv === 5) s += 'lăm '
-      else s += ch[dv] + ' '
-    }
+    if (ch10 > 1) { s += ch[ch10] + ' mươi '; if (dv===1) s += 'mốt '; else if (dv===5) s += 'lăm '; else if (dv>0) s += ch[dv]+' ' }
+    else if (ch10 === 1) { s += 'mười '; if (dv>0) s += ch[dv]+' ' }
+    else if (dv > 0 && tr > 0) s += 'lẻ ' + ch[dv]+' '
+    else if (dv > 0) s += ch[dv]+' '
     return s.trim()
   }
   const parts: number[] = []
-  let temp = Math.floor(n)
-  while (temp > 0) { parts.unshift(temp % 1000); temp = Math.floor(temp / 1000) }
-  return parts.map((p, i) => {
-    const dv = dvDon[parts.length - 1 - i]
-    return p > 0 ? docNhom(p) + (dv ? ' ' + dv : '') : ''
-  }).filter(Boolean).join(' ') + ' đồng'
+  let tmp = Math.floor(n)
+  while (tmp > 0) { parts.unshift(tmp%1000); tmp = Math.floor(tmp/1000) }
+  const dv = ['','nghìn','triệu','tỷ']
+  return parts.map((p,i) => p > 0 ? docNhom(p) + (dv[parts.length-1-i] ? ' '+dv[parts.length-1-i] : '') : '').filter(Boolean).join(' ') + ' đồng'
 }
 
 export default function InHoaDonClient({
@@ -50,188 +42,236 @@ export default function InHoaDonClient({
   const datCoc   = Number(donHang['Đặt cọc'] || 0)
   const conLai   = Number(donHang['Còn phải thu'] || tongTien - datCoc)
 
+  // ── State chỉnh sửa thông tin in ──────────────────────
+  const [tenCH,       setTenCH]       = useState('NỘI THẤT TÍNH TUYẾT')
+  const [diaChiCH,    setDiaChiCH]    = useState('')
+  const [sdtCH,       setSdtCH]       = useState('')
+  const [logo,        setLogo]        = useState<string | null>(null)
+  const [showEdit,    setShowEdit]    = useState(false)
+  const [ghiChuIn,    setGhiChuIn]    = useState(donHang['Ghi chú'] || '')
+  const [tenNV,       setTenNV]       = useState(donHang['Nhân viên bán'] || '')
+  const logoRef = useRef<HTMLInputElement>(null)
+
+  // Upload logo
+  function handleLogo(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = ev => setLogo(ev.target?.result as string)
+    reader.readAsDataURL(file)
+  }
+
+  // Xuất PDF bằng print
+  function xuatPDF() {
+    window.print()
+  }
+
   return (
     <div>
-      {/* Toolbar - không in */}
+      <style>{`
+        @media print {
+          .no-print { display:none !important; }
+          aside, nav, header { display:none !important; }
+          main { margin-left:0 !important; padding:0 !important; }
+          .print-wrap { margin:0 !important; box-shadow:none !important; border-radius:0 !important; max-width:100% !important; padding:24px 28px !important; }
+          body { background:white !important; }
+        }
+        .edit-panel { background:#F8FAFC; border:1px solid var(--border); border-radius:10px; padding:16px; margin-bottom:16px; }
+        .label-sm { font-size:12px; font-weight:600; color:#374151; display:block; margin-bottom:3px; }
+        .input-sm { font-size:13px; padding:6px 10px; border:1px solid var(--border); border-radius:6px; width:100%; background:white; }
+      `}</style>
+
+      {/* Toolbar */}
       <div className="no-print" style={{
-        padding:'16px 32px', background:'white', borderBottom:'1px solid var(--border)',
-        display:'flex', gap:'12px', alignItems:'center',
+        padding:'12px 20px', background:'white', borderBottom:'1px solid var(--border)',
+        display:'flex', gap:'10px', alignItems:'center', flexWrap:'wrap',
       }}>
-        <button onClick={() => window.print()}
-          className="btn btn-primary">🖨️ In hoá đơn</button>
+        <button onClick={xuatPDF}
+          style={{ background:'var(--primary)', color:'white', border:'none', borderRadius:'8px', padding:'9px 18px', fontWeight:700, fontSize:'14px', cursor:'pointer', display:'flex', alignItems:'center', gap:'6px' }}>
+          🖨️ In / Xuất PDF
+        </button>
+        <button onClick={() => setShowEdit(!showEdit)}
+          style={{ background: showEdit ? '#EEF2FF' : 'white', color: showEdit ? 'var(--primary)' : 'var(--text-secondary)', border:'1px solid var(--border)', borderRadius:'8px', padding:'9px 16px', fontSize:'14px', cursor:'pointer' }}>
+          ✏️ {showEdit ? 'Ẩn chỉnh sửa' : 'Chỉnh sửa thông tin in'}
+        </button>
         <button onClick={() => window.history.back()}
-          className="btn btn-ghost">← Quay lại</button>
-        <span style={{ fontSize:'13px', color:'var(--text-secondary)' }}>
-          Nhấn Ctrl+P hoặc nút In để in / lưu PDF
+          style={{ background:'white', border:'1px solid var(--border)', borderRadius:'8px', padding:'9px 16px', fontSize:'14px', cursor:'pointer', color:'var(--text-secondary)' }}>
+          ← Quay lại
+        </button>
+        <span style={{ fontSize:'12px', color:'var(--text-muted)', marginLeft:'4px' }}>
+          Ctrl+P để in hoặc lưu PDF
         </span>
       </div>
 
+      {/* Panel chỉnh sửa */}
+      {showEdit && (
+        <div className="no-print" style={{ padding:'16px 20px', background:'#F8FAFC', borderBottom:'1px solid var(--border)' }}>
+          <div style={{ maxWidth:'720px', display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(200px, 1fr))', gap:'12px' }}>
+            <div>
+              <label className="label-sm">Tên cửa hàng</label>
+              <input className="input-sm" value={tenCH} onChange={e => setTenCH(e.target.value)} />
+            </div>
+            <div>
+              <label className="label-sm">Số điện thoại CH</label>
+              <input className="input-sm" placeholder="0901 234 567" value={sdtCH} onChange={e => setSdtCH(e.target.value)} />
+            </div>
+            <div>
+              <label className="label-sm">Địa chỉ CH</label>
+              <input className="input-sm" placeholder="Số nhà, đường, quận..." value={diaChiCH} onChange={e => setDiaChiCH(e.target.value)} />
+            </div>
+            <div>
+              <label className="label-sm">Nhân viên bán</label>
+              <input className="input-sm" value={tenNV} onChange={e => setTenNV(e.target.value)} />
+            </div>
+            <div>
+              <label className="label-sm">Ghi chú in</label>
+              <input className="input-sm" placeholder="Ghi chú thêm trên hoá đơn..." value={ghiChuIn} onChange={e => setGhiChuIn(e.target.value)} />
+            </div>
+            <div>
+              <label className="label-sm">Logo cửa hàng</label>
+              <input ref={logoRef} type="file" accept="image/*" onChange={handleLogo} style={{ display:'none' }} />
+              <button onClick={() => logoRef.current?.click()}
+                style={{ width:'100%', padding:'6px 10px', border:'1px dashed var(--border)', borderRadius:'6px', background:'white', cursor:'pointer', fontSize:'12px', color:'var(--text-secondary)' }}>
+                {logo ? '✅ Đã chọn logo — click để đổi' : '📁 Chọn ảnh logo...'}
+              </button>
+              {logo && (
+                <div style={{ marginTop:'6px', display:'flex', alignItems:'center', gap:'8px' }}>
+                  <img src={logo} alt="logo" style={{ height:'36px', objectFit:'contain', borderRadius:'4px' }} />
+                  <button onClick={() => setLogo(null)} style={{ background:'none', border:'none', color:'#DC2626', cursor:'pointer', fontSize:'12px' }}>✕ Xoá</button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Hoá đơn */}
-      <div className="print-area" style={{
-        maxWidth:'720px', margin:'24px auto', background:'white',
-        padding:'40px 48px', borderRadius:'12px',
-        boxShadow:'var(--shadow-md)',
-      }}>
-        {/* Header */}
-        <div style={{ textAlign:'center', marginBottom:'28px', borderBottom:'2px solid #1B3A6B', paddingBottom:'20px' }}>
-          <div style={{
-            fontSize:'22px', fontFamily:'Playfair Display,serif',
-            fontWeight:700, color:'#1B3A6B', marginBottom:'4px',
-          }}>NỘI THẤT TÍNH TUYẾT</div>
-          <div style={{ fontSize:'12px', color:'#6B7280' }}>
-            📞 Liên hệ: — &nbsp;|&nbsp; 📍 Địa chỉ: Việt Nam
-          </div>
-          <div style={{
-            marginTop:'16px', fontSize:'18px', fontWeight:800,
-            textTransform:'uppercase', letterSpacing:'0.05em', color:'#0F172A',
-          }}>
-            HOÁ ĐƠN BÁN HÀNG
-          </div>
-          <div style={{ fontSize:'13px', color:'#6B7280', marginTop:'4px' }}>
-            Số: <strong>{maDon}</strong> &nbsp;|&nbsp;
-            Ngày: <strong>{formatDate(donHang['Ngày bán'] || donHang['Ngày đặt'])}</strong>
-          </div>
-        </div>
-
-        {/* Thông tin KH */}
-        <div style={{
-          display:'grid', gridTemplateColumns:'1fr 1fr', gap:'16px',
-          marginBottom:'24px', fontSize:'13px',
+      <div style={{ padding:'20px', background:'#F3F4F6', minHeight:'calc(100vh - 120px)' }}>
+        <div className="print-wrap" style={{
+          maxWidth:'720px', margin:'0 auto', background:'white',
+          padding:'36px 44px', borderRadius:'12px',
+          boxShadow:'0 4px 24px rgba(0,0,0,0.1)',
         }}>
-          <div>
-            <div style={{ fontWeight:700, marginBottom:'6px', color:'#374151' }}>THÔNG TIN KHÁCH HÀNG</div>
-            <div><strong>Tên:</strong> {khachHang?.['Tên khách hàng'] || donHang['Mã KH'] || '—'}</div>
-            <div><strong>SĐT:</strong> {khachHang?.['Số điện thoại'] || '—'}</div>
-            <div><strong>Địa chỉ:</strong> {khachHang?.['Địa chỉ'] || '—'}</div>
-          </div>
-          <div>
-            <div style={{ fontWeight:700, marginBottom:'6px', color:'#374151' }}>THÔNG TIN GIAO HÀNG</div>
-            <div><strong>Hình thức:</strong> {donHang['Hình thức giao hàng'] || '—'}</div>
-            <div><strong>Ngày hẹn giao:</strong> {formatDate(donHang['Ngày hẹn giao'])}</div>
-            <div><strong>Nhân viên:</strong> {donHang['Nhân viên bán'] || '—'}</div>
-          </div>
-        </div>
 
-        {/* Bảng sản phẩm */}
-        <table style={{
-          width:'100%', borderCollapse:'collapse', marginBottom:'20px',
-          fontSize:'13px',
-        }}>
-          <thead>
-            <tr style={{ background:'#1B3A6B', color:'white' }}>
-              <th style={{ padding:'10px 12px', textAlign:'left', width:'5%' }}>STT</th>
-              <th style={{ padding:'10px 12px', textAlign:'left' }}>Tên sản phẩm</th>
-              <th style={{ padding:'10px 12px', textAlign:'center', width:'10%' }}>SL</th>
-              <th style={{ padding:'10px 12px', textAlign:'right', width:'20%' }}>Đơn giá</th>
-              <th style={{ padding:'10px 12px', textAlign:'right', width:'20%' }}>Thành tiền</th>
-            </tr>
-          </thead>
-          <tbody>
-            {chiTiet.map((ct: any, i: number) => (
-              <tr key={i} style={{ background: i % 2 === 0 ? '#F8FAFC' : 'white' }}>
-                <td style={{ padding:'10px 12px', textAlign:'center' }}>{i + 1}</td>
-                <td style={{ padding:'10px 12px' }}>
-                  <div style={{ fontWeight:600 }}>{ct['Tên SP (ghi nhanh)'] || ct['Mã SP'] || '—'}</div>
-                  {ct['Ghi chú SP'] && (
-                    <div style={{ fontSize:'11px', color:'#6B7280', fontStyle:'italic' }}>{ct['Ghi chú SP']}</div>
-                  )}
-                </td>
-                <td style={{ padding:'10px 12px', textAlign:'center' }}>{ct['Số lượng']}</td>
-                <td style={{ padding:'10px 12px', textAlign:'right' }}>{formatVND(ct['Đơn giá'])}</td>
-                <td style={{ padding:'10px 12px', textAlign:'right', fontWeight:700 }}>{formatVND(ct['Thành tiền'])}</td>
-              </tr>
-            ))}
-          </tbody>
-          <tfoot>
-            <tr style={{ borderTop:'2px solid #1B3A6B' }}>
-              <td colSpan={4} style={{ padding:'10px 12px', textAlign:'right', fontWeight:700 }}>Tổng tiền:</td>
-              <td style={{ padding:'10px 12px', textAlign:'right', fontWeight:800, fontSize:'15px', color:'#1B3A6B' }}>
-                {formatVND(tongTien)}
-              </td>
-            </tr>
-            {datCoc > 0 && (
-              <tr>
-                <td colSpan={4} style={{ padding:'6px 12px', textAlign:'right', color:'#065F46' }}>
-                  Đã đặt cọc ({donHang['Hình thức cọc'] || '—'}):
-                </td>
-                <td style={{ padding:'6px 12px', textAlign:'right', color:'#065F46', fontWeight:700 }}>
-                  - {formatVND(datCoc)}
-                </td>
-              </tr>
+          {/* Header hoá đơn */}
+          <div style={{ display:'flex', alignItems:'center', gap:'20px', marginBottom:'20px', paddingBottom:'16px', borderBottom:'2px solid #1B3A6B' }}>
+            {logo && (
+              <img src={logo} alt="logo" style={{ height:'60px', objectFit:'contain', flexShrink:0 }} />
             )}
-            <tr style={{ background:'#FEF3C7' }}>
-              <td colSpan={4} style={{ padding:'10px 12px', textAlign:'right', fontWeight:800 }}>
-                Còn phải thu:
-              </td>
-              <td style={{ padding:'10px 12px', textAlign:'right', fontWeight:800, fontSize:'16px', color:'#DC2626' }}>
-                {formatVND(conLai)}
-              </td>
-            </tr>
-          </tfoot>
-        </table>
-
-        {/* Số tiền bằng chữ */}
-        <div style={{
-          fontSize:'12px', color:'#374151', marginBottom:'24px',
-          fontStyle:'italic',
-        }}>
-          Số tiền còn lại bằng chữ: <strong style={{ textTransform:'capitalize' }}>
-            {soTienBangChu(conLai)}
-          </strong>
-        </div>
-
-        {/* Ghi chú */}
-        {donHang['Ghi chú'] && (
-          <div style={{
-            fontSize:'12px', color:'#6B7280', marginBottom:'24px',
-            background:'#F8FAFC', padding:'10px 14px', borderRadius:'6px',
-          }}>
-            <strong>Ghi chú:</strong> {donHang['Ghi chú']}
+            <div style={{ flex:1, textAlign: logo ? 'left' : 'center' }}>
+              <div style={{ fontSize:'20px', fontFamily:'Playfair Display,serif', fontWeight:800, color:'#1B3A6B', letterSpacing:'0.02em' }}>
+                {tenCH}
+              </div>
+              <div style={{ fontSize:'12px', color:'#6B7280', marginTop:'3px', display:'flex', gap:'12px', flexWrap:'wrap', justifyContent: logo ? 'flex-start' : 'center' }}>
+                {sdtCH && <span>📞 {sdtCH}</span>}
+                {diaChiCH && <span>📍 {diaChiCH}</span>}
+                {!sdtCH && !diaChiCH && <span style={{ fontStyle:'italic' }}>Điền thông tin cửa hàng ở ô chỉnh sửa bên trên</span>}
+              </div>
+            </div>
           </div>
-        )}
 
-        {/* Ký tên */}
-        <div style={{
-          display:'grid', gridTemplateColumns:'1fr 1fr', gap:'32px',
-          marginTop:'32px', paddingTop:'20px', borderTop:'1px dashed #D1D5DB',
-          fontSize:'13px', textAlign:'center',
-        }}>
-          <div>
-            <div style={{ fontWeight:700, marginBottom:'48px' }}>KHÁCH HÀNG</div>
-            <div style={{ borderBottom:'1px solid #374151', marginBottom:'4px' }}></div>
-            <div style={{ color:'#6B7280', fontSize:'11px' }}>(Ký và ghi rõ họ tên)</div>
+          <div style={{ textAlign:'center', marginBottom:'20px' }}>
+            <div style={{ fontSize:'17px', fontWeight:800, textTransform:'uppercase', letterSpacing:'0.06em', color:'#0F172A' }}>
+              Hoá đơn bán hàng
+            </div>
+            <div style={{ fontSize:'13px', color:'#6B7280', marginTop:'4px' }}>
+              Số: <strong>{maDon}</strong> &nbsp;|&nbsp; Ngày: <strong>{formatDate(donHang['Ngày bán'] || donHang['Ngày đặt'])}</strong>
+            </div>
           </div>
-          <div>
-            <div style={{ fontWeight:700, marginBottom:'48px' }}>NGƯỜI BÁN</div>
-            <div style={{ borderBottom:'1px solid #374151', marginBottom:'4px' }}></div>
-            <div style={{ color:'#6B7280', fontSize:'11px' }}>({donHang['Nhân viên bán'] || 'Nhân viên'})</div>
-          </div>
-        </div>
 
-        {/* Footer */}
-        <div style={{
-          marginTop:'24px', textAlign:'center', fontSize:'11px', color:'#9CA3AF',
-          borderTop:'1px solid #E5E7EB', paddingTop:'16px',
-        }}>
-          Cảm ơn quý khách đã mua hàng tại Nội Thất Tính Tuyết! 🏠
+          {/* Thông tin KH + Giao hàng */}
+          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'16px', marginBottom:'20px', fontSize:'13px' }}>
+            <div style={{ background:'#F8FAFC', borderRadius:'8px', padding:'12px 14px' }}>
+              <div style={{ fontWeight:700, color:'#374151', marginBottom:'6px', fontSize:'12px', textTransform:'uppercase', letterSpacing:'0.05em' }}>Khách hàng</div>
+              <div style={{ fontWeight:700, fontSize:'14px' }}>{khachHang?.['Tên khách hàng'] || donHang['Mã KH'] || '—'}</div>
+              {khachHang?.['Số điện thoại'] && <div style={{ color:'#6B7280', marginTop:'3px' }}>📞 {khachHang['Số điện thoại']}</div>}
+              {khachHang?.['Địa chỉ'] && <div style={{ color:'#6B7280', marginTop:'2px' }}>📍 {khachHang['Địa chỉ']}</div>}
+            </div>
+            <div style={{ background:'#F8FAFC', borderRadius:'8px', padding:'12px 14px' }}>
+              <div style={{ fontWeight:700, color:'#374151', marginBottom:'6px', fontSize:'12px', textTransform:'uppercase', letterSpacing:'0.05em' }}>Giao hàng</div>
+              <div style={{ color:'#374151' }}><strong>Hình thức:</strong> {donHang['Hình thức giao hàng'] || '—'}</div>
+              <div style={{ color:'#374151', marginTop:'2px' }}><strong>Ngày hẹn:</strong> {formatDate(donHang['Ngày hẹn giao'])}</div>
+              <div style={{ color:'#374151', marginTop:'2px' }}><strong>Nhân viên bán:</strong> {tenNV || '—'}</div>
+            </div>
+          </div>
+
+          {/* Bảng sản phẩm */}
+          <table style={{ width:'100%', borderCollapse:'collapse', marginBottom:'16px', fontSize:'13px' }}>
+            <thead>
+              <tr style={{ background:'#1B3A6B', color:'white' }}>
+                <th style={{ padding:'9px 10px', textAlign:'center', width:'5%' }}>STT</th>
+                <th style={{ padding:'9px 10px', textAlign:'left' }}>Tên sản phẩm</th>
+                <th style={{ padding:'9px 10px', textAlign:'center', width:'8%' }}>SL</th>
+                <th style={{ padding:'9px 10px', textAlign:'right', width:'18%' }}>Đơn giá</th>
+                <th style={{ padding:'9px 10px', textAlign:'right', width:'18%' }}>Thành tiền</th>
+              </tr>
+            </thead>
+            <tbody>
+              {chiTiet.map((ct: any, i: number) => (
+                <tr key={i} style={{ background: i%2===0 ? '#F8FAFC' : 'white', borderBottom:'1px solid #E5E7EB' }}>
+                  <td style={{ padding:'9px 10px', textAlign:'center', color:'#6B7280' }}>{i+1}</td>
+                  <td style={{ padding:'9px 10px' }}>
+                    <div style={{ fontWeight:600 }}>{ct['Tên SP (ghi nhanh)'] || ct['Mã SP'] || '—'}</div>
+                    {ct['Ghi chú SP'] && <div style={{ fontSize:'11px', color:'#6B7280', fontStyle:'italic' }}>{ct['Ghi chú SP']}</div>}
+                  </td>
+                  <td style={{ padding:'9px 10px', textAlign:'center' }}>{ct['Số lượng']}</td>
+                  <td style={{ padding:'9px 10px', textAlign:'right' }}>{formatVND(ct['Đơn giá'])}</td>
+                  <td style={{ padding:'9px 10px', textAlign:'right', fontWeight:700 }}>{formatVND(ct['Thành tiền'])}</td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot>
+              <tr style={{ borderTop:'2px solid #1B3A6B' }}>
+                <td colSpan={4} style={{ padding:'9px 10px', textAlign:'right', fontWeight:700 }}>Tổng tiền:</td>
+                <td style={{ padding:'9px 10px', textAlign:'right', fontWeight:800, fontSize:'15px', color:'#1B3A6B' }}>{formatVND(tongTien)}</td>
+              </tr>
+              {datCoc > 0 && (
+                <tr>
+                  <td colSpan={4} style={{ padding:'5px 10px', textAlign:'right', color:'#065F46' }}>
+                    Đã đặt cọc ({donHang['Hình thức cọc'] || '—'}):
+                  </td>
+                  <td style={{ padding:'5px 10px', textAlign:'right', color:'#065F46', fontWeight:700 }}>- {formatVND(datCoc)}</td>
+                </tr>
+              )}
+              <tr style={{ background:'#FEF3C7' }}>
+                <td colSpan={4} style={{ padding:'9px 10px', textAlign:'right', fontWeight:800 }}>Còn phải thu:</td>
+                <td style={{ padding:'9px 10px', textAlign:'right', fontWeight:800, fontSize:'16px', color:'#DC2626' }}>{formatVND(conLai)}</td>
+              </tr>
+            </tfoot>
+          </table>
+
+          {/* Số tiền bằng chữ */}
+          <div style={{ fontSize:'12px', color:'#374151', marginBottom:'16px', fontStyle:'italic' }}>
+            Số tiền còn lại bằng chữ: <strong style={{ textTransform:'capitalize' }}>{soTienBangChu(conLai)}</strong>
+          </div>
+
+          {/* Ghi chú */}
+          {ghiChuIn && (
+            <div style={{ fontSize:'12px', color:'#6B7280', background:'#F8FAFC', padding:'8px 12px', borderRadius:'6px', marginBottom:'16px' }}>
+              <strong>Ghi chú:</strong> {ghiChuIn}
+            </div>
+          )}
+
+          {/* Ký tên */}
+          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'32px', marginTop:'28px', paddingTop:'16px', borderTop:'1px dashed #D1D5DB', fontSize:'13px', textAlign:'center' }}>
+            <div>
+              <div style={{ fontWeight:700, marginBottom:'44px' }}>KHÁCH HÀNG</div>
+              <div style={{ borderBottom:'1px solid #374151', marginBottom:'4px' }}></div>
+              <div style={{ color:'#6B7280', fontSize:'11px' }}>(Ký và ghi rõ họ tên)</div>
+            </div>
+            <div>
+              <div style={{ fontWeight:700, marginBottom:'44px' }}>NHÂN VIÊN BÁN</div>
+              <div style={{ borderBottom:'1px solid #374151', marginBottom:'4px' }}></div>
+              <div style={{ color:'#6B7280', fontSize:'11px' }}>({tenNV || 'Nhân viên'})</div>
+            </div>
+          </div>
+
+          {/* Footer */}
+          <div style={{ marginTop:'20px', textAlign:'center', fontSize:'11px', color:'#9CA3AF', borderTop:'1px solid #E5E7EB', paddingTop:'12px' }}>
+            Cảm ơn quý khách đã tin tưởng và mua hàng tại {tenCH}! 🏠
+          </div>
         </div>
       </div>
-
-      {/* CSS cho in */}
-      <style jsx global>{`
-        @media print {
-          .no-print { display: none !important; }
-          aside, nav { display: none !important; }
-          main { margin-left: 0 !important; }
-          .print-area {
-            margin: 0 !important;
-            box-shadow: none !important;
-            border-radius: 0 !important;
-            max-width: 100% !important;
-          }
-          body { background: white !important; }
-        }
-      `}</style>
     </div>
   )
 }
