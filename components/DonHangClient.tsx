@@ -12,7 +12,7 @@ function formatDate(s: string) {
   const d = new Date(s)
   return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`
 }
-function badgeTrangThai(tt: string) {
+function badgeColor(tt: string) {
   const map: Record<string,{bg:string,color:string}> = {
     'Chờ giao':   {bg:'#FEF3C7',color:'#92400E'},
     'Đang giao':  {bg:'#DBEAFE',color:'#1E40AF'},
@@ -22,27 +22,18 @@ function badgeTrangThai(tt: string) {
   return map[tt] || {bg:'#F3F4F6',color:'#374151'}
 }
 
-// Trạng thái giao hàng dựa vào dữ liệu đơn
-function trangThaiGiao(don: any): {label: string, bg: string, color: string} {
-  const tt = don['Trạng thái'] || ''
-  if (tt === 'Hoàn thành') return {label:'✅ Đã giao', bg:'#D1FAE5', color:'#065F46'}
-  if (tt === 'Đang giao')  return {label:'🚚 Đang giao', bg:'#DBEAFE', color:'#1E40AF'}
-  if (tt === 'Huỷ')        return {label:'❌ Huỷ', bg:'#FEE2E2', color:'#991B1B'}
-  // Chờ giao hoặc Mới
-  return {label:'⏳ Chưa giao', bg:'#FEF3C7', color:'#92400E'}
-}
-
 const TRANG_THAI = ['Tất cả','Chờ giao','Đang giao','Hoàn thành','Huỷ']
 const KENH = ['Tất cả','Trực tiếp','Zalo','Facebook','Điện thoại','Online']
 
-export default function DonHangClient({ donHang, user, searchParams }:
-  { donHang: any[], user: UserSession, searchParams: any }) {
+export default function DonHangClient({ donHang, khachHangMap, user, searchParams }:
+  { donHang: any[], khachHangMap: Record<string,string>, user: UserSession, searchParams: any }) {
 
   const router = useRouter()
   const [trangThai, setTrangThai] = useState(searchParams.trang_thai || 'Tất cả')
   const [kenh, setKenh]           = useState(searchParams.kenh || 'Tất cả')
   const [search, setSearch]       = useState(searchParams.q || '')
 
+  // Lọc bỏ dòng rỗng
   const donHangHopLe = useMemo(() =>
     donHang.filter(d => d['Mã đơn hàng']?.toString().trim())
   , [donHang])
@@ -52,16 +43,26 @@ export default function DonHangClient({ donHang, user, searchParams }:
     if (kenh !== 'Tất cả' && d['Kênh bán'] !== kenh) return false
     if (search) {
       const q = search.toLowerCase()
+      const tenKH = khachHangMap[d['Mã KH']] || d['Tên khách hàng'] || ''
       return (
         (d['Mã đơn hàng']||'').toLowerCase().includes(q) ||
-        (d['Tên khách hàng']||'').toLowerCase().includes(q) ||
+        tenKH.toLowerCase().includes(q) ||
         (d['Mã KH']||'').toLowerCase().includes(q)
       )
     }
     return true
-  }), [donHangHopLe, trangThai, kenh, search])
+  }), [donHangHopLe, trangThai, kenh, search, khachHangMap])
 
   const tongTien = filtered.reduce((s: number, d: any) => s + (Number(d['Tổng tiền đơn'])||0), 0)
+
+  // Lấy tên KH — ưu tiên: khachHangMap > Tên khách hàng trong đơn > Mã KH
+  function getTenKH(don: any): string {
+    const maKH = don['Mã KH'] || ''
+    const tenTuMap = khachHangMap[maKH] || ''
+    const tenTuDon = don['Tên khách hàng'] || ''
+    const tenHienThi = tenTuMap || tenTuDon || maKH || '—'
+    return tenHienThi.length > 24 ? tenHienThi.slice(0,22)+'…' : tenHienThi
+  }
 
   async function handleNhap(rows: Record<string,string>[]) {
     const res = await fetch('/api/import/don-hang', {
@@ -73,12 +74,6 @@ export default function DonHangClient({ donHang, user, searchParams }:
     router.refresh()
   }
 
-  function rutGonTen(ten: string, ma: string) {
-    if (!ten && !ma) return '—'
-    if (!ten) return ma
-    return ten.length > 22 ? ten.slice(0,20)+'…' : ten
-  }
-
   return (
     <div style={{padding:'20px'}}>
       <style>{`
@@ -88,7 +83,7 @@ export default function DonHangClient({ donHang, user, searchParams }:
         .dh-table th,.dh-table td{padding:8px 10px;}
         .dh-table tbody tr:hover td{background:#F0F4FF!important;}
         @media(max-width:1000px){.col-dia,.col-ngaygiao{display:none;}}
-        @media(max-width:700px){.col-coc,.col-htgiao{display:none;}}
+        @media(max-width:700px){.col-coc{display:none;}}
       `}</style>
 
       {/* Header */}
@@ -101,12 +96,22 @@ export default function DonHangClient({ donHang, user, searchParams }:
           <ExcelToolbar
             loai="DON_HANG" danhSach={filtered} tenFile="don-hang"
             layGiaTri={d=>[
-              d['Mã đơn hàng']||'', d['Ngày bán']||d['Ngày đặt']||'',
-              d['Mã KH']||'', d['Tên khách hàng']||'', d['Kênh bán']||'',
-              d['Hình thức giao hàng']||'', d['Ngày hẹn giao']||'',
-              d['Địa chỉ giao']||'', d['Tổng tiền đơn']||0, d['Đặt cọc']||0,
-              d['Hình thức cọc']||'', d['Còn phải thu']||0, d['Trạng thái']||'',
-              d['Nhân viên bán']||'', d['Xuất hóa đơn']||'Không', d['Ghi chú']||'',
+              d['Mã đơn hàng']||'',
+              d['Ngày bán']||d['Ngày đặt']||'',
+              d['Mã KH']||'',
+              khachHangMap[d['Mã KH']] || d['Tên khách hàng'] || '',
+              d['Kênh bán']||'',
+              d['Hình thức giao hàng']||'',
+              d['Ngày hẹn giao']||'',
+              d['Địa chỉ giao']||'',
+              Number(d['Tổng tiền đơn'])||0,
+              Number(d['Đặt cọc'])||0,
+              d['Hình thức cọc']||'',
+              Number(d['Còn phải thu'])||0,
+              d['Trạng thái']||'',
+              d['Nhân viên bán']||'',
+              d['Xuất hóa đơn']||'Không',
+              d['Ghi chú']||'',
             ]}
             onNhap={handleNhap}
           />
@@ -122,7 +127,7 @@ export default function DonHangClient({ donHang, user, searchParams }:
             style={{flex:'1',minWidth:'160px',maxWidth:'260px'}}/>
           <div style={{display:'flex',gap:'5px',flexWrap:'wrap'}}>
             {TRANG_THAI.map(tt=>{
-              const c=tt!=='Tất cả'?badgeTrangThai(tt):null
+              const c=tt!=='Tất cả'?badgeColor(tt):null
               const isA=trangThai===tt
               return(
                 <button key={tt} onClick={()=>setTrangThai(tt)} style={{
@@ -142,7 +147,7 @@ export default function DonHangClient({ donHang, user, searchParams }:
         </div>
       </div>
 
-      {/* Table */}
+      {/* Table — bỏ cột Tình trạng giao */}
       <div className="card">
         <div style={{overflowX:'auto'}}>
           <table className="dh-table" style={{width:'100%',borderCollapse:'collapse',fontSize:'13px'}}>
@@ -151,7 +156,6 @@ export default function DonHangClient({ donHang, user, searchParams }:
                 <th style={{textAlign:'left',fontWeight:700,whiteSpace:'nowrap'}}>Mã đơn</th>
                 <th style={{textAlign:'left',fontWeight:700,whiteSpace:'nowrap'}}>Ngày đặt</th>
                 <th style={{textAlign:'left',fontWeight:700}}>Tên khách hàng</th>
-                <th className="col-htgiao" style={{textAlign:'center',fontWeight:700}}>Tình trạng giao</th>
                 <th className="col-ngaygiao" style={{textAlign:'left',fontWeight:700,whiteSpace:'nowrap'}}>Ngày giao</th>
                 <th className="col-dia" style={{textAlign:'left',fontWeight:700}}>Địa chỉ</th>
                 <th style={{textAlign:'right',fontWeight:700,whiteSpace:'nowrap'}}>Tổng tiền</th>
@@ -163,12 +167,12 @@ export default function DonHangClient({ donHang, user, searchParams }:
             </thead>
             <tbody>
               {filtered.length===0?(
-                <tr><td colSpan={11} style={{textAlign:'center',padding:'48px',color:'var(--text-muted)'}}>Không tìm thấy đơn hàng nào</td></tr>
+                <tr><td colSpan={10} style={{textAlign:'center',padding:'48px',color:'var(--text-muted)'}}>Không tìm thấy đơn hàng nào</td></tr>
               ):filtered.map((don:any,i:number)=>{
-                const tt   = don['Trạng thái']||'Mới'
-                const cTT  = badgeTrangThai(tt)
-                const cGH  = trangThaiGiao(don)
-                const conLai = Number(don['Còn phải thu']||0)
+                const tt=don['Trạng thái']||'Mới'
+                const c=badgeColor(tt)
+                const conLai=Number(don['Còn phải thu']||0)
+                const tenKH=getTenKH(don)
                 return(
                   <tr key={i} style={{borderBottom:'1px solid #F0F0F0',background:i%2===0?'white':'#FAFBFD'}}>
                     <td>
@@ -181,15 +185,8 @@ export default function DonHangClient({ donHang, user, searchParams }:
                       {formatDate(don['Ngày đặt']||don['Ngày bán'])}
                     </td>
                     <td>
-                      <div style={{fontWeight:600}}>{rutGonTen(don['Tên khách hàng'],don['Mã KH'])}</div>
+                      <div style={{fontWeight:600}}>{tenKH}</div>
                       {don['Mã KH']&&<div style={{fontSize:'11px',color:'var(--text-muted)'}}>{don['Mã KH']}</div>}
-                    </td>
-                    {/* Cột tình trạng giao: Chưa giao / Đang giao / Đã giao */}
-                    <td className="col-htgiao" style={{textAlign:'center'}}>
-                      <span style={{
-                        padding:'3px 9px',borderRadius:'20px',fontSize:'11px',fontWeight:700,
-                        background:cGH.bg,color:cGH.color,whiteSpace:'nowrap',
-                      }}>{cGH.label}</span>
                     </td>
                     <td className="col-ngaygiao" style={{fontSize:'12px',whiteSpace:'nowrap',color:'var(--text-secondary)'}}>
                       {formatDate(don['Ngày hẹn giao'])}
@@ -207,7 +204,7 @@ export default function DonHangClient({ donHang, user, searchParams }:
                       {formatVND(conLai)}đ
                     </td>
                     <td style={{textAlign:'center'}}>
-                      <span style={{padding:'3px 9px',borderRadius:'20px',fontSize:'11px',fontWeight:700,background:cTT.bg,color:cTT.color,whiteSpace:'nowrap'}}>
+                      <span style={{padding:'3px 9px',borderRadius:'20px',fontSize:'11px',fontWeight:700,background:c.bg,color:c.color,whiteSpace:'nowrap'}}>
                         {tt}
                       </span>
                     </td>
