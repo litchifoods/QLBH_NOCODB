@@ -1,105 +1,62 @@
 // lib/excel.ts
-// Xuất file Excel thực sự (.xlsx) bằng cách tạo XML — không cần thư viện ngoài
-// Đảm bảo tiếng Việt đúng font khi mở bằng Excel trên Windows
+// Xuất file .xls dạng HTML table — WPS Office và Microsoft Excel đều đọc đúng tiếng Việt
+// Không cần thư viện ngoài, không lỗi font
 
-// ── XUẤT EXCEL (.xlsx) THỰC SỰ ─────────────────────────────────
-// Dùng SpreadsheetML (XML) được đóng gói thành .xlsx
-// Excel đọc được tiếng Việt hoàn toàn, không lỗi font
 export function xuatExcel(tenFile: string, headers: string[], rows: any[][]) {
-  const escapeXml = (val: any): string => {
+  // Màu header
+  const headerBg = '#1B3A6B'
+  const headerFg = '#FFFFFF'
+
+  const escHtml = (val: any): string => {
     if (val === null || val === undefined) return ''
     return String(val)
       .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&apos;')
   }
 
-  const makeRow = (cells: any[], isHeader = false): string => {
-    const cellsXml = cells.map((cell, i) => {
-      const col = String.fromCharCode(65 + i) // A, B, C...
-      const val = escapeXml(cell)
-      if (isHeader) {
-        return `<Cell ss:StyleID="header"><Data ss:Type="String">${val}</Data></Cell>`
-      }
-      // Tự nhận số hay chữ
-      const num = Number(cell)
-      if (cell !== '' && !isNaN(num) && typeof cell !== 'boolean') {
-        return `<Cell ss:StyleID="number"><Data ss:Type="Number">${num}</Data></Cell>`
-      }
-      return `<Cell ss:StyleID="normal"><Data ss:Type="String">${val}</Data></Cell>`
+  const headerRow = headers.map(h =>
+    `<th style="background:${headerBg};color:${headerFg};padding:6px 10px;border:1px solid #fff;font-size:11pt;white-space:nowrap">${escHtml(h)}</th>`
+  ).join('')
+
+  const dataRows = rows.map((row, ri) => {
+    const bg = ri % 2 === 0 ? '#FFFFFF' : '#F8FAFC'
+    const cells = row.map(cell => {
+      const isNum = cell !== '' && cell !== null && cell !== undefined && !isNaN(Number(cell)) && typeof cell !== 'boolean'
+      const align = isNum ? 'right' : 'left'
+      const display = isNum ? Number(cell).toLocaleString('vi-VN') : escHtml(cell)
+      return `<td style="background:${bg};padding:5px 10px;border:1px solid #E5E7EB;text-align:${align};font-size:10pt">${display}</td>`
     }).join('')
-    return `<Row>${cellsXml}</Row>`
-  }
+    return `<tr>${cells}</tr>`
+  }).join('\n')
 
-  const xml = `<?xml version="1.0" encoding="UTF-8"?>
-<?mso-application progid="Excel.Sheet"?>
-<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
-  xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"
-  xmlns:x="urn:schemas-microsoft-com:office:excel">
-  <Styles>
-    <Style ss:ID="header">
-      <Font ss:Bold="1" ss:Color="#FFFFFF" ss:Size="11"/>
-      <Interior ss:Color="#1B3A6B" ss:Pattern="Solid"/>
-      <Alignment ss:Horizontal="Center" ss:Vertical="Center" ss:WrapText="1"/>
-      <Borders>
-        <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#FFFFFF"/>
-        <Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#FFFFFF"/>
-      </Borders>
-    </Style>
-    <Style ss:ID="normal">
-      <Font ss:Size="10"/>
-      <Alignment ss:Vertical="Center"/>
-      <Borders>
-        <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#E5E7EB"/>
-        <Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#E5E7EB"/>
-      </Borders>
-    </Style>
-    <Style ss:ID="number">
-      <Font ss:Size="10"/>
-      <Alignment ss:Horizontal="Right" ss:Vertical="Center"/>
-      <NumberFormat ss:Format="#,##0"/>
-      <Borders>
-        <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#E5E7EB"/>
-        <Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#E5E7EB"/>
-      </Borders>
-    </Style>
-  </Styles>
-  <Worksheet ss:Name="Sheet1">
-    <Table>
-      ${makeRow(headers, true)}
-      ${rows.map(row => makeRow(row)).join('\n      ')}
-    </Table>
-  </Worksheet>
-</Workbook>`
+  const html = `<html xmlns:o="urn:schemas-microsoft-com:office:office"
+xmlns:x="urn:schemas-microsoft-com:office:excel"
+xmlns="http://www.w3.org/TR/REC-html40">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Content-Type" content="text/html;charset=UTF-8">
+<!--[if gte mso 9]>
+<xml><x:ExcelWorkbook><x:ExcelWorksheets>
+<x:ExcelWorksheet><x:Name>Sheet1</x:Name>
+<x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions>
+</x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml>
+<![endif]-->
+</head>
+<body>
+<table style="border-collapse:collapse;font-family:Arial,sans-serif">
+  <thead><tr>${headerRow}</tr></thead>
+  <tbody>${dataRows}</tbody>
+</table>
+</body>
+</html>`
 
-  const blob = new Blob([xml], { type: 'application/vnd.ms-excel;charset=utf-8' })
-  downloadBlob(blob, `${tenFile}.xls`) // .xls để Excel nhận ngay
-}
-
-// Vẫn giữ xuatCSV làm backup (dùng UTF-8 với BOM)
-export function xuatCSV(tenFile: string, headers: string[], rows: any[][]) {
+  // Dùng UTF-8 với BOM
   const BOM = '\uFEFF'
-  const SEP = '\t' // Tab — Excel nhận tốt hơn dấu phẩy/chấm phẩy
-
-  const escapeCell = (val: any) => {
-    if (val === null || val === undefined) return ''
-    const s = String(val)
-    if (s.includes('\t') || s.includes('"') || s.includes('\n')) {
-      return `"${s.replace(/"/g, '""')}"`
-    }
-    return s
-  }
-
-  const lines = [
-    headers.map(escapeCell).join(SEP),
-    ...rows.map(row => row.map(escapeCell).join(SEP)),
-  ]
-
-  const content = BOM + lines.join('\r\n')
-  const blob = new Blob([content], { type: 'text/tab-separated-values;charset=utf-8;' })
-  downloadBlob(blob, `${tenFile}.csv`)
+  const blob = new Blob([BOM + html], {
+    type: 'application/vnd.ms-excel;charset=UTF-8'
+  })
+  downloadBlob(blob, `${tenFile}.xls`)
 }
 
 export function downloadBlob(blob: Blob, filename: string) {
@@ -110,24 +67,28 @@ export function downloadBlob(blob: Blob, filename: string) {
   document.body.appendChild(a)
   a.click()
   document.body.removeChild(a)
-  setTimeout(() => URL.revokeObjectURL(url), 1000)
+  setTimeout(() => URL.revokeObjectURL(url), 1500)
 }
 
+// Đọc file CSV/Excel do người dùng upload
 export function docCSV(file: File): Promise<{headers: string[], rows: Record<string,string>[]}> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader()
     reader.onload = (e) => {
       try {
         let text = e.target?.result as string
+        // Bỏ BOM nếu có
         if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1)
 
         const lines = text.split(/\r?\n/).filter(l => l.trim())
-        const dataLines = lines.filter(l => !l.startsWith('sep='))
+        // Bỏ dòng sep= nếu có
+        const dataLines = lines.filter(l => !l.toLowerCase().startsWith('sep='))
         if (dataLines.length < 2) { reject(new Error('File không có dữ liệu')); return }
 
-        // Tự nhận dấu phân cách: tab, ; hoặc ,
+        // Tự nhận dấu phân cách
         const firstLine = dataLines[0]
-        const SEP = firstLine.includes('\t') ? '\t' : firstLine.includes(';') ? ';' : ','
+        const SEP = firstLine.includes('\t') ? '\t'
+          : firstLine.includes(';') ? ';' : ','
 
         const parseRow = (line: string): string[] => {
           const cells: string[] = []
@@ -168,7 +129,7 @@ export const EXCEL_SCHEMAS = {
     headers: ['Mã đơn hàng','Ngày bán','Mã KH','Tên khách hàng','Kênh bán','Hình thức giao hàng','Ngày hẹn giao','Địa chỉ giao','Tổng tiền đơn','Đặt cọc','Hình thức cọc','Còn phải thu','Trạng thái','Nhân viên bán','Xuất hóa đơn','Ghi chú'],
     mau: [
       ['DH-2025-001','2025-05-01','KH-001','Nguyễn Văn A','Trực tiếp','Giao hàng cho khách','2025-05-05','123 Lê Lợi Q1',15000000,3000000,'Tiền mặt',12000000,'Chờ giao','Trần Bình','Không',''],
-      ['DH-2025-002','2025-05-02','KH-002','Trần Thị B','Zalo','Khách mang hàng về','','',8500000,0,'',8500000,'Hoàn thành','Phạm Dung','Không',''],
+      ['DH-2025-002','2025-05-02','KH-002','Trần Thị Bình','Zalo','Khách mang hàng về','','',8500000,0,'',8500000,'Hoàn thành','Phạm Dung','Không','Khách lấy tại cửa hàng'],
     ],
   },
   KHACH_HANG: {
@@ -182,20 +143,23 @@ export const EXCEL_SCHEMAS = {
   SAN_PHAM: {
     headers: ['Mã SP','Tên sản phẩm','Đơn vị tính','Loại SP','Giá nhập','Giá bán lẻ','Giá bán buôn','Tồn kho','Ngưỡng cảnh báo','Mô tả'],
     mau: [
-      ['SP-001','Bàn làm việc gỗ sồi','Cái','Phổ thông',1500000,2500000,2200000,10,3,'Kích thước 120x60cm'],
-      ['SP-002','Ghế văn phòng lưới','Cái','Phổ thông',800000,1500000,1300000,15,5,'Ghế xoay có tựa lưng'],
+      ['SP-001','Bàn làm việc gỗ sồi','Cái','Phổ thông',1500000,2500000,2200000,10,3,'120x60cm'],
+      ['SP-002','Ghế văn phòng lưới','Cái','Phổ thông',800000,1500000,1300000,15,5,'Ghế xoay tựa lưng'],
+      ['SP-003','Tủ hồ sơ 3 ngăn kéo','Cái','Phổ thông',1200000,2000000,1800000,8,3,'Màu trắng/đen/gỗ'],
     ],
   },
   NHA_CUNG_CAP: {
     headers: ['Mã NCC','Tên NCC','Số điện thoại','Địa chỉ','Email','Số tài khoản','Ngân hàng','Công nợ hiện tại','Ghi chú'],
     mau: [
-      ['NCC-001','Công ty Gỗ Việt','0281234567','KCN Bình Dương','goviet@email.com','1234567890','Vietcombank',0,''],
+      ['NCC-001','Công ty Gỗ Việt','0281234567','KCN Bình Dương','goviet@email.com','1234567890','Vietcombank',0,'Đối tác lâu năm'],
+      ['NCC-002','Nội thất Minh Long','0291234567','Hà Nội','minhlong@email.com','0987654321','BIDV',5000000,''],
     ],
   },
   NHAN_VIEN: {
     headers: ['Mã NV','Họ tên','Số điện thoại','Vai trò','Ngày vào làm','Lương cơ bản','% Thưởng doanh số','Ghi chú'],
     mau: [
       ['NV-001','Trần Văn Bình','0901111111','Nhân viên bán hàng','2024-01-01',8000000,2,''],
+      ['NV-002','Phạm Thị Dung','0902222222','Nhân viên kho','2024-03-01',7000000,0,''],
     ],
   },
 }

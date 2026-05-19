@@ -10,7 +10,7 @@ export default async function DonHangPage({
 }) {
   const session = await getSession()
 
-  // Lấy đơn hàng và khách hàng song song
+  // Load đơn hàng và khách hàng song song
   const [donHangResult, khachHangResult] = await Promise.all([
     getRecords(TABLES.DON_HANG, {
       limit: 200,
@@ -24,7 +24,7 @@ export default async function DonHangPage({
 
   const donHang = donHangResult.list || []
 
-  // Tạo map Mã KH → Tên khách hàng để tra cứu nhanh
+  // Tạo map: Mã KH → Tên khách hàng
   const khachHangMap: Record<string, string> = {}
   for (const kh of (khachHangResult.list || [])) {
     if (kh['Mã KH'] && kh['Tên khách hàng']) {
