@@ -1,50 +1,59 @@
 // lib/excel.ts
-// Tiện ích xuất/nhập Excel dùng chung — không cần thư viện ngoài
-// Dùng định dạng CSV (mở được bằng Excel) và xuất file xlsx đơn giản
+// Dùng dấu chấm phẩy (;) thay vì phẩy (,) để Excel tiếng Việt mở đúng cột
 
-// ── XUẤT CSV (mở được bằng Excel) ──────────────────────────────
 export function xuatCSV(tenFile: string, headers: string[], rows: any[][]) {
-  // Thêm BOM để Excel đọc được tiếng Việt
-  const BOM = '\uFEFF'
+  const BOM = '\uFEFF' // BOM UTF-8 để Excel đọc tiếng Việt
+  const SEP = ';'      // Dấu phân cách — Excel Việt Nam dùng ;
+
   const escapeCell = (val: any) => {
     if (val === null || val === undefined) return ''
     const s = String(val)
-    if (s.includes(',') || s.includes('"') || s.includes('\n')) {
+    // Nếu có dấu ; hoặc " hoặc xuống dòng thì bọc trong dấu "
+    if (s.includes(SEP) || s.includes('"') || s.includes('\n')) {
       return `"${s.replace(/"/g, '""')}"`
     }
     return s
   }
+
   const lines = [
-    headers.map(escapeCell).join(','),
-    ...rows.map(row => row.map(escapeCell).join(',')),
+    // Dòng chỉ định separator cho Excel (quan trọng!)
+    `sep=${SEP}`,
+    headers.map(escapeCell).join(SEP),
+    ...rows.map(row => row.map(escapeCell).join(SEP)),
   ]
-  const content = BOM + lines.join('\n')
+
+  const content = BOM + lines.join('\r\n')
   const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' })
   downloadBlob(blob, `${tenFile}.csv`)
 }
 
-// ── TẢI FILE ────────────────────────────────────────────────────
 export function downloadBlob(blob: Blob, filename: string) {
   const url = URL.createObjectURL(blob)
   const a   = document.createElement('a')
   a.href     = url
   a.download = filename
+  document.body.appendChild(a)
   a.click()
+  document.body.removeChild(a)
   setTimeout(() => URL.revokeObjectURL(url), 1000)
 }
 
-// ── ĐỌC FILE CSV/EXCEL ──────────────────────────────────────────
 export function docCSV(file: File): Promise<{headers: string[], rows: Record<string,string>[]}> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader()
     reader.onload = (e) => {
       try {
         let text = e.target?.result as string
-        // Bỏ BOM nếu có
-        if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1)
+        if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1) // Bỏ BOM
 
         const lines = text.split(/\r?\n/).filter(l => l.trim())
-        if (lines.length < 2) { reject(new Error('File không có dữ liệu')); return }
+        // Bỏ dòng sep= nếu có
+        const dataLines = lines.filter(l => !l.startsWith('sep='))
+        if (dataLines.length < 2) { reject(new Error('File không có dữ liệu')); return }
+
+        // Tự nhận dấu phân cách: ; hoặc ,
+        const firstLine = dataLines[0]
+        const SEP = firstLine.includes(';') ? ';' : ','
 
         const parseRow = (line: string): string[] => {
           const cells: string[] = []
@@ -54,18 +63,16 @@ export function docCSV(file: File): Promise<{headers: string[], rows: Record<str
             if (c === '"') {
               if (inQ && line[i+1] === '"') { cur += '"'; i++ }
               else inQ = !inQ
-            } else if (c === ',' && !inQ) {
+            } else if (c === SEP && !inQ) {
               cells.push(cur.trim()); cur = ''
-            } else {
-              cur += c
-            }
+            } else cur += c
           }
           cells.push(cur.trim())
           return cells
         }
 
-        const headers = parseRow(lines[0])
-        const rows = lines.slice(1).map(line => {
+        const headers = parseRow(dataLines[0])
+        const rows = dataLines.slice(1).map(line => {
           const vals = parseRow(line)
           const obj: Record<string,string> = {}
           headers.forEach((h, i) => { obj[h] = vals[i] || '' })
@@ -82,21 +89,20 @@ export function docCSV(file: File): Promise<{headers: string[], rows: Record<str
   })
 }
 
-// ── ĐỊNH NGHĨA CỘT CHO TỪNG BẢNG ───────────────────────────────
 export const EXCEL_SCHEMAS = {
   DON_HANG: {
     headers: ['Mã đơn hàng','Ngày bán','Mã KH','Tên khách hàng','Kênh bán','Hình thức giao hàng','Ngày hẹn giao','Địa chỉ giao','Tổng tiền đơn','Đặt cọc','Hình thức cọc','Còn phải thu','Trạng thái','Nhân viên bán','Xuất hóa đơn','Ghi chú'],
     mau: [
-      ['DH-2025-001','2025-05-01','KH-001','Nguyễn Văn A','Trực tiếp','Giao hàng cho khách','2025-05-05','123 Lê Lợi, Q1','15000000','3000000','Tiền mặt','12000000','Chờ giao','Trần Bình','Không',''],
-      ['DH-2025-002','2025-05-02','KH-002','Trần Thị B','Zalo','Khách mang hàng về','','','8500000','0','','8500000','Hoàn thành','Phạm Dung','Không','Khách lấy tại cửa hàng'],
+      ['DH-2025-001','2025-05-01','KH-001','Nguyễn Văn A','Trực tiếp','Giao hàng cho khách','2025-05-05','123 Lê Lợi Q1','15000000','3000000','Tiền mặt','12000000','Chờ giao','Trần Bình','Không',''],
+      ['DH-2025-002','2025-05-02','KH-002','Trần Thị B','Zalo','Khách mang hàng về','','','8500000','0','','8500000','Hoàn thành','Phạm Dung','Không',''],
     ],
   },
   KHACH_HANG: {
     headers: ['Mã KH','Tên khách hàng','Số điện thoại','Địa chỉ','Đối tượng khách hàng','Ghi chú'],
     mau: [
-      ['KH-001','Nguyễn Văn An','0901234567','123 Lê Lợi, Quận 1, TP.HCM','Cá nhân','Khách thân thiết'],
-      ['KH-002','Trần Thị Bình','0912345678','456 Trần Hưng Đạo, Quận 5','Cá nhân',''],
-      ['KH-003','Công ty TNHH ABC','0909876543','789 Nguyễn Huệ, Quận 1','Công ty','Mua sỉ thường xuyên'],
+      ['KH-001','Nguyễn Văn An','0901234567','123 Lê Lợi Q1 TP.HCM','Cá nhân','Khách thân thiết'],
+      ['KH-002','Trần Thị Bình','0912345678','456 Trần Hưng Đạo Q5','Cá nhân',''],
+      ['KH-003','Công ty TNHH ABC','0909876543','789 Nguyễn Huệ Q1','Công ty','Mua sỉ thường xuyên'],
     ],
   },
   SAN_PHAM: {
@@ -110,15 +116,15 @@ export const EXCEL_SCHEMAS = {
   NHA_CUNG_CAP: {
     headers: ['Mã NCC','Tên NCC','Số điện thoại','Địa chỉ','Email','Số tài khoản','Ngân hàng','Công nợ hiện tại','Ghi chú'],
     mau: [
-      ['NCC-001','Công ty Gỗ Việt','0281234567','KCN Bình Dương','goviet@email.com','1234567890','Vietcombank','0','Đối tác lâu năm'],
+      ['NCC-001','Công ty Gỗ Việt','0281234567','KCN Bình Dương','goviet@email.com','1234567890','Vietcombank','0',''],
       ['NCC-002','Nội thất Minh Long','0291234567','Hà Nội','minhlong@email.com','0987654321','BIDV','5000000',''],
     ],
   },
   NHAN_VIEN: {
-    headers: ['Mã NV','Họ tên','Số điện thoại','Vai trò','Ngày vào làm','Lương cơ bản','% Thưởng doanh số','Telegram ID','Ghi chú'],
+    headers: ['Mã NV','Họ tên','Số điện thoại','Vai trò','Ngày vào làm','Lương cơ bản','% Thưởng doanh số','Ghi chú'],
     mau: [
-      ['NV-001','Trần Văn Bình','0901111111','Nhân viên bán hàng','2024-01-01','8000000','2','',''],
-      ['NV-002','Phạm Thị Dung','0902222222','Nhân viên kho','2024-03-01','7000000','0','',''],
+      ['NV-001','Trần Văn Bình','0901111111','Nhân viên bán hàng','2024-01-01','8000000','2',''],
+      ['NV-002','Phạm Thị Dung','0902222222','Nhân viên kho','2024-03-01','7000000','0',''],
     ],
   },
 }
