@@ -22,6 +22,12 @@ interface KhachHang {
   'Đối tượng khách hàng': string
 }
 
+interface NhanVien {
+  'Mã NV': string
+  'Họ tên': string
+  'Vai trò': string
+}
+
 interface DongSanPham {
   id: string
   maSP: string
@@ -43,15 +49,17 @@ function boDau(str: string): string {
 }
 
 function timKiem(query: string, text: string): boolean {
+  if (!query.trim()) return true
   return boDau(text).includes(boDau(query.trim()))
 }
 
 export default function TaoDonHangForm({
-  user, danhSachKH, danhSachSP, nextMaDon
+  user, danhSachKH, danhSachSP, danhSachNV, nextMaDon
 }: {
   user: UserSession
   danhSachKH: KhachHang[]
   danhSachSP: SanPham[]
+  danhSachNV: NhanVien[]
   nextMaDon: string
 }) {
   const router = useRouter()
@@ -70,8 +78,25 @@ export default function TaoDonHangForm({
   const [xuatHoaDon,    setXuatHoaDon]  = useState('Không')
   const [ghiChu,        setGhiChu]      = useState('')
 
-  // ── Nhân viên bán ───────────────────────────────────────
-  const [nhanVienBan, setNhanVienBan] = useState(user.hoTen || '')
+  // ── Nhân viên bán — dropdown tìm kiếm ───────────────────
+  const [searchNV,   setSearchNV]   = useState(user.hoTen || '')
+  const [maNV,       setMaNV]       = useState(user.maNV || '')
+  const [showNV,     setShowNV]     = useState(false)
+
+  const nvLoc = useMemo(() => {
+    if (!searchNV.trim()) return danhSachNV.slice(0, 10)
+    return danhSachNV.filter(nv =>
+      timKiem(searchNV, nv['Họ tên'] || '') ||
+      timKiem(searchNV, nv['Mã NV'] || '') ||
+      timKiem(searchNV, nv['Vai trò'] || '')
+    ).slice(0, 10)
+  }, [searchNV, danhSachNV])
+
+  function chonNV(nv: NhanVien) {
+    setSearchNV(nv['Họ tên'])
+    setMaNV(nv['Mã NV'])
+    setShowNV(false)
+  }
 
   // ── Thanh toán hỗn hợp ──────────────────────────────────
   const [tienMatCoc, setTienMatCoc] = useState(0)
@@ -97,9 +122,8 @@ export default function TaoDonHangForm({
   ])
   const [searchSP, setSearchSP] = useState<Record<string,string>>({})
   const [showSP,   setShowSP]   = useState<Record<string,boolean>>({})
-
-  const [loading, setLoading] = useState(false)
-  const [error,   setError]   = useState('')
+  const [loading,  setLoading]  = useState(false)
+  const [error,    setError]    = useState('')
 
   const tongTien   = dongSP.reduce((s, d) => s + d.thanhTien, 0)
   const conPhaiThu = tongTien - datCocTong
@@ -160,6 +184,7 @@ export default function TaoDonHangForm({
   async function luuDon(trangThai: string) {
     if (!maKH && !searchKH) { setError('Vui lòng chọn khách hàng'); return }
     if (dongSP.every(d => !d.maSP && !d.tenSP)) { setError('Vui lòng thêm ít nhất 1 sản phẩm'); return }
+    if (!searchNV.trim()) { setError('Vui lòng chọn nhân viên bán'); return }
 
     setLoading(true); setError('')
     try {
@@ -186,8 +211,8 @@ export default function TaoDonHangForm({
           'Hình thức cọc':       htCoc,
           'Còn phải thu':        conPhaiThu,
           'Trạng thái':          trangThai,
-          'Mã NV':               user.maNV || '',
-          'Nhân viên bán':       nhanVienBan,
+          'Mã NV':               maNV || '',
+          'Nhân viên bán':       searchNV,
           'Xuất hóa đơn':        xuatHoaDon,
           'Ghi chú':             ghiChu,
         }),
@@ -221,8 +246,16 @@ export default function TaoDonHangForm({
     }
   }
 
+  // ── Giao diện ───────────────────────────────────────────
   return (
     <div style={{ padding:'18px 24px', maxWidth:'1100px' }}>
+      <style>{`
+        .dropdown-item{padding:8px 12px;cursor:pointer;border-bottom:1px solid #F3F4F6;transition:background .1s;}
+        .dropdown-item:hover{background:#F0F9FF;}
+        .dropdown-item:last-child{border-bottom:none;}
+      `}</style>
+
+      {/* Header */}
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'18px' }}>
         <div>
           <h1 style={{ fontFamily:'Playfair Display,serif', fontSize:'21px', fontWeight:700, margin:0 }}>
@@ -248,7 +281,9 @@ export default function TaoDonHangForm({
 
           {/* Thông tin đơn */}
           <div className="card" style={{ padding:'14px' }}>
-            <h3 style={{ fontSize:'12px', fontWeight:700, marginBottom:'10px', color:'var(--primary)', textTransform:'uppercase', letterSpacing:'0.05em' }}>📋 Thông tin đơn hàng</h3>
+            <h3 style={{ fontSize:'11px', fontWeight:700, marginBottom:'12px', color:'var(--primary)', textTransform:'uppercase', letterSpacing:'.05em' }}>
+              📋 Thông tin đơn hàng
+            </h3>
             <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'10px' }}>
               <div>
                 <label style={{ fontSize:'11px', fontWeight:600, color:'#374151', display:'block', marginBottom:'3px' }}>Ngày đặt *</label>
@@ -273,20 +308,72 @@ export default function TaoDonHangForm({
                   <input className="input" type="datetime-local" value={ngayHenGiao} onChange={e => setNgayHenGiao(e.target.value)} />
                 </div>
               )}
-              {/* Nhân viên bán */}
+
+              {/* Nhân viên bán — dropdown tìm kiếm */}
               <div style={{ gridColumn:'1 / -1' }}>
                 <label style={{ fontSize:'11px', fontWeight:600, color:'#374151', display:'block', marginBottom:'3px' }}>
                   👤 Nhân viên bán *
                 </label>
-                <input className="input" placeholder="Tên nhân viên bán hàng..."
-                  value={nhanVienBan} onChange={e => setNhanVienBan(e.target.value)} />
+                <div style={{ position:'relative' }}>
+                  <input
+                    className="input"
+                    placeholder="Gõ tên hoặc chọn nhân viên..."
+                    value={searchNV}
+                    onChange={e => { setSearchNV(e.target.value); setMaNV(''); setShowNV(true) }}
+                    onFocus={() => setShowNV(true)}
+                    onBlur={() => setTimeout(() => setShowNV(false), 200)}
+                    style={{ paddingRight:'32px' }}
+                  />
+                  {/* Icon search */}
+                  <span style={{ position:'absolute', right:'10px', top:'50%', transform:'translateY(-50%)', color:'#9CA3AF', pointerEvents:'none', fontSize:'14px' }}>🔍</span>
+
+                  {showNV && (
+                    <div style={{
+                      position:'absolute', top:'calc(100% + 4px)', left:0, right:0, zIndex:60,
+                      background:'white', border:'1px solid var(--border)',
+                      borderRadius:'8px', boxShadow:'0 4px 16px rgba(0,0,0,0.12)',
+                      maxHeight:'220px', overflowY:'auto',
+                    }}>
+                      {/* Gợi ý gõ tự do nếu không chọn từ list */}
+                      {searchNV && !danhSachNV.find(nv => nv['Họ tên'] === searchNV) && (
+                        <div
+                          className="dropdown-item"
+                          onClick={() => { setShowNV(false) }}
+                          style={{ background:'#FEF9C3', fontSize:'12px', color:'#92400E' }}
+                        >
+                          ✏️ Dùng tên: <strong>"{searchNV}"</strong>
+                        </div>
+                      )}
+                      {nvLoc.length === 0 ? (
+                        <div style={{ padding:'12px', fontSize:'12px', color:'#6B7280', textAlign:'center' }}>
+                          Không tìm thấy nhân viên
+                        </div>
+                      ) : nvLoc.map(nv => (
+                        <div key={nv['Mã NV']} className="dropdown-item" onClick={() => chonNV(nv)}>
+                          <div style={{ fontSize:'13px', fontWeight:600 }}>{nv['Họ tên']}</div>
+                          <div style={{ fontSize:'11px', color:'var(--text-secondary)' }}>
+                            {nv['Mã NV']} · {nv['Vai trò'] || 'Nhân viên'}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                {/* Badge xác nhận đã chọn */}
+                {maNV && (
+                  <div style={{ marginTop:'4px', fontSize:'11px', color:'var(--success)', fontWeight:600 }}>
+                    ✅ {searchNV} ({maNV})
+                  </div>
+                )}
               </div>
             </div>
           </div>
 
           {/* Khách hàng */}
           <div className="card" style={{ padding:'14px' }}>
-            <h3 style={{ fontSize:'12px', fontWeight:700, marginBottom:'10px', color:'var(--primary)', textTransform:'uppercase', letterSpacing:'0.05em' }}>👥 Khách hàng</h3>
+            <h3 style={{ fontSize:'11px', fontWeight:700, marginBottom:'12px', color:'var(--primary)', textTransform:'uppercase', letterSpacing:'.05em' }}>
+              👥 Khách hàng
+            </h3>
             <div style={{ position:'relative' }}>
               <input className="input"
                 placeholder="Tìm theo tên, SĐT hoặc mã KH..."
@@ -296,12 +383,14 @@ export default function TaoDonHangForm({
                 onBlur={() => setTimeout(() => setShowKH(false), 200)}
               />
               {showKH && khachLoc.length > 0 && (
-                <div style={{ position:'absolute', top:'100%', left:0, right:0, zIndex:50, background:'white', border:'1px solid var(--border)', borderRadius:'8px', boxShadow:'0 4px 16px rgba(0,0,0,0.12)', maxHeight:'200px', overflowY:'auto' }}>
+                <div style={{
+                  position:'absolute', top:'calc(100% + 4px)', left:0, right:0, zIndex:50,
+                  background:'white', border:'1px solid var(--border)',
+                  borderRadius:'8px', boxShadow:'0 4px 16px rgba(0,0,0,0.12)',
+                  maxHeight:'200px', overflowY:'auto',
+                }}>
                   {khachLoc.map(kh => (
-                    <div key={kh['Mã KH']} onClick={() => chonKH(kh)}
-                      style={{ padding:'8px 12px', cursor:'pointer', borderBottom:'1px solid #F3F4F6' }}
-                      onMouseEnter={e => (e.currentTarget as HTMLDivElement).style.background='#F8FAFC'}
-                      onMouseLeave={e => (e.currentTarget as HTMLDivElement).style.background='white'}>
+                    <div key={kh['Mã KH']} className="dropdown-item" onClick={() => chonKH(kh)}>
                       <div style={{ fontSize:'13px', fontWeight:600 }}>{kh['Tên khách hàng']}</div>
                       <div style={{ fontSize:'11px', color:'var(--text-secondary)' }}>{kh['Mã KH']} · {kh['Số điện thoại']}</div>
                     </div>
@@ -320,7 +409,9 @@ export default function TaoDonHangForm({
 
           {/* Thanh toán */}
           <div className="card" style={{ padding:'14px' }}>
-            <h3 style={{ fontSize:'12px', fontWeight:700, marginBottom:'10px', color:'var(--primary)', textTransform:'uppercase', letterSpacing:'0.05em' }}>💰 Đặt cọc</h3>
+            <h3 style={{ fontSize:'11px', fontWeight:700, marginBottom:'12px', color:'var(--primary)', textTransform:'uppercase', letterSpacing:'.05em' }}>
+              💰 Đặt cọc
+            </h3>
             <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'10px' }}>
               <div>
                 <label style={{ fontSize:'11px', fontWeight:600, color:'#374151', display:'block', marginBottom:'3px' }}>💵 Tiền mặt (VNĐ)</label>
@@ -342,14 +433,15 @@ export default function TaoDonHangForm({
             <div style={{ marginTop:'10px' }}>
               <label style={{ fontSize:'11px', fontWeight:600, color:'#374151', display:'block', marginBottom:'3px' }}>Xuất hoá đơn VAT</label>
               <select className="input" value={xuatHoaDon} onChange={e => setXuatHoaDon(e.target.value)}>
-                <option>Không</option><option>Có</option>
+                <option>Không</option>
+                <option>Có</option>
               </select>
             </div>
           </div>
 
           {/* Ghi chú */}
           <div className="card" style={{ padding:'14px' }}>
-            <label style={{ fontSize:'11px', fontWeight:600, color:'#374151', display:'block', marginBottom:'4px' }}>📝 Ghi chú đơn hàng</label>
+            <label style={{ fontSize:'11px', fontWeight:600, color:'#374151', display:'block', marginBottom:'4px' }}>📝 Ghi chú</label>
             <textarea className="input" rows={2} value={ghiChu}
               placeholder="Ghi chú thêm..." onChange={e => setGhiChu(e.target.value)}
               style={{ resize:'vertical' }} />
@@ -360,7 +452,9 @@ export default function TaoDonHangForm({
         <div style={{ display:'flex', flexDirection:'column', gap:'14px' }}>
           <div className="card" style={{ padding:'14px' }}>
             <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'10px' }}>
-              <h3 style={{ fontSize:'12px', fontWeight:700, color:'var(--primary)', textTransform:'uppercase', letterSpacing:'0.05em', margin:0 }}>🪑 Sản phẩm trong đơn</h3>
+              <h3 style={{ fontSize:'11px', fontWeight:700, color:'var(--primary)', textTransform:'uppercase', letterSpacing:'.05em', margin:0 }}>
+                🪑 Sản phẩm trong đơn
+              </h3>
               <button onClick={themDong} className="btn btn-outline btn-sm" style={{ fontSize:'12px' }}>+ Thêm SP</button>
             </div>
 
@@ -397,18 +491,22 @@ export default function TaoDonHangForm({
                           onBlur={() => setTimeout(() => setShowSP(prev => ({ ...prev, [dong.id]: false })), 200)}
                         />
                         {isShow && spLoc.length > 0 && (
-                          <div style={{ position:'absolute', top:'100%', left:0, right:0, zIndex:60, background:'white', border:'1px solid var(--border)', borderRadius:'6px', boxShadow:'0 4px 16px rgba(0,0,0,0.12)', maxHeight:'180px', overflowY:'auto' }}>
+                          <div style={{
+                            position:'absolute', top:'100%', left:0, right:0, zIndex:60,
+                            background:'white', border:'1px solid var(--border)',
+                            borderRadius:'6px', boxShadow:'0 4px 16px rgba(0,0,0,0.12)',
+                            maxHeight:'180px', overflowY:'auto',
+                          }}>
                             {spLoc.map(sp => (
-                              <div key={sp['Mã SP']} onClick={() => chonSP(dong.id, sp)}
-                                style={{ padding:'7px 10px', cursor:'pointer', borderBottom:'1px solid #F3F4F6', fontSize:'12px' }}
-                                onMouseEnter={e => (e.currentTarget as HTMLDivElement).style.background='#F0F9FF'}
-                                onMouseLeave={e => (e.currentTarget as HTMLDivElement).style.background='white'}>
+                              <div key={sp['Mã SP']} className="dropdown-item"
+                                style={{ fontSize:'12px' }}
+                                onClick={() => chonSP(dong.id, sp)}>
                                 <div style={{ fontWeight:600 }}>{sp['Tên sản phẩm']}</div>
                                 <div style={{ color:'var(--text-secondary)', fontSize:'11px' }}>
                                   {sp['Mã SP']} · {Number(sp['Giá bán lẻ']).toLocaleString('vi-VN')}đ
                                   {Number(sp['Tồn kho'])===0
                                     ? <span style={{ color:'#DC2626', marginLeft:'6px' }}>⚠️ Hết</span>
-                                    : <span style={{ color:'#16A34A', marginLeft:'6px' }}>Kho:{sp['Tồn kho']}</span>}
+                                    : <span style={{ color:'#16A34A', marginLeft:'6px' }}>Kho: {sp['Tồn kho']}</span>}
                                 </div>
                               </div>
                             ))}
@@ -465,10 +563,11 @@ export default function TaoDonHangForm({
               {loading ? '⏳ Đang lưu...' : '✅ Lưu đơn hàng'}
             </button>
             <button onClick={() => luuDon('Đang giao')} disabled={loading}
-              style={{ width:'100%', padding:'12px', borderRadius:'8px', border:'none', background:'#C8860A', color:'white', fontWeight:700, fontSize:'15px', cursor:'pointer', justifyContent:'center' }}>
+              style={{ width:'100%', padding:'12px', borderRadius:'8px', border:'none', background:'#C8860A', color:'white', fontWeight:700, fontSize:'15px', cursor:'pointer' }}>
               🚚 Lưu & Giao hàng ngay
             </button>
-            <button onClick={() => router.back()} className="btn btn-ghost" style={{ width:'100%', justifyContent:'center' }}>
+            <button onClick={() => router.back()} className="btn btn-ghost"
+              style={{ width:'100%', justifyContent:'center' }}>
               Huỷ bỏ
             </button>
           </div>
