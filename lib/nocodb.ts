@@ -1,5 +1,5 @@
-// lib/nocodb.ts - PHIÊN BẢN HOẠT ĐỘNG
-// Endpoint đúng: /api/v1/db/meta/projects/ (NocoDB 2026.x trên Railway)
+// lib/nocodb.ts - PHIÊN BẢN CẬP NHẬT
+// Thêm DOI_SOAT vào TABLES
 
 const NOCODB_URL   = process.env.NOCODB_URL   || ''
 const NOCODB_TOKEN = process.env.NOCODB_TOKEN || ''
@@ -12,7 +12,6 @@ const headers = {
   'Content-Type': 'application/json',
 }
 
-// Tên bảng trong NocoDB
 export const TABLES = {
   KHACH_HANG:     '1_Khách hàng',
   SAN_PHAM:       '2_Sản phẩm',
@@ -33,27 +32,17 @@ export const TABLES = {
   KIEM_KHO:       '17_Kiểm kho',
 }
 
-// Cache table ID
 let tableCache: Record<string, string> = {}
 
 export async function getTableId(tableName: string): Promise<string> {
   if (tableCache[tableName]) return tableCache[tableName]
-
-  // Endpoint đúng cho NocoDB 2026.x
   const url = `${API_BASE}/db/meta/projects/${BASE_ID}/tables`
   const res = await fetch(url, { headers, cache: 'no-store' })
-
   if (!res.ok) throw new Error(`Lấy danh sách bảng thất bại: HTTP ${res.status}`)
-
   const data = await res.json()
   const list = data.list || []
-
-  list.forEach((t: any) => {
-    if (t.id && t.title) tableCache[t.title] = t.id
-  })
-
+  list.forEach((t: any) => { if (t.id && t.title) tableCache[t.title] = t.id })
   if (tableCache[tableName]) return tableCache[tableName]
-
   const names = list.map((t: any) => t.title).join(', ')
   throw new Error(`Không tìm thấy bảng "${tableName}". Có: ${names}`)
 }
@@ -70,7 +59,6 @@ export async function getRecords(
     if (options.offset) params.set('offset', String(options.offset))
     if (options.sort)   params.set('sort',   options.sort)
     if (options.fields) params.set('fields', options.fields)
-
     const url = `${API_BASE}/db/data/noco/${BASE_ID}/${tableId}?${params}`
     const res = await fetch(url, { headers, cache: 'no-store' })
     if (!res.ok) return { list: [], pageInfo: { totalRows: 0 } }

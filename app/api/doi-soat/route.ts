@@ -1,6 +1,6 @@
 // app/api/doi-soat/route.ts
 import { NextRequest, NextResponse } from 'next/server'
-import { getRecords, updateRecord, TABLES } from '@/lib/nocodb'
+import { createRecord, getRecords, updateRecord, TABLES } from '@/lib/nocodb'
 import { getSession } from '@/lib/auth'
 
 export async function POST(request: NextRequest) {
@@ -9,38 +9,74 @@ export async function POST(request: NextRequest) {
     if (!session) return NextResponse.json({ message: 'Chưa đăng nhập' }, { status: 401 })
 
     const body = await request.json()
-    const { maGiaoHang, tienThu, ghiChu, hoanThanhDon } = body
+    const {
+      maGiaoHang,      // GH-xxx (1 người)
+      maChuyen,        // CH-xxx (chuyến)
+      maDon,
+      maNVDoiTac,
+      tenNVDoiTac,
+      hinhThucGiao,    // NV cửa hàng | Đối tác
+      // Tiền thu từ KH (chỉ nhập cho người đại diện thu tiền)
+      tienThuKH,
+      hinhThucThu,     // Tiền mặt | Chuyển khoản | Tiền mặt+chuyển khoản | KH nợ
+      // Chi phí thực tế trả cho người này
+      chiPhiVC,
+      chiPhiLap,
+      thuongChuyen,
+      // Kết quả
+      ketQua,          // Thành công | Hoàn trả | Đổi hàng
+      ghiChu,
+      // Có đánh dấu đơn hoàn thành không
+      hoanThanhDon,
+    } = body
 
-    // Tìm record giao hàng
-    const result = await getRecords(TABLES.GIAO_HANG, {
+    // Tạo bản ghi đối soát (bảng 9)
+    const maDS = `DS-${maGiaoHang}-${Date.now().toString().slice(-4)}`
+    await createRecord(TABLES.DOI_SOAT, {
+      'Mã đối soát':          maDS,
+      'Mã giao hàng':         maGiaoHang,
+      'Mã chuyến':            maChuyen,
+      'Mã đơn hàng':          maDon,
+      'Mã NV/Đối tác':        maNVDoiTac,
+      'Tên NV/đối tác giao hàng': tenNVDoiTac,
+      'Còn phải thu KH':      tienThuKH || 0,
+      'Đã thu được':          tienThuKH || 0,
+      'Hình thức thu':        hinhThucThu || 'Tiền mặt',
+      'Chi phí VC':           chiPhiVC || 0,
+      'Chi phí lắp đặt':      chiPhiLap || 0,
+      'Kết quả':              ketQua || 'Thành công',
+      'Tình trạng đối soát':  'Đã đối soát',
+      'Ghi chú':              ghiChu || '',
+    })
+
+    // Cập nhật tình trạng đối soát trong bảng 7
+    const ghResult = await getRecords(TABLES.GIAO_HANG, {
       where: `(Mã giao hàng,eq,${maGiaoHang})`, limit: 1,
     })
-    const giaoHang = result.list?.[0]
-    if (!giaoHang) return NextResponse.json({ message: 'Không tìm thấy chuyến giao' }, { status: 404 })
-
-    const rowId = giaoHang['Id'] || giaoHang['id']
-    if (!rowId) return NextResponse.json({ message: 'Không xác định được ID' }, { status: 400 })
-
-    // Cập nhật đối soát
-    await updateRecord(TABLES.GIAO_HANG, Number(rowId), {
-      'Tình trạng đối soát': 'Đã đối soát',
-      'Tiền thu từ KH':      tienThu || 0,
-      'Ghi chú đối soát':    ghiChu || '',
-    })
-
-    // Nếu hoàn thành đơn — cập nhật trạng thái đơn hàng
-    if (hoanThanhDon && giaoHang['Mã đơn hàng']) {
-      const donResult = await getRecords(TABLES.DON_HANG, {
-        where: `(Mã đơn hàng,eq,${giaoHang['Mã đơn hàng']})`, limit: 1,
-      })
-      const don = donResult.list?.[0]
-      if (don) {
-        const donId = don['Id'] || don['id']
-        if (donId) await updateRecord(TABLES.DON_HANG, Number(donId), { 'Trạng thái': 'Hoàn thành' })
+    const gh = ghResult.list?.[0]
+    if (gh) {
+      const rowId = gh['Id'] || gh['id']
+      if (rowId) {
+        await updateRecord(TABLES.GIAO_HANG, Number(rowId), {
+          'Tình trạng đối soát': 'Đã đối soát',
+          'Trạng thái': ketQua === 'Thành công' ? 'Đã giao' : ketQua === 'Hoàn trả' ? 'Hoàn trả' : 'Đổi hàng',
+        })
       }
     }
 
-    return NextResponse.json({ success: true })
+    // Nếu hoàn thành đơn
+    if (hoanThanhDon) {
+      const donResult = await getRecords(TABLES.DON_HANG, {
+        where: `(Mã đơn hàng,eq,${maDon})`, limit: 1,
+      })
+      const don = donResult.list?.[0]
+      if (don) {
+        const rowId = don['Id'] || don['id']
+        if (rowId) await updateRecord(TABLES.DON_HANG, Number(rowId), { 'Trạng thái': 'Hoàn thành' })
+      }
+    }
+
+    return NextResponse.json({ success: true, maDS })
   } catch (error: any) {
     return NextResponse.json({ message: error.message }, { status: 500 })
   }
