@@ -53,7 +53,7 @@ export default function DonHangClient({
   return (
     <div style={{ padding: '28px 32px' }}>
       {/* Header */}
-      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'24px' }}>
+      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'24px', gap:'12px' }}>
         <div>
           <h1 style={{ fontFamily:'Playfair Display,serif', fontSize:'24px', fontWeight:700 }}>
             📋 Đơn hàng
@@ -62,7 +62,7 @@ export default function DonHangClient({
             {filtered.length} đơn • Tổng: {formatVND(tongTien)}đ
           </p>
         </div>
-        <Link href="/dashboard/don-hang/tao" className="btn btn-primary" style={{ whiteSpace:'nowrap' }}>
+        <Link href="/dashboard/don-hang/tao" className="btn btn-primary" style={{ whiteSpace:'nowrap', flexShrink:0 }}>
           ➕ Tạo đơn mới
         </Link>
       </div>
