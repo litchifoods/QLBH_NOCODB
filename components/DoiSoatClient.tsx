@@ -237,7 +237,7 @@ export default function DoiSoatClient({
                           💰 Đối soát
                         </button>
                       ) : (
-                        <span style={{ fontSize:'11px', color:'var(--text-muted)', fontSize:'11px' }}>{ds?.['Ghi chú'] || ''}</span>
+                        <span style={{ fontSize:'11px', color:'var(--text-muted)' }}>{ds?.['Ghi chú'] || ''}</span>
                       )}
                     </td>
                   </tr>
