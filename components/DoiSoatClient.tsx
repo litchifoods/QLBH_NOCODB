@@ -5,302 +5,283 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { UserSession } from '@/lib/auth'
 
-function fVND(n: any) { return Number(n||0).toLocaleString('vi-VN')+'đ' }
+function fVND(n: any) { return Number(n || 0).toLocaleString('vi-VN') + 'đ' }
 function fDT(s: string) {
   if (!s) return '—'
   const d = new Date(s)
   return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`
 }
 
-interface DoiSoatForm {
-  tienThuKH: number
-  hinhThucThu: string
-  chiPhiVC: number
-  chiPhiLap: number
-  thuongChuyen: number
-  ketQua: string
-  ghiChu: string
-  hoanThanhDon: boolean
-}
-
 export default function DoiSoatClient({
-  chuyenMap, doiSoatMap, donHangMap, khachHangMap, maChuyen: maChuyenFilter, user,
+  giaoHangList, doiSoatMap, donHangMap, khachHangMap, filterParam, user,
 }: {
-  chuyenMap: Record<string, any[]>
+  giaoHangList: any[]
   doiSoatMap: Record<string, any>
   donHangMap: Record<string, any>
   khachHangMap: Record<string, any>
-  maChuyen?: string
+  filterParam?: string
   user: UserSession
 }) {
   const router = useRouter()
-  const [filterTT, setFilterTT]   = useState(maChuyenFilter ? 'Tất cả' : 'Chưa đối soát')
-  const [modalData, setModalData] = useState<{nguoi:any; maDon:string; don:any; maChuyen:string}|null>(null)
-  const [form, setForm]           = useState<DoiSoatForm>({
-    tienThuKH:0, hinhThucThu:'Tiền mặt', chiPhiVC:0, chiPhiLap:0,
-    thuongChuyen:0, ketQua:'Thành công', ghiChu:'', hoanThanhDon:false,
-  })
-  const [loading, setLoading]     = useState(false)
-  const [msg, setMsg]             = useState('')
-  const [msgOk, setMsgOk]         = useState(true)
+  const [filterTT, setFilterTT] = useState(filterParam ? 'Tất cả' : 'Chưa đối soát')
+  const [modalGH,  setModalGH]  = useState<any>(null)
+  const [loading,  setLoading]  = useState(false)
+  const [msg,      setMsg]      = useState('')
+  const [msgOk,    setMsgOk]    = useState(true)
+
+  // Form đối soát
+  const [tienThuKH,    setTienThuKH]    = useState(0)
+  const [hinhThucThu,  setHinhThucThu]  = useState('Tiền mặt')
+  const [chiPhiVC,     setChiPhiVC]     = useState(0)
+  const [chiPhiLap,    setChiPhiLap]    = useState(0)
+  const [thuongChuyen, setThuongChuyen] = useState(0)
+  const [ketQua,       setKetQua]       = useState('Thành công')
+  const [ghiChu,       setGhiChu]       = useState('')
+  const [hoanThanhDon, setHoanThanhDon] = useState(false)
 
   function getTenKH(maKH: string, tenTuDon?: string) {
     return khachHangMap[maKH]?.['Tên khách hàng'] || tenTuDon || maKH || '—'
   }
 
-  // Danh sách chuyến có thể hiển thị
-  const allChuyen = useMemo(() => {
-    return Object.entries(chuyenMap)
-      .filter(([maChuyen]) => maChuyenFilter ? maChuyen === maChuyenFilter : true)
-      .map(([maChuyen, nguoiList]) => {
-        const maDon = nguoiList[0]?.['Mã đơn hàng']||''
-        const don = donHangMap[maDon]
-        const maKH = don?.['Mã KH']||''
-        const tatCaDS = nguoiList.every(n=>n['Tình trạng đối soát']==='Đã đối soát')
-        const choDSCount = nguoiList.filter(n=>n['Tình trạng đối soát']!=='Đã đối soát').length
-        return { maChuyen, maDon, nguoiList, don, maKH, tenKH: getTenKH(maKH,don?.['Tên khách hàng']), tatCaDS, choDSCount }
-      })
-      .sort((a,b) => {
-        const ngayA = a.nguoiList[0]?.['Ngày giao']||''
-        const ngayB = b.nguoiList[0]?.['Ngày giao']||''
-        return new Date(ngayB).getTime() - new Date(ngayA).getTime()
-      })
-  }, [chuyenMap, donHangMap, khachHangMap, maChuyenFilter])
-
   const filtered = useMemo(() => {
-    if (filterTT==='Tất cả') return allChuyen
-    if (filterTT==='Chưa đối soát') return allChuyen.filter(c=>!c.tatCaDS)
-    return allChuyen.filter(c=>c.tatCaDS)
-  }, [allChuyen, filterTT])
+    if (filterTT === 'Tất cả') return giaoHangList
+    if (filterTT === 'Chưa đối soát') return giaoHangList.filter(g => g['Tình trạng đối soát'] !== 'Đã đối soát')
+    return giaoHangList.filter(g => g['Tình trạng đối soát'] === 'Đã đối soát')
+  }, [giaoHangList, filterTT])
 
-  const tongChuaDS = allChuyen.filter(c=>!c.tatCaDS).length
-  const tongCP = allChuyen.reduce((s,c)=>s+c.nguoiList.reduce((ss,n)=>ss+Number(n['Chi phí VC']||0)+Number(n['Chi phí lắp đặt']||0)+Number(n['Thưởng chuyến']||0),0),0)
+  const chuaDS     = giaoHangList.filter(g => g['Tình trạng đối soát'] !== 'Đã đối soát').length
+  const tongCP     = giaoHangList.reduce((s, g) => s + Number(g['Chi phí VC']||0) + Number(g['Chi phí lắp đặt']||0) + Number(g['Thưởng chuyến']||0), 0)
+  const tongThuKH  = Object.values(doiSoatMap).reduce((s: number, ds: any) => s + Number(ds['Đã thu được']||0), 0)
 
-  function moModal(nguoi: any, maDon: string, don: any, maChuyen: string) {
-    const ds = doiSoatMap[nguoi['Mã giao hàng']]
-    setForm({
-      tienThuKH:    Number(don?.['Còn phải thu']||0),
-      hinhThucThu:  'Tiền mặt',
-      chiPhiVC:     Number(nguoi['Chi phí VC']||0),
-      chiPhiLap:    Number(nguoi['Chi phí lắp đặt']||0),
-      thuongChuyen: Number(nguoi['Thưởng chuyến']||0),
-      ketQua:       'Thành công',
-      ghiChu:       '',
-      hoanThanhDon: false,
-    })
-    setModalData({nguoi, maDon, don, maChuyen})
+  function moModal(gh: any) {
+    const don = donHangMap[gh['Mã đơn hàng']]
+    setModalGH(gh)
+    setTienThuKH(Number(don?.['Còn phải thu'] || 0))
+    setHinhThucThu('Tiền mặt')
+    setChiPhiVC(Number(gh['Chi phí VC'] || 0))
+    setChiPhiLap(Number(gh['Chi phí lắp đặt'] || 0))
+    setThuongChuyen(Number(gh['Thưởng chuyến'] || 0))
+    setKetQua('Thành công')
+    setGhiChu('')
+    setHoanThanhDon(false)
   }
 
-  function setF(k: keyof DoiSoatForm, v: any) { setForm(prev=>({...prev,[k]:v})) }
-
   async function luuDoiSoat() {
-    if (!modalData) return
+    if (!modalGH) return
     setLoading(true); setMsg('')
     try {
       const res = await fetch('/api/doi-soat', {
-        method:'POST', headers:{'Content-Type':'application/json'},
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          maGiaoHang:   modalData.nguoi['Mã giao hàng'],
-          maChuyen:     modalData.maChuyen,
-          maDon:        modalData.maDon,
-          maNVDoiTac:   modalData.nguoi['Mã NV/đối tác']||'',
-          tenNVDoiTac:  modalData.nguoi['Tên NV/đối tác']||'',
-          hinhThucGiao: modalData.nguoi['Hình thức giao']||'',
-          tienThuKH:    form.tienThuKH,
-          hinhThucThu:  form.hinhThucThu,
-          chiPhiVC:     form.chiPhiVC,
-          chiPhiLap:    form.chiPhiLap,
-          thuongChuyen: form.thuongChuyen,
-          ketQua:       form.ketQua,
-          ghiChu:       form.ghiChu,
-          hoanThanhDon: form.hoanThanhDon,
+          maGiaoHang:   modalGH['Mã giao hàng'],
+          maChuyen:     modalGH['Mã chuyến'] || '',
+          maDon:        modalGH['Mã đơn hàng'],
+          maNVDoiTac:   modalGH['Mã NV/đối tác'] || '',
+          tenNVDoiTac:  modalGH['Tên NV/đối tác'] || '',
+          hinhThucGiao: modalGH['Hình thức giao'] || '',
+          tienThuKH, hinhThucThu, chiPhiVC, chiPhiLap, thuongChuyen, ketQua, ghiChu, hoanThanhDon,
         }),
       })
-      if (!res.ok) throw new Error((await res.json()).message||'Lỗi')
+      if (!res.ok) throw new Error((await res.json()).message || 'Lỗi')
       setMsg('✅ Đã lưu đối soát'); setMsgOk(true)
-      setModalData(null); router.refresh()
-    } catch (err:any) {
-      setMsg('❌ '+(err.message||'Lỗi')); setMsgOk(false)
+      setModalGH(null); router.refresh()
+    } catch (err: any) {
+      setMsg('❌ ' + (err.message || 'Lỗi')); setMsgOk(false)
     } finally {
-      setLoading(false); setTimeout(()=>setMsg(''),4000)
+      setLoading(false); setTimeout(() => setMsg(''), 4000)
     }
   }
 
-  const laDT = modalData?.nguoi['Hình thức giao']==='Đối tác'
-  const tongPhaiTra = (form.chiPhiVC||0)+(form.chiPhiLap||0)+(form.thuongChuyen||0)
+  const donModal   = modalGH ? donHangMap[modalGH['Mã đơn hàng']] : null
+  const laDT       = modalGH?.['Hình thức giao'] === 'Đối tác'
+  const tongPhaiTra = (chiPhiVC || 0) + (chiPhiLap || 0) + (thuongChuyen || 0)
 
   return (
-    <div style={{padding:'20px'}}>
+    <div style={{ padding: '20px' }}>
       <style>{`
         .ds-hdr{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;gap:12px;flex-wrap:wrap;}
-        .chuyen-card{border:1px solid var(--border);border-radius:10px;padding:14px 16px;background:white;margin-bottom:10px;}
-        .nguoi-row{display:flex;align-items:center;justify-content:space-between;padding:8px 10px;border-radius:8px;border:1px solid #E5E7EB;background:#FAFBFD;margin-bottom:6px;gap:8px;flex-wrap:wrap;}
+        .ds-table th,.ds-table td{padding:8px 10px;}
+        .ds-table tbody tr:hover td{background:#F0F4FF!important;}
         .overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;display:flex;align-items:center;justify-content:center;padding:16px;overflow-y:auto;}
-        .modal{background:white;border-radius:12px;padding:24px;width:100%;max-width:500px;max-height:92vh;overflow-y:auto;}
-        .kv{display:flex;justify-content:space-between;padding:'4px 0';font-size:13px;margin-bottom:4px;}
+        .modal{background:white;border-radius:12px;padding:24px;width:100%;max-width:480px;max-height:92vh;overflow-y:auto;}
+        @media(max-width:900px){.col-cp{display:none;}}
+        @media(max-width:650px){.col-nguoi,.col-vt{display:none;}}
       `}</style>
 
       {/* Header */}
       <div className="ds-hdr">
         <div>
-          <h1 style={{fontFamily:'Playfair Display,serif',fontSize:'20px',fontWeight:700,margin:0}}>💰 Đối soát giao hàng</h1>
-          <p style={{color:'var(--text-secondary)',fontSize:'13px',margin:'2px 0 0'}}>
-            {allChuyen.length} chuyến
-            {tongChuaDS>0&&<span style={{marginLeft:'8px',color:'#DC2626',fontWeight:600}}>⚠️ {tongChuaDS} chuyến chưa đối soát</span>}
+          <h1 style={{ fontFamily:'Playfair Display,serif', fontSize:'20px', fontWeight:700, margin:0 }}>💰 Đối soát giao hàng</h1>
+          <p style={{ color:'var(--text-secondary)', fontSize:'13px', margin:'2px 0 0' }}>
+            {giaoHangList.length} chuyến
+            {chuaDS > 0 && <span style={{ marginLeft:'8px', color:'#DC2626', fontWeight:600 }}>⚠️ {chuaDS} chuyến chưa đối soát</span>}
           </p>
         </div>
-        {maChuyenFilter&&<Link href="/dashboard/doi-soat" className="btn btn-ghost btn-sm">← Xem tất cả</Link>}
+        {filterParam && <Link href="/dashboard/doi-soat" className="btn btn-ghost btn-sm">← Xem tất cả</Link>}
       </div>
 
-      {msg&&<div style={{padding:'10px 14px',borderRadius:'8px',marginBottom:'14px',fontSize:'13px',background:msgOk?'#D1FAE5':'#FEE2E2',color:msgOk?'#065F46':'#991B1B'}}>{msg}</div>}
+      {msg && <div style={{ padding:'10px 14px', borderRadius:'8px', marginBottom:'14px', fontSize:'13px', background:msgOk?'#D1FAE5':'#FEE2E2', color:msgOk?'#065F46':'#991B1B' }}>{msg}</div>}
 
       {/* Tổng quan */}
-      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(150px,1fr))',gap:'12px',marginBottom:'16px'}}>
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(140px,1fr))', gap:'12px', marginBottom:'16px' }}>
         {[
-          {icon:'🚚',label:'Tổng chuyến',val:allChuyen.length,c:'var(--primary)'},
-          {icon:'⏳',label:'Chưa đối soát',val:tongChuaDS,c:'#DC2626'},
-          {icon:'✅',label:'Đã đối soát',val:allChuyen.length-tongChuaDS,c:'#065F46'},
-          {icon:'💸',label:'Tổng chi phí',val:fVND(tongCP),c:'#92400E'},
-        ].map(({icon,label,val,c})=>(
-          <div key={label} className="card" style={{padding:'12px 14px'}}>
-            <div style={{fontSize:'18px',marginBottom:'2px'}}>{icon}</div>
-            <div style={{fontSize:'17px',fontWeight:800,color:c}}>{val}</div>
-            <div style={{fontSize:'11px',color:'var(--text-secondary)'}}>{label}</div>
+          { icon:'🚚', label:'Tổng chuyến',    val:giaoHangList.length, c:'var(--primary)' },
+          { icon:'⏳', label:'Chưa đối soát',  val:chuaDS, c:'#DC2626' },
+          { icon:'✅', label:'Đã đối soát',    val:giaoHangList.length-chuaDS, c:'#065F46' },
+          { icon:'💸', label:'Tổng chi phí',   val:fVND(tongCP), c:'#92400E' },
+          { icon:'💵', label:'Đã thu từ KH',   val:fVND(tongThuKH), c:'#065F46' },
+        ].map(({ icon, label, val, c }) => (
+          <div key={label} className="card" style={{ padding:'12px 14px' }}>
+            <div style={{ fontSize:'18px', marginBottom:'2px' }}>{icon}</div>
+            <div style={{ fontSize:'16px', fontWeight:800, color:c }}>{val}</div>
+            <div style={{ fontSize:'11px', color:'var(--text-secondary)' }}>{label}</div>
           </div>
         ))}
       </div>
 
       {/* Filter */}
-      <div className="card" style={{padding:'12px 14px',marginBottom:'14px'}}>
-        <div style={{display:'flex',gap:'8px',flexWrap:'wrap'}}>
-          {['Tất cả','Chưa đối soát','Đã đối soát'].map(tt=>(
-            <button key={tt} onClick={()=>setFilterTT(tt)} style={{
-              padding:'5px 14px',borderRadius:'20px',border:'1px solid',
-              borderColor:filterTT===tt?'var(--primary)':'var(--border)',
-              background:filterTT===tt?'var(--primary-pale)':'white',
-              color:filterTT===tt?'var(--primary)':'var(--text-secondary)',
-              fontWeight:filterTT===tt?700:400,fontSize:'12px',cursor:'pointer',
+      <div className="card" style={{ padding:'12px 14px', marginBottom:'14px' }}>
+        <div style={{ display:'flex', gap:'8px', flexWrap:'wrap' }}>
+          {['Tất cả','Chưa đối soát','Đã đối soát'].map(tt => (
+            <button key={tt} onClick={() => setFilterTT(tt)} style={{
+              padding:'5px 14px', borderRadius:'20px', border:'1px solid',
+              borderColor: filterTT===tt?'var(--primary)':'var(--border)',
+              background: filterTT===tt?'var(--primary-pale)':'white',
+              color: filterTT===tt?'var(--primary)':'var(--text-secondary)',
+              fontWeight: filterTT===tt?700:400, fontSize:'12px', cursor:'pointer',
             }}>{tt}</button>
           ))}
+          <span style={{ marginLeft:'auto', fontSize:'12px', color:'var(--text-secondary)', alignSelf:'center' }}>{filtered.length} chuyến</span>
         </div>
       </div>
 
-      {/* Danh sách */}
-      {filtered.length===0?(
-        <div className="card" style={{padding:'48px',textAlign:'center',color:'var(--text-muted)'}}>Không có chuyến nào</div>
-      ):filtered.map(({maChuyen,maDon,nguoiList,don,tenKH,tatCaDS,choDSCount})=>{
-        const ngayGiao = nguoiList[0]?.['Ngày giao']||''
-        const dotGiao  = nguoiList[0]?.['Đợt giao']||1
-        const conThuKH = Number(don?.['Còn phải thu']||0)
-
-        return(
-          <div key={maChuyen} className="chuyen-card">
-            {/* Header */}
-            <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:'10px',flexWrap:'wrap',gap:'6px'}}>
-              <div>
-                <div style={{display:'flex',alignItems:'center',gap:'8px',flexWrap:'wrap'}}>
-                  <Link href={`/dashboard/don-hang/${maDon}`}
-                    style={{fontWeight:700,color:'var(--primary)',textDecoration:'none',fontSize:'14px'}}>{maDon}</Link>
-                  <span style={{fontSize:'11px',background:'#F0F4FF',color:'var(--primary)',padding:'2px 7px',borderRadius:'4px',fontWeight:600}}>Đợt {dotGiao}</span>
-                  <span style={{fontSize:'11px',padding:'2px 8px',borderRadius:'12px',fontWeight:700,
-                    background:tatCaDS?'#D1FAE5':'#FEF3C7',color:tatCaDS?'#065F46':'#92400E'}}>
-                    {tatCaDS?'✅ Xong':choDSCount===nguoiList.length?`⏳ ${choDSCount} người chờ`:`⚡ ${choDSCount}/${nguoiList.length} chờ`}
-                  </span>
-                </div>
-                <div style={{fontSize:'12px',color:'var(--text-secondary)',marginTop:'3px'}}>
-                  👤 {tenKH} · 🕐 {fDT(ngayGiao)}
-                  {conThuKH>0&&<span style={{marginLeft:'8px',color:'#DC2626',fontWeight:600}}>📌 Còn thu: {fVND(conThuKH)}</span>}
-                </div>
-              </div>
-            </div>
-
-            {/* Từng người — đối soát riêng */}
-            {nguoiList.map((nguoi:any,i:number)=>{
-              const maGH     = nguoi['Mã giao hàng']
-              const daDS     = nguoi['Tình trạng đối soát']==='Đã đối soát'
-              const dsRecord = doiSoatMap[maGH]
-              const laDT     = nguoi['Hình thức giao']==='Đối tác'
-              const vaiTro   = nguoi['Vai trò chuyến']||'—'
-              const chiPhi   = Number(nguoi['Chi phí VC']||0)+Number(nguoi['Chi phí lắp đặt']||0)+Number(nguoi['Thưởng chuyến']||0)
-              const vaiTroColor = vaiTro.includes('Lắp')&&vaiTro.includes('Vận')?{bg:'#EDE9FE',c:'#6D28D9'}
-                :vaiTro==='Lắp đặt'?{bg:'#FEF3C7',c:'#92400E'}:{bg:'#DBEAFE',c:'#1E40AF'}
-
-              return(
-                <div key={i} className="nguoi-row">
-                  <div style={{display:'flex',alignItems:'center',gap:'8px',flexWrap:'wrap',flex:1}}>
-                    <span style={{fontWeight:600,fontSize:'13px'}}>{nguoi['Tên NV/đối tác']||'—'}</span>
-                    <span style={{padding:'2px 7px',borderRadius:'10px',fontSize:'10px',fontWeight:700,background:vaiTroColor.bg,color:vaiTroColor.c}}>{vaiTro}</span>
-                    {laDT&&<span style={{padding:'2px 7px',borderRadius:'10px',background:'#FEF3C7',color:'#92400E',fontSize:'10px',fontWeight:700}}>Đối tác</span>}
-                    {!laDT&&<span style={{padding:'2px 7px',borderRadius:'10px',background:'#DBEAFE',color:'#1E40AF',fontSize:'10px',fontWeight:700}}>NV cửa hàng</span>}
-                    {chiPhi>0&&(
-                      <span style={{fontSize:'12px',color:laDT?'#DC2626':'#065F46',fontWeight:600}}>
-                        {laDT?'💸':'🎁'} {fVND(chiPhi)} {laDT?'(trả ngay)':'(cuối tháng)'}
+      {/* Bảng */}
+      <div className="card">
+        <div style={{ overflowX:'auto' }}>
+          <table className="ds-table" style={{ width:'100%', borderCollapse:'collapse', fontSize:'13px' }}>
+            <thead>
+              <tr style={{ background:'#F0F4FF', borderBottom:'2px solid var(--border)' }}>
+                <th style={{ textAlign:'left', fontWeight:700, whiteSpace:'nowrap' }}>Mã đơn</th>
+                <th style={{ textAlign:'left', fontWeight:700, whiteSpace:'nowrap' }}>Ngày giao</th>
+                <th style={{ textAlign:'left', fontWeight:700 }}>Khách hàng</th>
+                <th className="col-nguoi" style={{ textAlign:'left', fontWeight:700 }}>Người giao</th>
+                <th className="col-vt" style={{ textAlign:'left', fontWeight:700 }}>Vai trò</th>
+                <th className="col-cp" style={{ textAlign:'right', fontWeight:700, whiteSpace:'nowrap' }}>CP / Thưởng</th>
+                <th style={{ textAlign:'center', fontWeight:700 }}>Trạng thái</th>
+                <th style={{ width:'90px' }}></th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.length === 0 ? (
+                <tr><td colSpan={8} style={{ textAlign:'center', padding:'48px', color:'var(--text-muted)' }}>Không có chuyến nào</td></tr>
+              ) : filtered.map((g: any, i: number) => {
+                const maDon  = g['Mã đơn hàng'] || ''
+                const don    = donHangMap[maDon]
+                const maKH   = don?.['Mã KH'] || ''
+                const tenKH  = getTenKH(maKH, don?.['Tên khách hàng'])
+                const chuaDS = g['Tình trạng đối soát'] !== 'Đã đối soát'
+                const ds     = doiSoatMap[g['Mã giao hàng']]
+                const laDT   = g['Hình thức giao'] === 'Đối tác'
+                const chiPhi = Number(g['Chi phí VC']||0) + Number(g['Chi phí lắp đặt']||0) + Number(g['Thưởng chuyến']||0)
+                return (
+                  <tr key={i} style={{ borderBottom:'1px solid #F0F0F0', background:i%2===0?'white':'#FAFBFD' }}>
+                    <td>
+                      <Link href={`/dashboard/don-hang/${maDon}`}
+                        style={{ color:'var(--primary)', fontWeight:700, textDecoration:'none', whiteSpace:'nowrap' }}>
+                        {maDon}
+                      </Link>
+                    </td>
+                    <td style={{ fontSize:'12px', color:'var(--text-secondary)', whiteSpace:'nowrap' }}>{fDT(g['Ngày giao'])}</td>
+                    <td>
+                      <div style={{ fontWeight:600 }}>{tenKH}</div>
+                      {maKH && <div style={{ fontSize:'11px', color:'var(--text-muted)' }}>{maKH}</div>}
+                    </td>
+                    <td className="col-nguoi">
+                      <div style={{ fontWeight:600 }}>{g['Tên NV/đối tác'] || '—'}</div>
+                      {laDT && <span style={{ fontSize:'10px', padding:'1px 6px', borderRadius:'10px', background:'#FEF3C7', color:'#92400E', fontWeight:700 }}>Đối tác</span>}
+                    </td>
+                    <td className="col-vt" style={{ fontSize:'12px', color:'var(--text-secondary)' }}>{g['Vai trò chuyến'] || '—'}</td>
+                    <td className="col-cp" style={{ textAlign:'right' }}>
+                      {chiPhi > 0 ? (
+                        <span style={{ fontWeight:600, color:laDT?'#DC2626':'#065F46' }}>
+                          {fVND(chiPhi)}
+                        </span>
+                      ) : '—'}
+                    </td>
+                    <td style={{ textAlign:'center' }}>
+                      <span style={{
+                        padding:'3px 10px', borderRadius:'20px', fontSize:'11px', fontWeight:700,
+                        background:chuaDS?'#FEF3C7':'#D1FAE5', color:chuaDS?'#92400E':'#065F46', whiteSpace:'nowrap',
+                      }}>
+                        {chuaDS ? '⏳ Chưa' : '✅ Đã đối soát'}
                       </span>
-                    )}
-                  </div>
+                      {ds?.['Kết quả'] && ds['Kết quả'] !== 'Thành công' && (
+                        <div style={{ fontSize:'10px', color:'#DC2626', marginTop:'2px' }}>{ds['Kết quả']}</div>
+                      )}
+                    </td>
+                    <td>
+                      {chuaDS ? (
+                        <button onClick={() => moModal(g)}
+                          style={{ padding:'5px 10px', borderRadius:'6px', border:'none', background:'var(--primary)', color:'white', fontWeight:700, fontSize:'12px', cursor:'pointer', whiteSpace:'nowrap' }}>
+                          💰 Đối soát
+                        </button>
+                      ) : (
+                        <span style={{ fontSize:'11px', color:'var(--text-muted)' }}>{ds?.['Ghi chú'] || ''}</span>
+                      )}
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
 
-                  {daDS?(
-                    <div style={{fontSize:'12px',color:'#065F46',fontWeight:600,display:'flex',alignItems:'center',gap:'6px'}}>
-                      ✅ Đã đối soát
-                      {dsRecord&&<span style={{color:'#6B7280',fontWeight:400}}>· {dsRecord['Kết quả']||''}</span>}
-                    </div>
-                  ):(
-                    <button onClick={()=>moModal(nguoi,maDon,don,maChuyen)}
-                      style={{padding:'6px 14px',borderRadius:'6px',border:'none',background:'var(--primary)',color:'white',fontWeight:700,fontSize:'12px',cursor:'pointer',whiteSpace:'nowrap'}}>
-                      💰 Đối soát
-                    </button>
-                  )}
-                </div>
-              )
-            })}
-          </div>
-        )
-      })}
-
-      {/* Modal đối soát 1 người */}
-      {modalData&&(
-        <div className="overlay" onClick={()=>setModalData(null)}>
-          <div className="modal" onClick={e=>e.stopPropagation()}>
-            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'16px'}}>
-              <h2 style={{fontSize:'16px',fontWeight:700,margin:0}}>💰 Đối soát chuyến</h2>
-              <button onClick={()=>setModalData(null)} style={{background:'none',border:'none',cursor:'pointer',fontSize:'20px',color:'#6B7280'}}>✕</button>
+      {/* Modal đối soát */}
+      {modalGH && (
+        <div className="overlay" onClick={() => setModalGH(null)}>
+          <div className="modal" onClick={e => e.stopPropagation()}>
+            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'16px' }}>
+              <h2 style={{ fontSize:'16px', fontWeight:700, margin:0 }}>💰 Đối soát chuyến</h2>
+              <button onClick={() => setModalGH(null)} style={{ background:'none', border:'none', cursor:'pointer', fontSize:'20px', color:'#6B7280' }}>✕</button>
             </div>
 
-            {/* Thông tin */}
-            <div style={{background:'var(--primary-pale)',borderRadius:'8px',padding:'12px 14px',marginBottom:'16px',fontSize:'13px'}}>
-              <div style={{fontWeight:700,color:'var(--primary)',marginBottom:'4px'}}>
-                {modalData.nguoi['Tên NV/đối tác']||'—'}
-                {laDT&&<span style={{marginLeft:'8px',padding:'2px 8px',borderRadius:'10px',background:'#FEF3C7',color:'#92400E',fontSize:'11px'}}>Đối tác ngoài</span>}
-                {!laDT&&<span style={{marginLeft:'8px',padding:'2px 8px',borderRadius:'10px',background:'#DBEAFE',color:'#1E40AF',fontSize:'11px'}}>NV cửa hàng</span>}
+            {/* Info */}
+            <div style={{ background:'var(--primary-pale)', borderRadius:'8px', padding:'12px 14px', marginBottom:'16px', fontSize:'13px' }}>
+              <div style={{ fontWeight:700, color:'var(--primary)', marginBottom:'4px' }}>
+                {modalGH['Tên NV/đối tác'] || '—'}
+                {laDT
+                  ? <span style={{ marginLeft:'8px', fontSize:'11px', padding:'2px 8px', borderRadius:'10px', background:'#FEF3C7', color:'#92400E' }}>Đối tác ngoài</span>
+                  : <span style={{ marginLeft:'8px', fontSize:'11px', padding:'2px 8px', borderRadius:'10px', background:'#DBEAFE', color:'#1E40AF' }}>NV cửa hàng</span>
+                }
               </div>
-              <div>📋 {modalData.maDon} · Đợt {modalData.nguoi['Đợt giao']||1} · {modalData.nguoi['Vai trò chuyến']||'—'}</div>
-              {Number(modalData.don?.['Còn phải thu']||0)>0&&(
-                <div style={{color:'#DC2626',fontWeight:600,marginTop:'3px'}}>
-                  📌 KH còn nợ: {fVND(modalData.don?.['Còn phải thu'])}
+              <div>📋 {modalGH['Mã đơn hàng']} · {modalGH['Vai trò chuyến'] || '—'} · {fDT(modalGH['Ngày giao'])}</div>
+              {Number(donModal?.['Còn phải thu'] || 0) > 0 && (
+                <div style={{ color:'#DC2626', fontWeight:600, marginTop:'3px' }}>
+                  📌 KH còn nợ: {fVND(donModal?.['Còn phải thu'])}
                 </div>
               )}
             </div>
 
-            <div style={{display:'flex',flexDirection:'column',gap:'12px'}}>
-
-              {/* Tiền thu từ KH */}
-              <div style={{background:'#F0FDF4',borderRadius:'8px',padding:'12px 14px',border:'1px solid #BBF7D0'}}>
-                <div style={{fontWeight:700,fontSize:'13px',marginBottom:'8px',color:'#15803D'}}>💵 Tiền thu từ khách hàng</div>
-                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'10px'}}>
+            <div style={{ display:'flex', flexDirection:'column', gap:'12px' }}>
+              {/* Tiền thu KH */}
+              <div style={{ background:'#F0FDF4', borderRadius:'8px', padding:'12px 14px', border:'1px solid #BBF7D0' }}>
+                <div style={{ fontWeight:700, fontSize:'13px', marginBottom:'8px', color:'#15803D' }}>💵 Tiền thu từ khách hàng</div>
+                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'10px' }}>
                   <div>
-                    <label style={{fontSize:'11px',fontWeight:600,display:'block',marginBottom:'3px'}}>Số tiền thu (đ)</label>
-                    <input className="input" type="number" min="0" value={form.tienThuKH||''} placeholder="0"
-                      onChange={e=>setF('tienThuKH',Number(e.target.value))}/>
-                    {Number(modalData.don?.['Còn phải thu']||0)>0&&(
-                      <button onClick={()=>setF('tienThuKH',Number(modalData.don?.['Còn phải thu']||0))}
-                        style={{marginTop:'3px',padding:'2px 8px',border:'1px solid #BBF7D0',borderRadius:'4px',background:'white',cursor:'pointer',fontSize:'11px',color:'#15803D'}}>
-                        Điền đủ: {fVND(modalData.don?.['Còn phải thu'])}
+                    <label style={{ fontSize:'11px', fontWeight:600, display:'block', marginBottom:'3px' }}>Số tiền thu (đ)</label>
+                    <input className="input" type="number" min="0" value={tienThuKH || ''} placeholder="0"
+                      onChange={e => setTienThuKH(Number(e.target.value))} />
+                    {Number(donModal?.['Còn phải thu'] || 0) > 0 && (
+                      <button onClick={() => setTienThuKH(Number(donModal?.['Còn phải thu'] || 0))}
+                        style={{ marginTop:'3px', padding:'2px 8px', border:'1px solid #BBF7D0', borderRadius:'4px', background:'white', cursor:'pointer', fontSize:'11px', color:'#15803D' }}>
+                        Điền đủ: {fVND(donModal?.['Còn phải thu'])}
                       </button>
                     )}
                   </div>
                   <div>
-                    <label style={{fontSize:'11px',fontWeight:600,display:'block',marginBottom:'3px'}}>Hình thức thu</label>
-                    <select className="input" value={form.hinhThucThu} onChange={e=>setF('hinhThucThu',e.target.value)}>
+                    <label style={{ fontSize:'11px', fontWeight:600, display:'block', marginBottom:'3px' }}>Hình thức thu</label>
+                    <select className="input" value={hinhThucThu} onChange={e => setHinhThucThu(e.target.value)}>
                       <option>Tiền mặt</option>
                       <option>Chuyển khoản</option>
                       <option>Tiền mặt+chuyển khoản</option>
@@ -311,67 +292,66 @@ export default function DoiSoatClient({
                 </div>
               </div>
 
-              {/* Chi phí/thưởng cho người này */}
-              <div style={{background:laDT?'#FFF7ED':'#F0F9FF',borderRadius:'8px',padding:'12px 14px',border:`1px solid ${laDT?'#FED7AA':'#BAE6FD'}`}}>
-                <div style={{fontWeight:700,fontSize:'13px',marginBottom:'8px',color:laDT?'#C2410C':'#0369A1'}}>
-                  {laDT?'💸 Chi phí trả đối tác (trả ngay)':'🎁 Thưởng nhân viên (ghi nhận cuối tháng)'}
+              {/* Chi phí / thưởng */}
+              <div style={{ background:laDT?'#FFF7ED':'#F0F9FF', borderRadius:'8px', padding:'12px 14px', border:`1px solid ${laDT?'#FED7AA':'#BAE6FD'}` }}>
+                <div style={{ fontWeight:700, fontSize:'13px', marginBottom:'8px', color:laDT?'#C2410C':'#0369A1' }}>
+                  {laDT ? '💸 Chi phí trả đối tác (trả ngay)' : '🎁 Thưởng nhân viên (cuối tháng)'}
                 </div>
-                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:'8px'}}>
+                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:'8px' }}>
                   <div>
-                    <label style={{fontSize:'11px',fontWeight:600,display:'block',marginBottom:'3px'}}>CP vận chuyển (đ)</label>
-                    <input className="input" type="number" min="0" value={form.chiPhiVC||''} placeholder="0"
-                      onChange={e=>setF('chiPhiVC',Number(e.target.value))} style={{fontSize:'12px'}}/>
+                    <label style={{ fontSize:'11px', fontWeight:600, display:'block', marginBottom:'3px' }}>CP vận chuyển (đ)</label>
+                    <input className="input" type="number" min="0" value={chiPhiVC || ''} placeholder="0"
+                      onChange={e => setChiPhiVC(Number(e.target.value))} style={{ fontSize:'12px' }} />
                   </div>
                   <div>
-                    <label style={{fontSize:'11px',fontWeight:600,display:'block',marginBottom:'3px'}}>CP lắp đặt (đ)</label>
-                    <input className="input" type="number" min="0" value={form.chiPhiLap||''} placeholder="0"
-                      onChange={e=>setF('chiPhiLap',Number(e.target.value))} style={{fontSize:'12px'}}/>
+                    <label style={{ fontSize:'11px', fontWeight:600, display:'block', marginBottom:'3px' }}>CP lắp đặt (đ)</label>
+                    <input className="input" type="number" min="0" value={chiPhiLap || ''} placeholder="0"
+                      onChange={e => setChiPhiLap(Number(e.target.value))} style={{ fontSize:'12px' }} />
                   </div>
                   <div>
-                    <label style={{fontSize:'11px',fontWeight:600,display:'block',marginBottom:'3px'}}>Thưởng chuyến (đ)</label>
-                    <input className="input" type="number" min="0" value={form.thuongChuyen||''} placeholder="0"
-                      onChange={e=>setF('thuongChuyen',Number(e.target.value))} style={{fontSize:'12px'}}/>
+                    <label style={{ fontSize:'11px', fontWeight:600, display:'block', marginBottom:'3px' }}>Thưởng chuyến (đ)</label>
+                    <input className="input" type="number" min="0" value={thuongChuyen || ''} placeholder="0"
+                      onChange={e => setThuongChuyen(Number(e.target.value))} style={{ fontSize:'12px' }} />
                   </div>
                 </div>
-                {tongPhaiTra>0&&(
-                  <div style={{marginTop:'6px',fontSize:'12px',fontWeight:700,color:laDT?'#DC2626':'#0369A1'}}>
-                    Tổng {laDT?'phải trả':'ghi nhận thưởng'}: {fVND(tongPhaiTra)}
+                {tongPhaiTra > 0 && (
+                  <div style={{ marginTop:'6px', fontSize:'12px', fontWeight:700, color:laDT?'#DC2626':'#0369A1' }}>
+                    Tổng {laDT ? 'phải trả' : 'thưởng'}: {fVND(tongPhaiTra)}
                   </div>
                 )}
               </div>
 
-              {/* Kết quả + ghi chú */}
-              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'10px'}}>
+              {/* Kết quả */}
+              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'10px' }}>
                 <div>
-                  <label style={{fontSize:'11px',fontWeight:600,display:'block',marginBottom:'3px'}}>Kết quả chuyến</label>
-                  <select className="input" value={form.ketQua} onChange={e=>setF('ketQua',e.target.value)}>
+                  <label style={{ fontSize:'11px', fontWeight:600, display:'block', marginBottom:'3px' }}>Kết quả</label>
+                  <select className="input" value={ketQua} onChange={e => setKetQua(e.target.value)}>
                     <option>Thành công</option>
                     <option>Hoàn trả</option>
                     <option>Đổi hàng</option>
                   </select>
                 </div>
                 <div>
-                  <label style={{fontSize:'11px',fontWeight:600,display:'block',marginBottom:'3px'}}>Ghi chú</label>
-                  <input className="input" placeholder="Ghi chú thêm..." value={form.ghiChu}
-                    onChange={e=>setF('ghiChu',e.target.value)}/>
+                  <label style={{ fontSize:'11px', fontWeight:600, display:'block', marginBottom:'3px' }}>Ghi chú</label>
+                  <input className="input" placeholder="Ghi chú..." value={ghiChu} onChange={e => setGhiChu(e.target.value)} />
                 </div>
               </div>
 
-              {/* Đánh dấu hoàn thành đơn */}
-              <label style={{display:'flex',alignItems:'center',gap:'10px',cursor:'pointer',padding:'10px 12px',background:'#F0FDF4',borderRadius:'8px',border:'1px solid #BBF7D0'}}>
-                <input type="checkbox" checked={form.hoanThanhDon} onChange={e=>setF('hoanThanhDon',e.target.checked)}
-                  style={{width:'16px',height:'16px',accentColor:'#16A34A'}}/>
+              {/* Hoàn thành đơn */}
+              <label style={{ display:'flex', alignItems:'center', gap:'10px', cursor:'pointer', padding:'10px 12px', background:'#F0FDF4', borderRadius:'8px', border:'1px solid #BBF7D0' }}>
+                <input type="checkbox" checked={hoanThanhDon} onChange={e => setHoanThanhDon(e.target.checked)}
+                  style={{ width:'16px', height:'16px', accentColor:'#16A34A' }} />
                 <div>
-                  <div style={{fontSize:'13px',fontWeight:600,color:'#15803D'}}>Đánh dấu đơn hàng "Hoàn thành"</div>
-                  <div style={{fontSize:'11px',color:'#6B7280'}}>Tất cả sản phẩm đã giao đủ, đơn hoàn tất</div>
+                  <div style={{ fontSize:'13px', fontWeight:600, color:'#15803D' }}>Đánh dấu đơn hàng "Hoàn thành"</div>
+                  <div style={{ fontSize:'11px', color:'#6B7280' }}>Đã giao đủ tất cả sản phẩm, đơn hoàn tất</div>
                 </div>
               </label>
 
-              <div style={{display:'flex',gap:'10px'}}>
-                <button onClick={luuDoiSoat} disabled={loading} style={{flex:1,padding:'11px',borderRadius:'8px',border:'none',background:'var(--primary)',color:'white',fontWeight:700,fontSize:'14px',cursor:'pointer'}}>
-                  {loading?'⏳ Đang lưu...':'✅ Xác nhận đối soát'}
+              <div style={{ display:'flex', gap:'10px' }}>
+                <button onClick={luuDoiSoat} disabled={loading} style={{ flex:1, padding:'11px', borderRadius:'8px', border:'none', background:'var(--primary)', color:'white', fontWeight:700, fontSize:'14px', cursor:'pointer' }}>
+                  {loading ? '⏳ Đang lưu...' : '✅ Xác nhận đối soát'}
                 </button>
-                <button onClick={()=>setModalData(null)} style={{padding:'11px 16px',borderRadius:'8px',border:'1px solid var(--border)',background:'white',cursor:'pointer',fontSize:'14px'}}>Huỷ</button>
+                <button onClick={() => setModalGH(null)} style={{ padding:'11px 16px', borderRadius:'8px', border:'1px solid var(--border)', background:'white', cursor:'pointer', fontSize:'14px' }}>Huỷ</button>
               </div>
             </div>
           </div>
