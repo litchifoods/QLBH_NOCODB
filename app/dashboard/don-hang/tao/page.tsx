@@ -1,9 +1,13 @@
-// app/dashboard/don-hang/tao/page.tsx -- v2.0
+// app/dashboard/don-hang/tao/page.tsx -- v2.1
 import { getRecords, TABLES } from '@/lib/nocodb'
 import { getSession } from '@/lib/auth'
 import TaoDonHangForm from '@/components/TaoDonHangForm'
 
-export default async function TaoDonHangPage() {
+export default async function TaoDonHangPage({
+  searchParams,
+}: {
+  searchParams: { maKH?: string }
+}) {
   const session = await getSession()
 
   const [khachHang, sanPham, donHang, nhanVien] = await Promise.all([
@@ -18,8 +22,6 @@ export default async function TaoDonHangPage() {
     getRecords(TABLES.DON_HANG, {
       limit: 1, sort: '-Mã đơn hàng', fields: 'Mã đơn hàng',
     }),
-    // Load toàn bộ NV từ NocoDB — bảng 3 có nhiều dòng cùng mã (mỗi tháng 1 dòng)
-    // Chỉ giữ 1 dòng/người (dòng mới nhất)
     getRecords(TABLES.NHAN_VIEN, {
       limit: 200, sort: '-Tháng',
       fields: 'Mã NV,Họ tên,Vai trò,Tháng',
@@ -35,7 +37,7 @@ export default async function TaoDonHangPage() {
     nextMaDon   = `DH-${new Date().getFullYear()}-${String(num).padStart(3, '0')}`
   }
 
-  // Loại bỏ dòng NV trùng mã — giữ dòng tháng lớn nhất (mới nhất)
+  // Loại bỏ NV trùng mã — giữ dòng tháng mới nhất
   const nvMap: Record<string, any> = {}
   for (const nv of (nhanVien.list || [])) {
     const ma = nv['Mã NV']
@@ -48,6 +50,11 @@ export default async function TaoDonHangPage() {
     (a['Họ tên'] || '').localeCompare(b['Họ tên'] || '', 'vi')
   )
 
+  // Nếu có maKH trong URL → tìm và truyền thông tin KH đó vào form
+  const khDaChon = searchParams.maKH
+    ? (khachHang.list || []).find((kh: any) => kh['Mã KH'] === searchParams.maKH) || null
+    : null
+
   return (
     <TaoDonHangForm
       user={session!}
@@ -55,6 +62,7 @@ export default async function TaoDonHangPage() {
       danhSachSP={sanPham.list   || []}
       danhSachNV={danhSachNV}
       nextMaDon={nextMaDon}
+      khDaChon={khDaChon}   // KH được chọn sẵn từ trang Khách hàng
     />
   )
 }

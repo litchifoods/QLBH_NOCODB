@@ -1,6 +1,6 @@
 'use client'
-// components/TaoDonHangForm.tsx -- v2.0
-import { useState, useMemo } from 'react'
+// components/TaoDonHangForm.tsx -- v2.1
+import { useState, useMemo, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { UserSession } from '@/lib/auth'
 
@@ -35,13 +35,14 @@ interface DongSP {
 }
 
 export default function TaoDonHangForm({
-  user, danhSachKH, danhSachSP, danhSachNV, nextMaDon,
+  user, danhSachKH, danhSachSP, danhSachNV, nextMaDon, khDaChon,
 }: {
   user: UserSession
   danhSachKH: KhachHang[]
   danhSachSP: SanPham[]
   danhSachNV: NhanVien[]
   nextMaDon: string
+  khDaChon?: KhachHang | null   // KH được chọn sẵn từ trang Khách hàng
 }) {
   const router = useRouter()
   const today  = new Date().toISOString().split('T')[0]
@@ -54,17 +55,16 @@ export default function TaoDonHangForm({
   const [xuatHoaDon,  setXuatHoaDon]  = useState('Không')
   const [ghiChu,      setGhiChu]      = useState('')
 
-  // ── Nhân viên bán — dropdown tìm kiếm từ NocoDB ────────
-  const [searchNV,  setSearchNV]  = useState(user.hoTen || user.tenDangNhap || '')
-  const [maNV,      setMaNV]      = useState(user.maNV  || '')
-  const [showNV,    setShowNV]    = useState(false)
+  // ── Nhân viên bán ──────────────────────────────────────
+  const [searchNV, setSearchNV] = useState(user.hoTen || user.tenDangNhap || '')
+  const [maNV,     setMaNV]     = useState(user.maNV  || '')
+  const [showNV,   setShowNV]   = useState(false)
 
   const nvLoc = useMemo(() => {
     if (!searchNV.trim()) return danhSachNV.slice(0, 10)
     const q = boDau(searchNV)
     return danhSachNV.filter(nv =>
-      boDau(nv['Họ tên'] || '').includes(q) ||
-      boDau(nv['Mã NV']  || '').includes(q)
+      boDau(nv['Họ tên'] || '').includes(q) || boDau(nv['Mã NV'] || '').includes(q)
     ).slice(0, 10)
   }, [searchNV, danhSachNV])
 
@@ -72,15 +72,17 @@ export default function TaoDonHangForm({
     setSearchNV(nv['Họ tên']); setMaNV(nv['Mã NV']); setShowNV(false)
   }
 
-  // ── Khách hàng — tìm kiếm + thêm mới ─────────────────
+  // ── Khách hàng ─────────────────────────────────────────
   const [searchKH,   setSearchKH]   = useState('')
   const [maKH,       setMaKH]       = useState('')
   const [tenKH,      setTenKH]      = useState('')
   const [sdtKH,      setSdtKH]      = useState('')
   const [diaChiKH,   setDiaChiKH]   = useState('')
   const [showKH,     setShowKH]     = useState(false)
-  const [showFormKH, setShowFormKH] = useState(false)   // Modal thêm KH mới
+  const [showFormKH, setShowFormKH] = useState(false)
   const [loadingKH,  setLoadingKH]  = useState(false)
+  const [localKH,    setLocalKH]    = useState<KhachHang[]>(danhSachKH)
+
   // Form thêm KH mới
   const [newTenKH,    setNewTenKH]    = useState('')
   const [newSdtKH,    setNewSdtKH]    = useState('')
@@ -88,8 +90,17 @@ export default function TaoDonHangForm({
   const [newDoiTuong, setNewDoiTuong] = useState('Cá nhân')
   const [newGhiChuKH, setNewGhiChuKH] = useState('')
   const [errKH,       setErrKH]       = useState('')
-  // Danh sách KH cục bộ (có thể thêm mới vào)
-  const [localKH, setLocalKH] = useState<KhachHang[]>(danhSachKH)
+
+  // ✅ Tự điền KH nếu được truyền từ trang Khách hàng
+  useEffect(() => {
+    if (khDaChon) {
+      setMaKH(khDaChon['Mã KH'])
+      setTenKH(khDaChon['Tên khách hàng'])
+      setSdtKH(khDaChon['Số điện thoại'] || '')
+      setDiaChiKH(khDaChon['Địa chỉ'] || '')
+      setSearchKH(khDaChon['Tên khách hàng'])
+    }
+  }, [khDaChon])
 
   const khLoc = useMemo(() => {
     if (!searchKH) return localKH.slice(0, 8)
@@ -107,7 +118,10 @@ export default function TaoDonHangForm({
     setSearchKH(kh['Tên khách hàng']); setShowKH(false)
   }
 
-  // Thêm KH mới vào NocoDB
+  function xoaKH() {
+    setMaKH(''); setTenKH(''); setSdtKH(''); setDiaChiKH(''); setSearchKH('')
+  }
+
   async function luuKHMoi() {
     if (!newTenKH.trim()) { setErrKH('Vui lòng nhập tên khách hàng'); return }
     setLoadingKH(true); setErrKH('')
@@ -115,19 +129,17 @@ export default function TaoDonHangForm({
       const res = await fetch('/api/khach-hang', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          'Tên khách hàng':      newTenKH.trim(),
-          'Số điện thoại':       newSdtKH.trim(),
-          'Địa chỉ':             newDiaChiKH.trim(),
+          'Tên khách hàng':       newTenKH.trim(),
+          'Số điện thoại':        newSdtKH.trim(),
+          'Địa chỉ':              newDiaChiKH.trim(),
           'Đối tượng khách hàng': newDoiTuong,
-          'Ghi chú':             newGhiChuKH.trim(),
-          // Mã KH tự động nhảy trong NocoDB — không cần truyền
+          'Ghi chú':              newGhiChuKH.trim(),
         }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.message || 'Lỗi thêm KH')
 
-      // Lấy mã KH vừa tạo từ response hoặc reload
-      const maKHMoi  = data['Mã KH'] || data.data?.['Mã KH'] || ''
+      const maKHMoi = data['Mã KH'] || data.data?.['Mã KH'] || ''
       const khMoi: KhachHang = {
         'Mã KH':               maKHMoi,
         'Tên khách hàng':      newTenKH.trim(),
@@ -135,12 +147,8 @@ export default function TaoDonHangForm({
         'Địa chỉ':             newDiaChiKH.trim(),
         'Đối tượng khách hàng': newDoiTuong,
       }
-
-      // Cập nhật danh sách cục bộ và chọn luôn
       setLocalKH(prev => [khMoi, ...prev])
       chonKH(khMoi)
-
-      // Reset form thêm KH
       setNewTenKH(''); setNewSdtKH(''); setNewDiaChiKH('')
       setNewDoiTuong('Cá nhân'); setNewGhiChuKH('')
       setShowFormKH(false)
@@ -152,17 +160,17 @@ export default function TaoDonHangForm({
   }
 
   // ── Sản phẩm ───────────────────────────────────────────
-  const [dongSP,   setDongSP]   = useState<DongSP[]>([
+  const [dongSP,  setDongSP]  = useState<DongSP[]>([
     { id:'1', maSP:'', tenSP:'', donViTinh:'Cái', soLuong:1, donGia:0, thanhTien:0, ghiChu:'' }
   ])
-  const [searchSP,  setSearchSP]  = useState<Record<string,string>>({})
-  const [showSP,    setShowSP]    = useState<Record<string,boolean>>({})
+  const [searchSP, setSearchSP] = useState<Record<string,string>>({})
+  const [showSP,   setShowSP]   = useState<Record<string,boolean>>({})
 
-  const tongTien    = dongSP.reduce((s,d) => s + d.thanhTien, 0)
-  const [tienMat,   setTienMat]   = useState(0)
-  const [ckCoc,     setCkCoc]     = useState(0)
-  const datCocTong  = tienMat + ckCoc
-  const conPhaiThu  = tongTien - datCocTong
+  const tongTien   = dongSP.reduce((s,d) => s + d.thanhTien, 0)
+  const [tienMat,  setTienMat]  = useState(0)
+  const [ckCoc,    setCkCoc]    = useState(0)
+  const datCocTong = tienMat + ckCoc
+  const conPhaiThu = tongTien - datCocTong
 
   function spLoc(id: string) {
     const q = searchSP[id] || ''
@@ -177,7 +185,7 @@ export default function TaoDonHangForm({
     const dg = sp['Giá bán lẻ'] || 0
     setDongSP(prev => prev.map(d => d.id !== dongId ? d : {
       ...d, maSP:sp['Mã SP'], tenSP:sp['Tên sản phẩm'], donViTinh:sp['Đơn vị tính']||'Cái',
-      donGia:dg, thanhTien:d.soLuong*dg,
+      donGia:dg, thanhTien:d.soLuong * dg,
     }))
     setSearchSP(prev => ({ ...prev, [dongId]: sp['Tên sản phẩm'] }))
     setShowSP(prev => ({ ...prev, [dongId]: false }))
@@ -204,10 +212,11 @@ export default function TaoDonHangForm({
   const [loading, setLoading] = useState(false)
   const [error,   setError]   = useState('')
 
-  async function luuDon(trangThai: string) {
-    if (!maKH && !searchKH.trim()) { setError('Vui lòng chọn hoặc thêm khách hàng'); return }
-    if (dongSP.every(d => !d.maSP && !d.tenSP)) { setError('Vui lòng thêm ít nhất 1 sản phẩm'); return }
-    if (!searchNV.trim()) { setError('Vui lòng chọn nhân viên bán'); return }
+  // Lưu đơn và trả về mã đơn vừa tạo
+  async function luuDonBase(trangThai: string): Promise<string | null> {
+    if (!maKH && !searchKH.trim()) { setError('Vui lòng chọn hoặc thêm khách hàng'); return null }
+    if (dongSP.every(d => !d.maSP && !d.tenSP)) { setError('Vui lòng thêm ít nhất 1 sản phẩm'); return null }
+    if (!searchNV.trim()) { setError('Vui lòng chọn nhân viên bán'); return null }
 
     setLoading(true); setError('')
     try {
@@ -240,7 +249,8 @@ export default function TaoDonHangForm({
       })
       if (!resDon.ok) throw new Error('Lỗi tạo đơn hàng')
       const resDonData = await resDon.json()
-      const maDonMoi   = resDonData['Mã đơn hàng'] || resDonData.data?.['Mã đơn hàng'] || nextMaDon
+      // Lấy mã đơn từ response
+      const maDonMoi = resDonData['Mã đơn hàng'] || resDonData.data?.['Mã đơn hàng'] || nextMaDon
 
       // Tạo chi tiết sản phẩm
       const dongCoSP = dongSP.filter(d => d.maSP || d.tenSP)
@@ -259,12 +269,30 @@ export default function TaoDonHangForm({
           }),
         })
       }
-      router.push('/dashboard/don-hang')
-      router.refresh()
+      return maDonMoi
     } catch (err: any) {
       setError(err.message || 'Có lỗi xảy ra')
+      return null
     } finally {
       setLoading(false)
+    }
+  }
+
+  // Nút 1: Lưu đơn hàng (không in)
+  async function luuDon() {
+    const maDonMoi = await luuDonBase('Chờ giao')
+    if (maDonMoi) {
+      router.push('/dashboard/don-hang')
+      router.refresh()
+    }
+  }
+
+  // Nút 2: Lưu & In hóa đơn — lưu xong chuyển thẳng đến trang in
+  async function luuVaIn() {
+    const maDonMoi = await luuDonBase('Chờ giao')
+    if (maDonMoi) {
+      router.push(`/dashboard/don-hang/${maDonMoi}/in`)
+      router.refresh()
     }
   }
 
@@ -289,7 +317,11 @@ export default function TaoDonHangForm({
         <button onClick={() => router.back()} className="btn btn-ghost btn-sm">← Quay lại</button>
       </div>
 
-      {error && <div style={{ background:'#FEE2E2', color:'#DC2626', padding:'10px 14px', borderRadius:'8px', marginBottom:'14px', fontSize:'13px' }}>⚠️ {error}</div>}
+      {error && (
+        <div style={{ background:'#FEE2E2', color:'#DC2626', padding:'10px 14px', borderRadius:'8px', marginBottom:'14px', fontSize:'13px' }}>
+          ⚠️ {error}
+        </div>
+      )}
 
       <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'16px' }}>
 
@@ -324,7 +356,7 @@ export default function TaoDonHangForm({
                 </div>
               )}
 
-              {/* ── Nhân viên bán — dropdown tìm kiếm từ NocoDB ── */}
+              {/* Nhân viên bán — dropdown từ NocoDB */}
               <div style={{ gridColumn:'1 / -1' }}>
                 <label className="lbl">👤 Nhân viên bán *</label>
                 <div style={{ position:'relative' }}>
@@ -336,10 +368,8 @@ export default function TaoDonHangForm({
                     onBlur={() => setTimeout(() => setShowNV(false), 200)}
                     style={{ paddingRight:'32px' }} />
                   <span style={{ position:'absolute', right:'10px', top:'50%', transform:'translateY(-50%)', color:'#9CA3AF', fontSize:'14px', pointerEvents:'none' }}>🔍</span>
-
                   {showNV && (
                     <div className="db">
-                      {/* Gõ tự do nếu không có trong danh sách */}
                       {searchNV && !danhSachNV.find(nv => nv['Họ tên'] === searchNV) && (
                         <div className="di" onClick={() => setShowNV(false)}
                           style={{ background:'#FEF9C3', color:'#92400E', fontSize:'12px' }}>
@@ -363,7 +393,7 @@ export default function TaoDonHangForm({
             </div>
           </div>
 
-          {/* ── Khách hàng — tìm kiếm + thêm mới ── */}
+          {/* Khách hàng */}
           <div className="card" style={{ padding:'14px' }}>
             <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'10px' }}>
               <h3 style={{ fontSize:'11px', fontWeight:700, color:'var(--primary)', textTransform:'uppercase', letterSpacing:'.05em', margin:0 }}>👥 Khách hàng</h3>
@@ -373,46 +403,50 @@ export default function TaoDonHangForm({
               </button>
             </div>
 
-            <div style={{ position:'relative' }}>
-              <input className="input"
-                placeholder="Tìm theo tên, SĐT hoặc mã KH..."
-                value={searchKH}
-                onChange={e => { setSearchKH(e.target.value); setMaKH(''); setShowKH(true) }}
-                onFocus={() => setShowKH(true)}
-                onBlur={() => setTimeout(() => setShowKH(false), 200)} />
-              {showKH && (
-                <div className="db">
-                  {khLoc.length === 0
-                    ? (
+            {/* Nếu đã có KH → hiện info, không hiện ô tìm kiếm */}
+            {maKH ? (
+              <div style={{ background:'var(--primary-pale)', borderRadius:'8px', padding:'12px 14px', display:'flex', justifyContent:'space-between', alignItems:'flex-start' }}>
+                <div>
+                  <div style={{ fontWeight:700, color:'var(--primary)', fontSize:'14px', marginBottom:'4px' }}>
+                    ✅ {tenKH}
+                    <span style={{ marginLeft:'8px', fontSize:'12px', fontWeight:400, color:'#6B7280' }}>({maKH})</span>
+                  </div>
+                  {sdtKH    && <div style={{ fontSize:'12px', color:'var(--text-secondary)' }}>📞 {sdtKH}</div>}
+                  {diaChiKH && <div style={{ fontSize:'12px', color:'var(--text-secondary)', marginTop:'2px' }}>📍 {diaChiKH}</div>}
+                </div>
+                <button onClick={xoaKH}
+                  style={{ background:'none', border:'none', cursor:'pointer', color:'#6B7280', fontSize:'18px', lineHeight:1, padding:'2px' }}
+                  title="Đổi khách hàng">✕</button>
+              </div>
+            ) : (
+              <div style={{ position:'relative' }}>
+                <input className="input"
+                  placeholder="Tìm theo tên, SĐT hoặc mã KH..."
+                  value={searchKH}
+                  onChange={e => { setSearchKH(e.target.value); setShowKH(true) }}
+                  onFocus={() => setShowKH(true)}
+                  onBlur={() => setTimeout(() => setShowKH(false), 200)} />
+                {showKH && (
+                  <div className="db">
+                    {khLoc.length === 0 ? (
                       <div style={{ padding:'12px', textAlign:'center', fontSize:'12px', color:'#6B7280' }}>
-                        Không tìm thấy KH
+                        Không tìm thấy khách hàng
                         <button onClick={() => { setShowFormKH(true); setNewTenKH(searchKH) }}
                           style={{ display:'block', margin:'6px auto 0', padding:'4px 12px', borderRadius:'6px', border:'none', background:'var(--primary)', color:'white', cursor:'pointer', fontSize:'12px' }}>
                           + Thêm "{searchKH}" làm KH mới
                         </button>
                       </div>
-                    )
-                    : khLoc.map(kh => (
+                    ) : khLoc.map(kh => (
                       <div key={kh['Mã KH']} className="di" onClick={() => chonKH(kh)}>
                         <div style={{ fontWeight:600 }}>{kh['Tên khách hàng']}</div>
-                        <div style={{ fontSize:'11px', color:'#6B7280' }}>{kh['Mã KH']} · {kh['Số điện thoại']} · {kh['Địa chỉ']}</div>
+                        <div style={{ fontSize:'11px', color:'#6B7280' }}>
+                          {kh['Mã KH']} · {kh['Số điện thoại']}
+                          {kh['Địa chỉ'] && ` · ${kh['Địa chỉ']}`}
+                        </div>
                       </div>
-                    ))
-                  }
-                </div>
-              )}
-            </div>
-
-            {/* Hiển thị KH đã chọn */}
-            {maKH && (
-              <div style={{ marginTop:'8px', background:'var(--primary-pale)', borderRadius:'6px', padding:'8px 12px', fontSize:'12px', display:'flex', justifyContent:'space-between', alignItems:'flex-start' }}>
-                <div>
-                  <div style={{ fontWeight:700, color:'var(--primary)' }}>✅ {tenKH}</div>
-                  {sdtKH   && <div style={{ color:'var(--text-secondary)', marginTop:'2px' }}>📞 {sdtKH}</div>}
-                  {diaChiKH && <div style={{ color:'var(--text-secondary)' }}>📍 {diaChiKH}</div>}
-                </div>
-                <button onClick={() => { setMaKH(''); setTenKH(''); setSdtKH(''); setDiaChiKH(''); setSearchKH('') }}
-                  style={{ background:'none', border:'none', cursor:'pointer', color:'#6B7280', fontSize:'16px', lineHeight:1 }}>✕</button>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -423,12 +457,12 @@ export default function TaoDonHangForm({
             <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'10px' }}>
               <div>
                 <label className="lbl">💵 Tiền mặt (VNĐ)</label>
-                <input className="input" type="number" min="0" value={tienMat || ''} placeholder="0"
+                <input className="input" type="number" min="0" value={tienMat||''} placeholder="0"
                   onChange={e => setTienMat(Number(e.target.value))} />
               </div>
               <div>
                 <label className="lbl">🏦 Chuyển khoản (VNĐ)</label>
-                <input className="input" type="number" min="0" value={ckCoc || ''} placeholder="0"
+                <input className="input" type="number" min="0" value={ckCoc||''} placeholder="0"
                   onChange={e => setCkCoc(Number(e.target.value))} />
               </div>
             </div>
@@ -447,13 +481,13 @@ export default function TaoDonHangForm({
 
           {/* Ghi chú */}
           <div className="card" style={{ padding:'14px' }}>
-            <label className="lbl">📝 Ghi chú</label>
+            <label className="lbl">📝 Ghi chú đơn hàng</label>
             <textarea className="input" rows={2} value={ghiChu} placeholder="Ghi chú thêm..."
               onChange={e => setGhiChu(e.target.value)} style={{ resize:'vertical' }} />
           </div>
         </div>
 
-        {/* ── Cột phải: Sản phẩm ── */}
+        {/* ── Cột phải: Sản phẩm + nút lưu ── */}
         <div style={{ display:'flex', flexDirection:'column', gap:'14px' }}>
           <div className="card" style={{ padding:'14px' }}>
             <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'10px' }}>
@@ -470,7 +504,6 @@ export default function TaoDonHangForm({
               {dongSP.map((dong, idx) => (
                 <div key={dong.id} style={{ border:'1px solid var(--border)', borderRadius:'8px', padding:'8px 10px', background:'#FAFBFD' }}>
                   <div style={{ display:'grid', gridTemplateColumns:'2fr 52px 84px 72px 20px', gap:'6px', alignItems:'center' }}>
-                    {/* Tìm SP */}
                     <div style={{ position:'relative' }}>
                       <input className="input"
                         placeholder={`SP #${idx+1} — gõ tên...`}
@@ -499,22 +532,17 @@ export default function TaoDonHangForm({
                         </div>
                       )}
                     </div>
-                    {/* SL */}
                     <input className="input" type="number" min="1" value={dong.soLuong}
                       style={{ fontSize:'12px', padding:'5px 4px', textAlign:'center' }}
                       onChange={e => updDong(dong.id, 'soLuong', e.target.value)} />
-                    {/* Đơn giá */}
-                    <input className="input" type="number" min="0" value={dong.donGia || ''} placeholder="0"
+                    <input className="input" type="number" min="0" value={dong.donGia||''} placeholder="0"
                       style={{ fontSize:'12px', padding:'5px 4px', textAlign:'right' }}
                       onChange={e => updDong(dong.id, 'donGia', e.target.value)} />
-                    {/* Thành tiền */}
                     <div style={{ fontSize:'12px', fontWeight:700, color:'var(--success)', textAlign:'right' }}>
                       {dong.thanhTien > 0 ? dong.thanhTien.toLocaleString('vi-VN') : '0'}đ
                     </div>
-                    {/* Xóa */}
                     {dongSP.length > 1
-                      ? <button onClick={() => xoaDong(dong.id)}
-                          style={{ background:'none', border:'none', cursor:'pointer', color:'#DC2626', fontSize:'14px', padding:0 }}>✕</button>
+                      ? <button onClick={() => xoaDong(dong.id)} style={{ background:'none', border:'none', cursor:'pointer', color:'#DC2626', fontSize:'14px', padding:0 }}>✕</button>
                       : <span></span>}
                   </div>
                   <input className="input" placeholder="Ghi chú: màu, size... (bỏ trống nếu không cần)"
@@ -543,22 +571,27 @@ export default function TaoDonHangForm({
 
           {/* Nút lưu */}
           <div style={{ display:'flex', flexDirection:'column', gap:'8px' }}>
-            <button onClick={() => luuDon('Chờ giao')} disabled={loading}
-              className="btn btn-primary btn-lg" style={{ width:'100%', justifyContent:'center' }}>
+            {/* Nút 1: Lưu đơn hàng — không in */}
+            <button onClick={luuDon} disabled={loading}
+              style={{ width:'100%', padding:'13px', borderRadius:'8px', border:'none', background:'var(--primary)', color:'white', fontWeight:700, fontSize:'15px', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:'8px' }}>
               {loading ? '⏳ Đang lưu...' : '✅ Lưu đơn hàng'}
             </button>
-            <button onClick={() => luuDon('Đang giao')} disabled={loading}
-              style={{ width:'100%', padding:'12px', borderRadius:'8px', border:'none', background:'#C8860A', color:'white', fontWeight:700, fontSize:'15px', cursor:'pointer' }}>
-              🚚 Lưu & Giao hàng ngay
+
+            {/* Nút 2: Lưu & In hóa đơn — lưu xong chuyển sang trang in */}
+            <button onClick={luuVaIn} disabled={loading}
+              style={{ width:'100%', padding:'13px', borderRadius:'8px', border:'none', background:'#0F6B3B', color:'white', fontWeight:700, fontSize:'15px', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:'8px' }}>
+              {loading ? '⏳ Đang lưu...' : '🖨️ Lưu & In hóa đơn'}
             </button>
-            <button onClick={() => router.back()} className="btn btn-ghost" style={{ width:'100%', justifyContent:'center' }}>
+
+            <button onClick={() => router.back()} className="btn btn-ghost"
+              style={{ width:'100%', justifyContent:'center', color:'#6B7280' }}>
               Huỷ bỏ
             </button>
           </div>
         </div>
       </div>
 
-      {/* ── MODAL THÊM KHÁCH HÀNG MỚI ── */}
+      {/* ── MODAL THÊM KH MỚI ── */}
       {showFormKH && (
         <div className="overlay-kh" onClick={() => setShowFormKH(false)}>
           <div className="modal-kh" onClick={e => e.stopPropagation()}>
@@ -567,13 +600,10 @@ export default function TaoDonHangForm({
               <button onClick={() => setShowFormKH(false)}
                 style={{ background:'none', border:'none', cursor:'pointer', fontSize:'20px', color:'#6B7280' }}>✕</button>
             </div>
-
-            <p style={{ fontSize:'12px', color:'#6B7280', margin:'0 0 14px', background:'#EFF6FF', padding:'8px 12px', borderRadius:'6px' }}>
+            <p style={{ fontSize:'12px', color:'#1E40AF', margin:'0 0 14px', background:'#EFF6FF', padding:'8px 12px', borderRadius:'6px' }}>
               💡 Mã khách hàng sẽ được NocoDB tự động tạo sau khi lưu.
             </p>
-
             {errKH && <div style={{ background:'#FEE2E2', color:'#DC2626', padding:'8px 12px', borderRadius:'6px', marginBottom:'12px', fontSize:'12px' }}>⚠️ {errKH}</div>}
-
             <div style={{ display:'flex', flexDirection:'column', gap:'10px' }}>
               <div>
                 <label className="lbl">Tên khách hàng *</label>
@@ -589,9 +619,7 @@ export default function TaoDonHangForm({
                 <div>
                   <label className="lbl">Đối tượng</label>
                   <select className="input" value={newDoiTuong} onChange={e => setNewDoiTuong(e.target.value)}>
-                    <option>Cá nhân</option>
-                    <option>Cơ quan</option>
-                    <option>Công ty</option>
+                    <option>Cá nhân</option><option>Cơ quan</option><option>Công ty</option>
                   </select>
                 </div>
               </div>
@@ -605,7 +633,6 @@ export default function TaoDonHangForm({
                 <input className="input" placeholder="Ghi chú thêm..."
                   value={newGhiChuKH} onChange={e => setNewGhiChuKH(e.target.value)} />
               </div>
-
               <div style={{ display:'flex', gap:'10px', marginTop:'4px' }}>
                 <button onClick={luuKHMoi} disabled={loadingKH}
                   style={{ flex:1, padding:'11px', borderRadius:'8px', border:'none', background:'var(--primary)', color:'white', fontWeight:700, fontSize:'14px', cursor:'pointer' }}>
