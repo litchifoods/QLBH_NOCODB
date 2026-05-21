@@ -7,15 +7,14 @@ export default async function KhachHangPage() {
   const session = await getSession()
 
   const result = await getRecords(TABLES.KHACH_HANG, {
-    limit: 200,
+    limit: 300,
     sort: 'Tên khách hàng',
-    fields: 'Id,Mã KH,Tên khách hàng,Số điện thoại,Địa chỉ,Đối tượng khách hàng,Ghi chú,Ngày tạo',
+    fields: 'Mã KH,Tên khách hàng,Số điện thoại,Địa chỉ,Đối tượng khách hàng,Ghi chú',
   })
 
   return (
     <KhachHangClient
-      danhSachKH={result.list || []}
-      tongSo={result.pageInfo?.totalRows || result.list?.length || 0}
+      khachHang={result.list || []}
       user={session!}
     />
   )
