@@ -1,39 +1,25 @@
-// app/api/cai-dat/route.ts — v4.0
+// app/api/cai-dat/route.ts — v5.0
 import { NextRequest, NextResponse } from 'next/server'
 import { getRecords, createRecord, updateRecord } from '@/lib/nocodb'
 
 export const dynamic = 'force-dynamic'
 
 const VALID_KEYS = [
-  'hoadon_tenCH',
-  'hoadon_coChuTenCH',     // ← MỚI: cỡ chữ tên cửa hàng
-  'hoadon_diaChiCH',
-  'hoadon_sdtCH',
-  'hoadon_gioiThieu',
-  'hoadon_mangXH',
-  'hoadon_chanTrang',
-  'hoadon_logo',
-  'hoadon_logoSize',
-  'hoadon_logoPart',
-  'hoadon_canThongTinCH',
-  'hoadon_canTieuDe',
-  'hoadon_canChanTrang',
+  'hoadon_tenCH', 'hoadon_coChuTenCH', 'hoadon_diaChiCH', 'hoadon_sdtCH',
+  'hoadon_gioiThieu', 'hoadon_mangXH', 'hoadon_chanTrang',
+  'hoadon_logo', 'hoadon_logoSize', 'hoadon_logoPart',
+  'hoadon_canThongTinCH', 'hoadon_canTieuDe', 'hoadon_canChanTrang',
+  'hoadon_mauChinh',   // ← MỚI: màu chủ đạo
 ]
 
 const MO_TA: Record<string, string> = {
-  hoadon_tenCH:         'Tên cửa hàng',
-  hoadon_coChuTenCH:    'Cỡ chữ tên cửa hàng (px)',
-  hoadon_diaChiCH:      'Địa chỉ cửa hàng',
-  hoadon_sdtCH:         'Số điện thoại',
-  hoadon_gioiThieu:     'Giới thiệu ngắn',
-  hoadon_mangXH:        'Mạng xã hội / website',
-  hoadon_chanTrang:     'Chân trang hóa đơn',
-  hoadon_logo:          'Logo cửa hàng (base64)',
-  hoadon_logoSize:      'Kích thước logo (px)',
-  hoadon_logoPart:      'Vị trí logo (left/top)',
-  hoadon_canThongTinCH: 'Căn chỉnh thông tin cửa hàng',
-  hoadon_canTieuDe:     'Căn chỉnh tiêu đề hóa đơn',
-  hoadon_canChanTrang:  'Căn chỉnh chân trang',
+  hoadon_tenCH: 'Tên cửa hàng', hoadon_coChuTenCH: 'Cỡ chữ tên CH',
+  hoadon_diaChiCH: 'Địa chỉ', hoadon_sdtCH: 'SĐT',
+  hoadon_gioiThieu: 'Giới thiệu', hoadon_mangXH: 'Mạng xã hội',
+  hoadon_chanTrang: 'Chân trang', hoadon_logo: 'Logo (base64)',
+  hoadon_logoSize: 'Kích thước logo', hoadon_logoPart: 'Vị trí logo',
+  hoadon_canThongTinCH: 'Căn thông tin CH', hoadon_canTieuDe: 'Căn tiêu đề',
+  hoadon_canChanTrang: 'Căn chân trang', hoadon_mauChinh: 'Màu chủ đạo',
 }
 
 export async function GET() {
@@ -63,10 +49,10 @@ export async function POST(req: NextRequest) {
       const val = String(v ?? '')
       if (existingMap[k]) {
         const ok = await updateRecord('CaiDat', existingMap[k].id, { key: k, value: val })
-        if (!ok) errors.push(`Không update được: ${k}`)
+        if (!ok) errors.push(k)
       } else {
         const ok = await createRecord('CaiDat', { key: k, value: val, moTa: MO_TA[k] || k })
-        if (!ok) errors.push(`Không tạo được: ${k}`)
+        if (!ok) errors.push(k)
       }
     }
     if (errors.length > 0) return NextResponse.json({ ok: false, errors }, { status: 500 })
