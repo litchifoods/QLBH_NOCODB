@@ -50,7 +50,7 @@ export default async function TaoDonHangPage({
     (a['Họ tên'] || '').localeCompare(b['Họ tên'] || '', 'vi')
   )
 
-  // Nếu có maKH trong URL → tìm và truyền thông tin KH đó vào form
+  // Nếu có maKH trong URL → tìm KH đó để điền sẵn
   const khDaChon = searchParams.maKH
     ? (khachHang.list || []).find((kh: any) => kh['Mã KH'] === searchParams.maKH) || null
     : null
@@ -62,7 +62,7 @@ export default async function TaoDonHangPage({
       danhSachSP={sanPham.list   || []}
       danhSachNV={danhSachNV}
       nextMaDon={nextMaDon}
-      khDaChon={khDaChon}   // KH được chọn sẵn từ trang Khách hàng
+      khDaChon={khDaChon}
     />
   )
 }
