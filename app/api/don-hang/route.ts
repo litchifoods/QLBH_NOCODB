@@ -1,4 +1,5 @@
-// app/api/don-hang/route.ts
+// app/api/don-hang/route.ts — v2.0
+// Sửa: trả về maDon rõ ràng trong response để TaoDonHangForm đọc được
 import { NextRequest, NextResponse } from 'next/server'
 import { createRecord, getRecords, TABLES } from '@/lib/nocodb'
 import { getSession } from '@/lib/auth'
@@ -13,7 +14,13 @@ export async function POST(request: NextRequest) {
 
     if (!result) return NextResponse.json({ message: 'Lỗi tạo đơn hàng' }, { status: 500 })
 
-    return NextResponse.json({ success: true, data: result })
+    // ✅ Trả về cả result (chứa Mã đơn hàng) lẫn field riêng để dễ đọc
+    return NextResponse.json({
+      success: true,
+      data: result,
+      // Trích thẳng maDon ra ngoài để client đọc dễ hơn
+      maDon: result['Mã đơn hàng'] || '',
+    })
   } catch (error: any) {
     return NextResponse.json({ message: error.message }, { status: 500 })
   }
@@ -32,6 +39,23 @@ export async function GET(request: NextRequest) {
 
     const result = await getRecords(TABLES.DON_HANG, { where, limit, offset, sort })
     return NextResponse.json(result)
+  } catch (error: any) {
+    return NextResponse.json({ message: error.message }, { status: 500 })
+  }
+}
+
+export async function PATCH(request: NextRequest) {
+  try {
+    const session = await getSession()
+    if (!session) return NextResponse.json({ message: 'Chưa đăng nhập' }, { status: 401 })
+
+    const body = await request.json()
+    const { id, ...updateData } = body
+    if (!id) return NextResponse.json({ message: 'Thiếu id' }, { status: 400 })
+
+    const { updateRecord } = await import('@/lib/nocodb')
+    const result = await updateRecord(TABLES.DON_HANG, id, updateData)
+    return NextResponse.json({ success: true, data: result })
   } catch (error: any) {
     return NextResponse.json({ message: error.message }, { status: 500 })
   }

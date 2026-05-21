@@ -1,6 +1,6 @@
 'use client'
-// components/TaoDonHangForm.tsx -- v2.2
-// Sửa: 2 nút loading riêng biệt, luuVaIn lấy maDon đúng từ response
+// components/TaoDonHangForm.tsx -- v2.3
+// Sửa lỗi 404: đọc maDon từ data.data['Mã đơn hàng'] đúng chỗ
 import { useState, useMemo, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { UserSession } from '@/lib/auth'
@@ -28,7 +28,6 @@ export default function TaoDonHangForm({
   const router = useRouter()
   const today  = new Date().toISOString().split('T')[0]
 
-  // Thông tin đơn
   const [ngayDat,     setNgayDat]     = useState(today)
   const [kenhBan,     setKenhBan]     = useState('Trực tiếp')
   const [htGiao,      setHtGiao]      = useState('Giao hàng cho khách')
@@ -36,7 +35,6 @@ export default function TaoDonHangForm({
   const [xuatHoaDon,  setXuatHoaDon]  = useState('Không')
   const [ghiChu,      setGhiChu]      = useState('')
 
-  // Nhân viên
   const [searchNV, setSearchNV] = useState(user.hoTen || user.tenDangNhap || '')
   const [maNV,     setMaNV]     = useState(user.maNV  || '')
   const [showNV,   setShowNV]   = useState(false)
@@ -46,7 +44,6 @@ export default function TaoDonHangForm({
     return danhSachNV.filter(nv => boDau(nv['Họ tên']||'').includes(q)||boDau(nv['Mã NV']||'').includes(q)).slice(0,10)
   }, [searchNV, danhSachNV])
 
-  // Khách hàng
   const [searchKH,   setSearchKH]   = useState('')
   const [maKH,       setMaKH]       = useState('')
   const [tenKH,      setTenKH]      = useState('')
@@ -62,7 +59,6 @@ export default function TaoDonHangForm({
   const [newLoai,    setNewLoai]    = useState('Cá nhân')
   const [errKH,      setErrKH]      = useState('')
 
-  // ✅ Tự điền KH từ trang Khách hàng
   useEffect(() => {
     if (khDaChon) {
       setMaKH(khDaChon['Mã KH'])
@@ -99,7 +95,14 @@ export default function TaoDonHangForm({
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.message||'Lỗi')
-      const khMoi: KH = {'Mã KH':data['Mã KH']||data.data?.['Mã KH']||'','Tên khách hàng':newTen.trim(),'Số điện thoại':newSdt.trim(),'Địa chỉ':newDiaChi.trim(),'Đối tượng khách hàng':newLoai}
+      // API khach-hang trả về data trực tiếp hoặc data.data
+      const khMoi: KH = {
+        'Mã KH': data['Mã KH'] || data.data?.['Mã KH'] || '',
+        'Tên khách hàng': newTen.trim(),
+        'Số điện thoại': newSdt.trim(),
+        'Địa chỉ': newDiaChi.trim(),
+        'Đối tượng khách hàng': newLoai,
+      }
       setLocalKH(prev=>[khMoi,...prev]); chonKH(khMoi)
       setNewTen(''); setNewSdt(''); setNewDiaChi(''); setNewLoai('Cá nhân')
       setShowFormKH(false)
@@ -107,7 +110,6 @@ export default function TaoDonHangForm({
     finally { setLoadingKH(false) }
   }
 
-  // Sản phẩm
   const [dongSP,   setDongSP]   = useState<Dong[]>([{id:'1',maSP:'',tenSP:'',soLuong:1,donGia:0,thanhTien:0,ghiChu:''}])
   const [searchSP, setSearchSP] = useState<Record<string,string>>({})
   const [showSP,   setShowSP]   = useState<Record<string,boolean>>({})
@@ -140,7 +142,6 @@ export default function TaoDonHangForm({
   function themDong(){const id=Date.now().toString();setDongSP(prev=>[...prev,{id,maSP:'',tenSP:'',soLuong:1,donGia:0,thanhTien:0,ghiChu:''}])}
   function xoaDong(id:string){setDongSP(prev=>prev.filter(d=>d.id!==id))}
 
-  // ✅ 2 state loading riêng biệt — tránh cả 2 nút cùng hiện loading
   const [loadingLuu, setLoadingLuu] = useState(false)
   const [loadingIn,  setLoadingIn]  = useState(false)
   const [error, setError] = useState('')
@@ -152,8 +153,10 @@ export default function TaoDonHangForm({
     return true
   }
 
-  // Hàm lõi: gọi API tạo đơn + chi tiết → trả về maDon
-  async function taoDonn(): Promise<string|null> {
+  // ✅ SỬA LỖI CHÍNH: đọc maDon từ đúng chỗ trong response
+  // API don-hang trả về { success: true, data: result }
+  // result từ NocoDB chứa 'Mã đơn hàng' trực tiếp
+  async function taoDon(): Promise<string|null> {
     setError('')
     let htCoc=''
     if(tienMat>0&&ckCoc>0) htCoc=`TM ${tienMat.toLocaleString()}đ + CK ${ckCoc.toLocaleString()}đ`
@@ -174,14 +177,27 @@ export default function TaoDonHangForm({
           'Xuất hóa đơn':xuatHoaDon,'Ghi chú':ghiChu,
         }),
       })
-      if (!res.ok) throw new Error('Lỗi tạo đơn hàng')
-      const data = await res.json()
 
-      // ✅ Lấy maDon từ response — ưu tiên field 'Mã đơn hàng'
-      const maDonMoi = data['Mã đơn hàng'] || data.data?.['Mã đơn hàng'] || nextMaDon
+      if (!res.ok) {
+        const errData = await res.json().catch(()=>({}))
+        throw new Error(errData.message || `Lỗi HTTP ${res.status}`)
+      }
+
+      const json = await res.json()
+      // ✅ API trả về { success: true, data: result }
+      // NocoDB result chứa 'Mã đơn hàng' trong data
+      const donMoi = json.data || json
+      const maDonMoi = donMoi['Mã đơn hàng'] || donMoi['Mã đơn hàng'] || ''
+
+      if (!maDonMoi) {
+        // Debug: log toàn bộ response để tìm field đúng
+        console.error('Không tìm thấy Mã đơn hàng trong response:', JSON.stringify(json))
+        throw new Error('Không lấy được mã đơn hàng từ server')
+      }
 
       // Tạo chi tiết SP
-      for (const d of dongSP.filter(x=>x.maSP||x.tenSP)) {
+      const dsSP = dongSP.filter(x=>x.maSP||x.tenSP)
+      for (const d of dsSP) {
         await fetch('/api/chi-tiet-don',{
           method:'POST', headers:{'Content-Type':'application/json'},
           body: JSON.stringify({
@@ -192,36 +208,34 @@ export default function TaoDonHangForm({
         })
       }
       return maDonMoi
+
     } catch(err:any) {
-      setError(err.message||'Có lỗi xảy ra')
+      setError(err.message||'Có lỗi xảy ra khi tạo đơn')
       return null
     }
   }
 
-  // Nút 1: Lưu đơn hàng (không in)
   async function luuDon() {
     if (!validate()) return
     setLoadingLuu(true)
-    const ma = await taoDonn()
+    const ma = await taoDon()
     setLoadingLuu(false)
     if (ma) { router.push('/dashboard/don-hang'); router.refresh() }
   }
 
-  // Nút 2: Lưu & In hóa đơn → chuyển sang trang in
   async function luuVaIn() {
     if (!validate()) return
     setLoadingIn(true)
-    const ma = await taoDonn()
+    const ma = await taoDon()
     setLoadingIn(false)
     if (ma) {
-      // ✅ Chuyển đến trang in với maDon thực tế
+      // ✅ encodeURIComponent để mã đơn có dấu / hoặc ký tự đặc biệt không bị lỗi URL
       router.push(`/dashboard/don-hang/${encodeURIComponent(ma)}/in`)
-      router.refresh()
     }
   }
 
-  const LBL = ({c,children}:{c?:string;children:React.ReactNode}) => (
-    <label style={{fontSize:'11px',fontWeight:600,color:c||'#374151',display:'block',marginBottom:'3px'}}>{children}</label>
+  const LBL = ({children}:{children:React.ReactNode}) => (
+    <label style={{fontSize:'11px',fontWeight:600,color:'#374151',display:'block',marginBottom:'3px'}}>{children}</label>
   )
 
   return (
@@ -234,7 +248,6 @@ export default function TaoDonHangForm({
         .mk{background:white;border-radius:12px;padding:24px;width:100%;max-width:460px;}
       `}</style>
 
-      {/* Header */}
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'18px'}}>
         <div>
           <h1 style={{fontFamily:'Playfair Display,serif',fontSize:'21px',fontWeight:700,margin:0}}>➕ Tạo đơn hàng mới</h1>
@@ -249,7 +262,6 @@ export default function TaoDonHangForm({
         {/* Cột trái */}
         <div style={{display:'flex',flexDirection:'column',gap:'14px'}}>
 
-          {/* Thông tin đơn */}
           <div className="card" style={{padding:'14px'}}>
             <h3 style={{fontSize:'11px',fontWeight:700,marginBottom:'12px',color:'var(--primary)',textTransform:'uppercase',letterSpacing:'.05em'}}>📋 Thông tin đơn hàng</h3>
             <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'10px'}}>
@@ -265,7 +277,6 @@ export default function TaoDonHangForm({
                 </select>
               </div>
               {htGiao==='Giao hàng cho khách'&&<div><LBL>Ngày hẹn giao</LBL><input className="input" type="datetime-local" value={ngayHenGiao} onChange={e=>setNgayHenGiao(e.target.value)}/></div>}
-              {/* NV bán */}
               <div style={{gridColumn:'1/-1'}}>
                 <LBL>👤 Nhân viên bán *</LBL>
                 <div style={{position:'relative'}}>
@@ -290,7 +301,6 @@ export default function TaoDonHangForm({
             </div>
           </div>
 
-          {/* Khách hàng */}
           <div className="card" style={{padding:'14px'}}>
             <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'10px'}}>
               <h3 style={{fontSize:'11px',fontWeight:700,color:'var(--primary)',textTransform:'uppercase',letterSpacing:'.05em',margin:0}}>👥 Khách hàng</h3>
@@ -332,7 +342,6 @@ export default function TaoDonHangForm({
             )}
           </div>
 
-          {/* Đặt cọc */}
           <div className="card" style={{padding:'14px'}}>
             <h3 style={{fontSize:'11px',fontWeight:700,marginBottom:'12px',color:'var(--primary)',textTransform:'uppercase',letterSpacing:'.05em'}}>💰 Đặt cọc</h3>
             <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'10px'}}>
@@ -392,7 +401,6 @@ export default function TaoDonHangForm({
                 </div>
               ))}
             </div>
-            {/* Tổng */}
             <div style={{marginTop:'12px',padding:'12px',borderRadius:'8px',background:'var(--primary-pale)',border:'1px solid rgba(27,58,107,.15)'}}>
               <div style={{display:'flex',justifyContent:'space-between',fontSize:'13px',marginBottom:'4px'}}>
                 <span style={{color:'var(--text-secondary)'}}>Tổng tiền đơn:</span><span style={{fontWeight:700}}>{fVND(tongTien)}</span>
@@ -407,16 +415,13 @@ export default function TaoDonHangForm({
             </div>
           </div>
 
-          {/* Nút lưu — loading riêng biệt */}
           <div style={{display:'flex',flexDirection:'column',gap:'8px'}}>
-            {/* Nút 1 */}
             <button onClick={luuDon} disabled={loadingLuu||loadingIn}
-              style={{width:'100%',padding:'13px',borderRadius:'8px',border:'none',background: loadingLuu?'#9CA3AF':'var(--primary)',color:'white',fontWeight:700,fontSize:'15px',cursor:loadingLuu||loadingIn?'not-allowed':'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:'8px',transition:'background .2s'}}>
+              style={{width:'100%',padding:'13px',borderRadius:'8px',border:'none',background:loadingLuu?'#9CA3AF':'var(--primary)',color:'white',fontWeight:700,fontSize:'15px',cursor:loadingLuu||loadingIn?'not-allowed':'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:'8px'}}>
               {loadingLuu ? '⏳ Đang lưu...' : '✅ Lưu đơn hàng'}
             </button>
-            {/* Nút 2 */}
             <button onClick={luuVaIn} disabled={loadingLuu||loadingIn}
-              style={{width:'100%',padding:'13px',borderRadius:'8px',border:'none',background: loadingIn?'#6B7280':'#0F6B3B',color:'white',fontWeight:700,fontSize:'15px',cursor:loadingLuu||loadingIn?'not-allowed':'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:'8px',transition:'background .2s'}}>
+              style={{width:'100%',padding:'13px',borderRadius:'8px',border:'none',background:loadingIn?'#6B7280':'#0F6B3B',color:'white',fontWeight:700,fontSize:'15px',cursor:loadingLuu||loadingIn?'not-allowed':'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:'8px'}}>
               {loadingIn ? '⏳ Đang lưu & chuẩn bị in...' : '🖨️ Lưu & In hóa đơn'}
             </button>
             <button onClick={()=>router.back()} disabled={loadingLuu||loadingIn}
