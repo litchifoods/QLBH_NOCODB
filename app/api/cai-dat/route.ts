@@ -1,12 +1,12 @@
-// app/api/cai-dat/route.ts
-// API lưu/đọc cài đặt hóa đơn từ NocoDB bảng CaiDat
+// app/api/cai-dat/route.ts — v2.0
+// Thêm 3 key căn chỉnh: hoadon_canThongTinCH, hoadon_canTieuDe, hoadon_canChanTrang
 
 import { NextRequest, NextResponse } from 'next/server'
-import { getRecords, createRecord, updateRecord, TABLES } from '@/lib/nocodb'
+import { getRecords, createRecord, updateRecord } from '@/lib/nocodb'
 
 export const dynamic = 'force-dynamic'
 
-// Danh sách key hợp lệ (tránh ghi rác vào DB)
+// Tất cả key hợp lệ
 const VALID_KEYS = [
   'hoadon_tenCH',
   'hoadon_diaChiCH',
@@ -14,11 +14,29 @@ const VALID_KEYS = [
   'hoadon_gioiThieu',
   'hoadon_mangXH',
   'hoadon_chanTrang',
-  'hoadon_logo',       // base64 logo
-  'hoadon_logoSize',   // kích thước logo (số, đơn vị px)
+  'hoadon_logo',
+  'hoadon_logoSize',
+  'hoadon_canThongTinCH',  // căn thông tin cửa hàng
+  'hoadon_canTieuDe',      // căn "HÓA ĐƠN BÁN HÀNG"
+  'hoadon_canChanTrang',   // căn chân trang
 ]
 
-// GET /api/cai-dat — đọc tất cả cài đặt, trả về object { key: value }
+// Mô tả tiếng Việt cho từng key
+const MO_TA: Record<string, string> = {
+  hoadon_tenCH:         'Tên cửa hàng',
+  hoadon_diaChiCH:      'Địa chỉ cửa hàng',
+  hoadon_sdtCH:         'Số điện thoại',
+  hoadon_gioiThieu:     'Giới thiệu ngắn',
+  hoadon_mangXH:        'Mạng xã hội / website',
+  hoadon_chanTrang:     'Chân trang hóa đơn',
+  hoadon_logo:          'Logo cửa hàng (base64)',
+  hoadon_logoSize:      'Kích thước logo (px)',
+  hoadon_canThongTinCH: 'Căn chỉnh thông tin cửa hàng',
+  hoadon_canTieuDe:     'Căn chỉnh tiêu đề hóa đơn',
+  hoadon_canChanTrang:  'Căn chỉnh chân trang',
+}
+
+// GET /api/cai-dat — đọc tất cả, trả về { key: value }
 export async function GET() {
   try {
     const data = await getRecords('CaiDat', { limit: 100 })
@@ -33,40 +51,43 @@ export async function GET() {
   }
 }
 
-// POST /api/cai-dat — lưu object { key: value, key2: value2, ... }
-// Dùng upsert: nếu key đã có thì update, chưa có thì create
+// POST /api/cai-dat — upsert từng key (tạo mới nếu chưa có, cập nhật nếu đã có)
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
 
     // Đọc toàn bộ record hiện có để biết rowId
     const data = await getRecords('CaiDat', { limit: 100 })
-    const existingMap: Record<string, { id: number; value: string }> = {}
+    const existingMap: Record<string, { id: number }> = {}
     for (const row of data.list || []) {
-      if (row['key']) existingMap[row['key']] = { id: row['Id'] || row['id'], value: row['value'] }
+      if (row['key']) {
+        existingMap[row['key']] = { id: row['Id'] || row['id'] }
+      }
     }
 
-    // Lưu từng key
     const errors: string[] = []
+
     for (const [k, v] of Object.entries(body)) {
-      if (!VALID_KEYS.includes(k)) continue // bỏ qua key lạ
+      // Bỏ qua key không hợp lệ
+      if (!VALID_KEYS.includes(k)) continue
+
       const val = String(v ?? '')
 
       if (existingMap[k]) {
-        // Update record đã có
+        // Đã có → update
         const ok = await updateRecord('CaiDat', existingMap[k].id, {
-          key: k,
+          key:   k,
           value: val,
         })
-        if (!ok) errors.push(`Không update được key: ${k}`)
+        if (!ok) errors.push(`Không update được: ${k}`)
       } else {
-        // Tạo record mới
+        // Chưa có → tạo mới
         const ok = await createRecord('CaiDat', {
-          key: k,
+          key:   k,
           value: val,
-          moTa: moTaMap[k] || k,
+          moTa:  MO_TA[k] || k,
         })
-        if (!ok) errors.push(`Không tạo được key: ${k}`)
+        if (!ok) errors.push(`Không tạo được: ${k}`)
       }
     }
 
@@ -74,20 +95,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, errors }, { status: 500 })
     }
     return NextResponse.json({ ok: true })
+
   } catch (err) {
     console.error('POST /api/cai-dat lỗi:', err)
     return NextResponse.json({ ok: false, error: String(err) }, { status: 500 })
   }
-}
-
-// Mô tả tiếng Việt cho từng key (lưu vào cột moTa)
-const moTaMap: Record<string, string> = {
-  hoadon_tenCH:      'Tên cửa hàng',
-  hoadon_diaChiCH:   'Địa chỉ cửa hàng',
-  hoadon_sdtCH:      'Số điện thoại',
-  hoadon_gioiThieu:  'Giới thiệu ngắn',
-  hoadon_mangXH:     'Mạng xã hội / website',
-  hoadon_chanTrang:  'Chân trang hóa đơn',
-  hoadon_logo:       'Logo cửa hàng (base64)',
-  hoadon_logoSize:   'Kích thước logo (px)',
 }
