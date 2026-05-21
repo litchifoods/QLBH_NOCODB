@@ -1,6 +1,6 @@
 'use client'
-// components/InHoaDonClient.tsx — v3.1
-// Sửa: ẩn sidebar khi in, thêm nút xuất PDF, layout logo+tên cùng hàng, căn chỉnh linh hoạt
+// components/InHoaDonClient.tsx — v3.2
+// Sửa: ẩn URL khi in, xuất PDF trực tiếp (html2pdf), header 2 cột tiết kiệm giấy, cỡ chữ tên CH điều chỉnh
 
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
@@ -15,6 +15,7 @@ function fDate(s: string) {
 
 const MAC_DINH = {
   tenCH:         'Nội Thất Tính Tuyết',
+  coChuTenCH:    '22',   // cỡ chữ tên cửa hàng (px)
   diaChiCH:      '',
   sdtCH:         '',
   gioiThieu:     'Chuyên cung cấp các sản phẩm nội thất gia đình, nội thất văn phòng chất lượng cao',
@@ -22,8 +23,7 @@ const MAC_DINH = {
   chanTrang:     'Cảm ơn quý khách đã tin tưởng và lựa chọn sản phẩm của chúng tôi!',
   logo:          '',
   logoSize:      '72',
-  // Vị trí logo so với tên CH: 'left' = logo bên trái | 'top' = logo phía trên
-  logoPart:      'left',
+  logoPart:      'left',   // 'left' | 'top'
   canThongTinCH: 'left',
   canTieuDe:     'center',
   canChanTrang:  'center',
@@ -35,11 +35,11 @@ export default function InHoaDonClient({
 }: {
   don: any; chiTiet: any[]; khInfo: any; user: UserSession
 }) {
-  const router = useRouter()
-  const printRef = useRef<HTMLDivElement>(null)
+  const router     = useRouter()
+  const hoaDonRef  = useRef<HTMLDivElement>(null)
   const [settings, setSettings]         = useState<Settings>(MAC_DINH)
   const [showSettings, setShowSettings] = useState(false)
-  const [xuatPDF, setXuatPDF]           = useState(false)
+  const [dangXuatPDF, setDangXuatPDF]   = useState(false)
 
   useEffect(() => {
     fetch('/api/cai-dat')
@@ -50,6 +50,7 @@ export default function InHoaDonClient({
           setSettings(prev => ({
             ...prev,
             tenCH:         d['hoadon_tenCH']         ?? prev.tenCH,
+            coChuTenCH:    d['hoadon_coChuTenCH']    ?? prev.coChuTenCH,
             diaChiCH:      d['hoadon_diaChiCH']      ?? prev.diaChiCH,
             sdtCH:         d['hoadon_sdtCH']         ?? prev.sdtCH,
             gioiThieu:     d['hoadon_gioiThieu']     ?? prev.gioiThieu,
@@ -81,6 +82,7 @@ export default function InHoaDonClient({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           hoadon_tenCH:         s.tenCH,
+          hoadon_coChuTenCH:    s.coChuTenCH,
           hoadon_diaChiCH:      s.diaChiCH,
           hoadon_sdtCH:         s.sdtCH,
           hoadon_gioiThieu:     s.gioiThieu,
@@ -99,15 +101,37 @@ export default function InHoaDonClient({
     }
   }
 
-  // Xuất PDF bằng cách mở tab mới rồi in thành PDF
-  // (Cách đơn giản nhất, không cần thư viện ngoài)
+  // ── XUẤT PDF trực tiếp bằng html2pdf.js (không hiện hộp thoại in) ──
   async function handleXuatPDF() {
-    setXuatPDF(true)
-    // Nhỏ delay để UI cập nhật trước khi mở hộp thoại in
-    setTimeout(() => {
-      window.print()
-      setXuatPDF(false)
-    }, 300)
+    if (!hoaDonRef.current) return
+    setDangXuatPDF(true)
+    try {
+      // Load html2pdf từ CDN nếu chưa có
+      if (!(window as any).html2pdf) {
+        await new Promise<void>((resolve, reject) => {
+          const script = document.createElement('script')
+          script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js'
+          script.onload = () => resolve()
+          script.onerror = () => reject(new Error('Không tải được thư viện PDF'))
+          document.head.appendChild(script)
+        })
+      }
+
+      const maDon = don['Mã đơn hàng'] || 'hoa-don'
+      const opt = {
+        margin:      [10, 10, 10, 10], // mm
+        filename:    `HoaDon_${maDon}.pdf`,
+        image:       { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2, useCORS: true, logging: false },
+        jsPDF:       { unit: 'mm', format: 'a4', orientation: 'portrait' },
+      }
+
+      await (window as any).html2pdf().set(opt).from(hoaDonRef.current).save()
+    } catch (err: any) {
+      alert('Lỗi xuất PDF: ' + err.message + '\nVui lòng dùng nút "In hóa đơn" và chọn "Save as PDF".')
+    } finally {
+      setDangXuatPDF(false)
+    }
   }
 
   const maDon      = don['Mã đơn hàng'] || ''
@@ -124,6 +148,10 @@ export default function InHoaDonClient({
   const ghiChu     = don['Ghi chú'] || ''
   const chiTietHopLe = chiTiet.filter(ct => ct['Tên SP (ghi nhanh)'] || ct['Mã SP'])
   const logoSize   = Number(settings.logoSize) || 72
+  const coChu      = Number(settings.coChuTenCH) || 22
+
+  // Tách mangXH thành 2 phần: địa chỉ/SĐT (trái) và website/mạng XH (phải)
+  const dongMangXH = settings.mangXH ? settings.mangXH.split('\n').filter(Boolean) : []
 
   function toJustify(can: string) {
     if (can === 'center') return 'center'
@@ -134,259 +162,207 @@ export default function InHoaDonClient({
   return (
     <>
       <style>{`
-        /* ── ẨN SIDEBAR VÀ HEADER KHI IN ── */
         @media print {
-          /* Ẩn toàn bộ thứ không phải nội dung hóa đơn */
+          /* Ẩn sidebar, header, thanh điều khiển, URL trình duyệt */
           .no-print,
           nav, aside, header,
-          [class*="sidebar"],
-          [class*="Sidebar"],
-          [id*="sidebar"],
-          [data-sidebar] { display: none !important; }
+          [class*="sidebar"],[class*="Sidebar"],
+          [id*="sidebar"],[data-sidebar] { display:none !important; }
 
-          /* Hóa đơn chiếm toàn trang */
-          body { background: white !important; margin: 0 !important; }
-          main, .main-content, [class*="main"] {
-            margin: 0 !important;
-            padding: 0 !important;
-            width: 100% !important;
-            max-width: 100% !important;
+          /* Ẩn URL ở đầu/cuối trang khi in trên Chrome/Edge */
+          @page {
+            margin: 12mm;
+            size: A4;
+            /* Chrome hỗ trợ ẩn header/footer qua margin:0 ở đây */
           }
-          .hd-wrapper {
-            box-shadow: none !important;
-            border: none !important;
-            margin: 0 !important;
-            max-width: 100% !important;
-            padding: 0 !important;
-          }
-          @page { margin: 12mm; size: A4; }
+
+          body { background:white !important; margin:0 !important; }
+          main,.main-content,[class*="main"] { margin:0 !important; padding:0 !important; width:100% !important; }
+          .hd-wrapper { box-shadow:none !important; border:none !important; margin:0 !important; max-width:100% !important; padding:8mm 10mm !important; }
         }
 
-        body { background: #F3F4F6; }
-        .hd-wrapper {
-          background: white; max-width: 780px; margin: 0 auto;
-          padding: 36px 44px; box-shadow: 0 4px 24px rgba(0,0,0,.10);
-          min-height: 100vh;
-        }
-        .hd-table { width:100%; border-collapse:collapse; font-size:13px; margin-top:12px; }
-        .hd-table th { background:#1B3A6B; color:white; padding:9px 10px; text-align:left; font-weight:600; }
-        .hd-table td { padding:8px 10px; border-bottom:1px solid #E5E7EB; }
+        /* Gợi ý ẩn URL cho Chrome: người dùng cần bỏ tick "Headers and footers" trong hộp thoại in */
+
+        body { background:#F3F4F6; }
+        .hd-wrapper { background:white; max-width:780px; margin:0 auto; padding:28px 36px; box-shadow:0 4px 24px rgba(0,0,0,.10); }
+        .hd-table { width:100%; border-collapse:collapse; font-size:13px; margin-top:8px; }
+        .hd-table th { background:#1B3A6B; color:white; padding:8px 10px; text-align:left; font-weight:600; font-size:12px; }
+        .hd-table td { padding:7px 10px; border-bottom:1px solid #E5E7EB; font-size:13px; }
         .hd-table tr:nth-child(even) td { background:#F9FAFB; }
         .hd-table tr:last-child td { border-bottom:none; }
       `}</style>
 
-      {/* ── THANH ĐIỀU KHIỂN (ẩn khi in) ── */}
-      <div className="no-print" style={{
-        background:'#1B3A6B', padding:'10px 16px',
-        display:'flex', gap:'8px', alignItems:'center',
-        position:'sticky', top:0, zIndex:100,
-      }}>
-        <button onClick={() => router.back()} style={{
-          padding:'7px 14px', borderRadius:'6px', border:'none',
-          background:'rgba(255,255,255,.15)', color:'white',
-          cursor:'pointer', fontSize:'13px', fontWeight:600,
-        }}>← Quay lại</button>
-
+      {/* THANH ĐIỀU KHIỂN */}
+      <div className="no-print" style={{background:'#1B3A6B',padding:'10px 16px',display:'flex',gap:'8px',alignItems:'center',position:'sticky',top:0,zIndex:100}}>
+        <button onClick={() => router.back()} style={{padding:'7px 14px',borderRadius:'6px',border:'none',background:'rgba(255,255,255,.15)',color:'white',cursor:'pointer',fontSize:'13px',fontWeight:600}}>← Quay lại</button>
         <div style={{flex:1}}/>
-
-        <button onClick={() => setShowSettings(true)} style={{
-          padding:'7px 14px', borderRadius:'6px',
-          border:'1px solid rgba(255,255,255,.3)',
-          background:'rgba(255,255,255,.1)', color:'white',
-          cursor:'pointer', fontSize:'13px',
-        }}>⚙️ Cài đặt hóa đơn</button>
-
-        {/* Nút xuất PDF — lưu ý: trình duyệt sẽ mở hộp thoại in, chọn "Save as PDF" */}
-        <button onClick={handleXuatPDF} disabled={xuatPDF} style={{
-          padding:'8px 16px', borderRadius:'6px', border:'none',
-          background:'#7C3AED', color:'white', fontWeight:700,
-          cursor:'pointer', fontSize:'13px',
-          display:'flex', alignItems:'center', gap:'6px',
-          opacity: xuatPDF ? 0.7 : 1,
-        }}>
-          📄 {xuatPDF ? 'Đang xuất...' : 'Xuất PDF'}
+        <button onClick={() => setShowSettings(true)} style={{padding:'7px 14px',borderRadius:'6px',border:'1px solid rgba(255,255,255,.3)',background:'rgba(255,255,255,.1)',color:'white',cursor:'pointer',fontSize:'13px'}}>⚙️ Cài đặt</button>
+        <button onClick={handleXuatPDF} disabled={dangXuatPDF} style={{padding:'8px 16px',borderRadius:'6px',border:'none',background: dangXuatPDF ? '#6B7280' :'#7C3AED',color:'white',fontWeight:700,cursor:'pointer',fontSize:'13px'}}>
+          {dangXuatPDF ? '⏳ Đang xuất...' : '📄 Xuất PDF'}
         </button>
-
-        <button onClick={() => window.print()} style={{
-          padding:'8px 18px', borderRadius:'6px', border:'none',
-          background:'#22C55E', color:'white', fontWeight:700,
-          cursor:'pointer', fontSize:'13px',
-        }}>🖨️ In hóa đơn</button>
+        <button onClick={() => window.print()} style={{padding:'8px 18px',borderRadius:'6px',border:'none',background:'#22C55E',color:'white',fontWeight:700,cursor:'pointer',fontSize:'13px'}}>🖨️ In</button>
       </div>
 
-      {/* Ghi chú xuất PDF */}
-      <div className="no-print" style={{
-        background:'#EFF6FF', padding:'8px 16px',
-        textAlign:'center', fontSize:'12px', color:'#1D4ED8',
-      }}>
-        💡 Khi bấm <strong>Xuất PDF</strong> hoặc <strong>In hóa đơn</strong>: chọn máy in là <strong>"Save as PDF"</strong> (Microsoft Print to PDF / Chrome PDF) để lưu file PDF.
+      {/* Ghi chú nhỏ */}
+      <div className="no-print" style={{background:'#FFF7ED',padding:'6px 16px',textAlign:'center',fontSize:'11px',color:'#92400E'}}>
+        💡 Khi in: bỏ tick <strong>"Headers and footers"</strong> trong hộp thoại in của trình duyệt để ẩn đường link URL ở cuối trang
       </div>
 
-      {/* ── NỘI DUNG HÓA ĐƠN ── */}
-      <div style={{padding:'20px'}} ref={printRef}>
-        <div className="hd-wrapper">
+      {/* NỘI DUNG HÓA ĐƠN */}
+      <div style={{padding:'16px'}}>
+        <div className="hd-wrapper" ref={hoaDonRef}>
 
-          {/* KHỐI 1: THÔNG TIN CỬA HÀNG */}
-          <div style={{marginBottom:'16px', textAlign: settings.canThongTinCH as any}}>
+          {/* ══════════════════════════════════════════
+              HEADER 2 CỘT — tiết kiệm không gian
+              Cột trái: Logo + Tên CH + địa chỉ + SĐT
+              Cột phải: Website + fanpage + giới thiệu
+              ══════════════════════════════════════════ */}
+          <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'16px', marginBottom:'12px', alignItems:'start'}}>
 
-            {settings.logoPart === 'top' ? (
-              // Logo phía TRÊN tên CH
-              <div style={{display:'flex', flexDirection:'column', alignItems: toJustify(settings.canThongTinCH) as any, gap:'8px'}}>
-                {settings.logo && (
-                  <img src={settings.logo} alt="Logo"
-                    style={{width:`${logoSize}px`, height:`${logoSize}px`, objectFit:'contain'}}/>
-                )}
-                <div style={{fontSize:'22px', fontWeight:900, color:'#1B3A6B', fontFamily:'serif'}}>
-                  {settings.tenCH}
+            {/* CỘT TRÁI: Logo + Tên + địa chỉ + SĐT */}
+            <div>
+              {/* Logo + Tên CH cùng hàng hoặc logo phía trên */}
+              {settings.logoPart === 'top' ? (
+                <div style={{display:'flex',flexDirection:'column',alignItems:'flex-start',gap:'6px',marginBottom:'6px'}}>
+                  {settings.logo && <img src={settings.logo} alt="Logo" style={{width:`${logoSize}px`,height:`${logoSize}px`,objectFit:'contain'}}/>}
+                  <div style={{fontSize:`${coChu}px`,fontWeight:900,color:'#1B3A6B',fontFamily:'serif',lineHeight:1.1}}>{settings.tenCH}</div>
                 </div>
-              </div>
-            ) : (
-              // Logo bên TRÁI tên CH (mặc định)
-              <div style={{
-                display:'inline-flex', alignItems:'center', gap:'12px',
-                justifyContent: toJustify(settings.canThongTinCH),
-                width:'100%',
-              }}>
-                {settings.logo && (
-                  <img src={settings.logo} alt="Logo"
-                    style={{width:`${logoSize}px`, height:`${logoSize}px`, objectFit:'contain', flexShrink:0}}/>
-                )}
-                <div style={{fontSize:'22px', fontWeight:900, color:'#1B3A6B', fontFamily:'serif'}}>
-                  {settings.tenCH}
+              ) : (
+                <div style={{display:'flex',alignItems:'center',gap:'10px',marginBottom:'6px'}}>
+                  {settings.logo && <img src={settings.logo} alt="Logo" style={{width:`${logoSize}px`,height:`${logoSize}px`,objectFit:'contain',flexShrink:0}}/>}
+                  <div style={{fontSize:`${coChu}px`,fontWeight:900,color:'#1B3A6B',fontFamily:'serif',lineHeight:1.1}}>{settings.tenCH}</div>
                 </div>
-              </div>
-            )}
+              )}
+              {/* Địa chỉ */}
+              {settings.diaChiCH && <div style={{fontSize:'12px',color:'#374151',marginTop:'3px'}}>📍 {settings.diaChiCH}</div>}
+              {/* SĐT */}
+              {settings.sdtCH && <div style={{fontSize:'12px',color:'#374151'}}>📞 {settings.sdtCH}</div>}
+            </div>
 
-            {settings.gioiThieu && (
-              <div style={{fontSize:'11.5px', color:'#6B7280', marginTop:'5px', lineHeight:1.4}}>
-                {settings.gioiThieu}
-              </div>
-            )}
-            {settings.diaChiCH && (
-              <div style={{fontSize:'12px', color:'#374151', marginTop:'4px'}}>📍 {settings.diaChiCH}</div>
-            )}
-            {settings.sdtCH && (
-              <div style={{fontSize:'12px', color:'#374151'}}>📞 {settings.sdtCH}</div>
-            )}
-            {settings.mangXH && settings.mangXH.split('\n').filter(Boolean).map((line, i) => (
-              <div key={i} style={{fontSize:'12px', color:'#374151'}}>{line}</div>
-            ))}
+            {/* CỘT PHẢI: Website/Fanpage + Giới thiệu */}
+            <div style={{textAlign:'right'}}>
+              {/* Mạng xã hội / website */}
+              {dongMangXH.map((line, i) => (
+                <div key={i} style={{fontSize:'12px',color:'#374151'}}>{line}</div>
+              ))}
+              {/* Giới thiệu — dòng cuối */}
+              {settings.gioiThieu && (
+                <div style={{fontSize:'11px',color:'#6B7280',marginTop:'4px',lineHeight:1.4,fontStyle:'italic'}}>
+                  {settings.gioiThieu}
+                </div>
+              )}
+            </div>
           </div>
 
-          {/* KHỐI 2: TIÊU ĐỀ "HÓA ĐƠN BÁN HÀNG" */}
+          {/* TIÊU ĐỀ "HÓA ĐƠN BÁN HÀNG" */}
           <div style={{
             textAlign: settings.canTieuDe as any,
-            padding:'14px 0 12px',
+            padding:'10px 0 8px',
             borderTop:'2.5px solid #1B3A6B',
             borderBottom:'2.5px solid #1B3A6B',
-            marginBottom:'20px',
+            marginBottom:'14px',
           }}>
-            <div style={{
-              fontSize:'28px', fontWeight:900, color:'#1B3A6B',
-              letterSpacing:'.06em', fontFamily:'serif',
-              textTransform:'uppercase', lineHeight:1,
-            }}>
+            <div style={{fontSize:'26px',fontWeight:900,color:'#1B3A6B',letterSpacing:'.06em',fontFamily:'serif',textTransform:'uppercase',lineHeight:1}}>
               HÓA ĐƠN BÁN HÀNG
             </div>
-            <div style={{fontSize:'13px', marginTop:'6px', color:'#374151'}}>
+            <div style={{fontSize:'13px',marginTop:'5px',color:'#374151'}}>
               Số:&nbsp;
-              <span style={{fontWeight:700, background:'#EFF6FF', padding:'2px 10px', borderRadius:'5px', color:'#1B3A6B'}}>
-                {maDon}
-              </span>
+              <span style={{fontWeight:700,background:'#EFF6FF',padding:'2px 10px',borderRadius:'5px',color:'#1B3A6B'}}>{maDon}</span>
               &nbsp;&nbsp;
               <span style={{color:'#6B7280'}}>
-                Ngày: {fDate(ngayDat)}
-                {ngayGiao ? `  |  Giao: ${fDate(ngayGiao)}` : ''}
+                Ngày: {fDate(ngayDat)}{ngayGiao ? `  |  Giao: ${fDate(ngayGiao)}` : ''}
               </span>
             </div>
           </div>
 
-          {/* Thông tin KH + đơn hàng */}
-          <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'16px', marginBottom:'16px'}}>
+          {/* THÔNG TIN KH + ĐƠN HÀNG */}
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'14px',marginBottom:'12px'}}>
             <div>
-              <div style={{fontSize:'11px', fontWeight:700, color:'#6B7280', textTransform:'uppercase', marginBottom:'6px'}}>Khách hàng</div>
-              <div style={{fontWeight:700, fontSize:'15px', color:'#1F2937'}}>{tenKH}</div>
-              {sdtKH !== '—' && <div style={{fontSize:'13px', color:'#374151', marginTop:'3px'}}>📞 {sdtKH}</div>}
-              {diaChiGiao !== '—' && <div style={{fontSize:'13px', color:'#374151', marginTop:'3px'}}>📍 {diaChiGiao}</div>}
+              <div style={{fontSize:'10px',fontWeight:700,color:'#6B7280',textTransform:'uppercase',marginBottom:'5px'}}>Khách hàng</div>
+              <div style={{fontWeight:700,fontSize:'14px',color:'#1F2937'}}>{tenKH}</div>
+              {sdtKH !== '—' && <div style={{fontSize:'12px',color:'#374151',marginTop:'2px'}}>📞 {sdtKH}</div>}
+              {diaChiGiao !== '—' && <div style={{fontSize:'12px',color:'#374151',marginTop:'2px'}}>📍 {diaChiGiao}</div>}
             </div>
             <div>
-              <div style={{fontSize:'11px', fontWeight:700, color:'#6B7280', textTransform:'uppercase', marginBottom:'6px'}}>Thông tin đơn hàng</div>
-              <div style={{fontSize:'13px', color:'#374151'}}>NV bán: <strong>{nvBan}</strong></div>
-              <div style={{fontSize:'13px', color:'#374151', marginTop:'2px'}}>Kênh: {don['Kênh bán'] || '—'}</div>
-              <div style={{fontSize:'13px', color:'#374151', marginTop:'2px'}}>Giao: {don['Hình thức giao hàng'] || '—'}</div>
+              <div style={{fontSize:'10px',fontWeight:700,color:'#6B7280',textTransform:'uppercase',marginBottom:'5px'}}>Thông tin đơn hàng</div>
+              <div style={{fontSize:'12px',color:'#374151'}}>NV bán: <strong>{nvBan}</strong></div>
+              <div style={{fontSize:'12px',color:'#374151',marginTop:'2px'}}>Kênh: {don['Kênh bán'] || '—'}</div>
+              <div style={{fontSize:'12px',color:'#374151',marginTop:'2px'}}>Giao: {don['Hình thức giao hàng'] || '—'}</div>
             </div>
           </div>
 
-          {/* Bảng sản phẩm */}
+          {/* BẢNG SẢN PHẨM */}
           <table className="hd-table">
             <thead>
               <tr>
-                <th style={{width:'30px'}}>#</th>
+                <th style={{width:'28px'}}>#</th>
                 <th>Sản phẩm</th>
-                <th style={{textAlign:'center', width:'60px'}}>SL</th>
-                <th style={{textAlign:'right', width:'120px'}}>Đơn giá</th>
-                <th style={{textAlign:'right', width:'130px'}}>Thành tiền</th>
+                <th style={{textAlign:'center',width:'55px'}}>SL</th>
+                <th style={{textAlign:'right',width:'115px'}}>Đơn giá</th>
+                <th style={{textAlign:'right',width:'125px'}}>Thành tiền</th>
               </tr>
             </thead>
             <tbody>
               {chiTietHopLe.length === 0 ? (
-                <tr><td colSpan={5} style={{textAlign:'center', color:'#6B7280', padding:'20px'}}>Không có sản phẩm</td></tr>
+                <tr><td colSpan={5} style={{textAlign:'center',color:'#6B7280',padding:'16px'}}>Không có sản phẩm</td></tr>
               ) : chiTietHopLe.map((ct, i) => (
                 <tr key={i}>
-                  <td style={{color:'#6B7280'}}>{i+1}</td>
+                  <td style={{color:'#6B7280',fontSize:'12px'}}>{i+1}</td>
                   <td>
                     <div style={{fontWeight:600}}>{ct['Tên SP (ghi nhanh)'] || ct['Mã SP']}</div>
-                    {ct['Ghi chú SP'] && <div style={{fontSize:'11px', color:'#6B7280', marginTop:'2px'}}>{ct['Ghi chú SP']}</div>}
+                    {ct['Ghi chú SP'] && <div style={{fontSize:'11px',color:'#6B7280',marginTop:'1px'}}>{ct['Ghi chú SP']}</div>}
                   </td>
                   <td style={{textAlign:'center'}}>{ct['Số lượng'] || 1}</td>
                   <td style={{textAlign:'right'}}>{fVND(ct['Đơn giá'])}đ</td>
-                  <td style={{textAlign:'right', fontWeight:600}}>{fVND(ct['Thành tiền'])}đ</td>
+                  <td style={{textAlign:'right',fontWeight:600}}>{fVND(ct['Thành tiền'])}đ</td>
                 </tr>
               ))}
             </tbody>
           </table>
 
-          {/* Tổng tiền */}
-          <div style={{marginTop:'16px', display:'flex', justifyContent:'flex-end'}}>
-            <div style={{width:'280px'}}>
-              <div style={{display:'flex', justifyContent:'space-between', fontSize:'13px', padding:'6px 0', borderBottom:'1px solid #E5E7EB'}}>
+          {/* TỔNG TIỀN */}
+          <div style={{marginTop:'12px',display:'flex',justifyContent:'flex-end'}}>
+            <div style={{width:'270px'}}>
+              <div style={{display:'flex',justifyContent:'space-between',fontSize:'13px',padding:'5px 0',borderBottom:'1px solid #E5E7EB'}}>
                 <span style={{color:'#6B7280'}}>Tổng tiền hàng:</span>
                 <span style={{fontWeight:600}}>{fVND(tongTien)}đ</span>
               </div>
               {datCoc > 0 && (
-                <div style={{display:'flex', justifyContent:'space-between', fontSize:'13px', padding:'6px 0', borderBottom:'1px solid #E5E7EB'}}>
-                  <span style={{color:'#6B7280'}}>Đã đặt cọc{htCoc ? ` (${htCoc})` : ''}:</span>
-                  <span style={{fontWeight:600, color:'#16A34A'}}>- {fVND(datCoc)}đ</span>
+                <div style={{display:'flex',justifyContent:'space-between',fontSize:'13px',padding:'5px 0',borderBottom:'1px solid #E5E7EB'}}>
+                  <span style={{color:'#6B7280'}}>Đã đặt cọc{htCoc?` (${htCoc})`:''}:</span>
+                  <span style={{fontWeight:600,color:'#16A34A'}}>- {fVND(datCoc)}đ</span>
                 </div>
               )}
-              <div style={{display:'flex', justifyContent:'space-between', fontSize:'16px', fontWeight:800, padding:'10px 0', color:'#1B3A6B', borderTop:'2px solid #1B3A6B', marginTop:'4px'}}>
+              <div style={{display:'flex',justifyContent:'space-between',fontSize:'15px',fontWeight:800,padding:'8px 0',color:'#1B3A6B',borderTop:'2px solid #1B3A6B',marginTop:'3px'}}>
                 <span>Còn phải thu:</span>
-                <span style={{color: conLai > 0 ? '#DC2626' : '#16A34A'}}>{fVND(conLai)}đ</span>
+                <span style={{color:conLai>0?'#DC2626':'#16A34A'}}>{fVND(conLai)}đ</span>
               </div>
             </div>
           </div>
 
           {ghiChu && (
-            <div style={{marginTop:'16px', padding:'10px 14px', background:'#FFF7ED', borderRadius:'6px', border:'1px solid #FED7AA', fontSize:'12px', color:'#92400E'}}>
+            <div style={{marginTop:'12px',padding:'8px 12px',background:'#FFF7ED',borderRadius:'6px',border:'1px solid #FED7AA',fontSize:'12px',color:'#92400E'}}>
               📝 {ghiChu}
             </div>
           )}
 
+          {/* CHÂN TRANG */}
           {settings.chanTrang && (
-            <div style={{marginTop:'32px', textAlign: settings.canChanTrang as any, fontSize:'12px', color:'#6B7280', fontStyle:'italic', borderTop:'1px solid #E5E7EB', paddingTop:'16px'}}>
+            <div style={{marginTop:'20px',textAlign:settings.canChanTrang as any,fontSize:'12px',color:'#6B7280',fontStyle:'italic',borderTop:'1px solid #E5E7EB',paddingTop:'12px'}}>
               {settings.chanTrang}
             </div>
           )}
 
-          <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'40px', marginTop:'40px', textAlign:'center', fontSize:'12px', color:'#6B7280'}}>
+          {/* CHỮ KÝ */}
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'40px',marginTop:'28px',textAlign:'center',fontSize:'12px',color:'#6B7280'}}>
             <div>
-              <div style={{fontWeight:700, marginBottom:'4px'}}>Khách hàng</div>
-              <div style={{height:'48px', borderBottom:'1px dashed #D1D5DB', marginBottom:'4px'}}/>
+              <div style={{fontWeight:700,marginBottom:'4px'}}>Khách hàng</div>
+              <div style={{height:'44px',borderBottom:'1px dashed #D1D5DB',marginBottom:'4px'}}/>
               <div>{tenKH}</div>
             </div>
             <div>
-              <div style={{fontWeight:700, marginBottom:'4px'}}>Người bán</div>
-              <div style={{height:'48px', borderBottom:'1px dashed #D1D5DB', marginBottom:'4px'}}/>
+              <div style={{fontWeight:700,marginBottom:'4px'}}>Người bán</div>
+              <div style={{height:'44px',borderBottom:'1px dashed #D1D5DB',marginBottom:'4px'}}/>
               <div>{nvBan}</div>
             </div>
           </div>
@@ -395,11 +371,7 @@ export default function InHoaDonClient({
       </div>
 
       {showSettings && (
-        <ModalCaiDat
-          settings={settings}
-          onSave={handleSaveSettings}
-          onClose={() => setShowSettings(false)}
-        />
+        <ModalCaiDat settings={settings} onSave={handleSaveSettings} onClose={() => setShowSettings(false)}/>
       )}
     </>
   )
@@ -408,23 +380,14 @@ export default function InHoaDonClient({
 // ── NÚT CĂN CHỈNH ──
 function BtnCan({ label, active, onClick }: { label:string; active:boolean; onClick:()=>void }) {
   return (
-    <button onClick={onClick} style={{
-      flex:1, padding:'8px 4px',
-      border: active ? '2px solid #1B3A6B' : '1px solid #D1D5DB',
-      borderRadius:'6px',
-      background: active ? '#EFF6FF' : 'white',
-      color: active ? '#1B3A6B' : '#374151',
-      fontWeight: active ? 700 : 400,
-      cursor:'pointer', fontSize:'12px',
-    }}>
+    <button onClick={onClick} style={{flex:1,padding:'7px 4px',border:active?'2px solid #1B3A6B':'1px solid #D1D5DB',borderRadius:'6px',background:active?'#EFF6FF':'white',color:active?'#1B3A6B':'#374151',fontWeight:active?700:400,cursor:'pointer',fontSize:'12px'}}>
       {label}
     </button>
   )
 }
-
 function NhomCan({ value, onChange }: { value:string; onChange:(v:string)=>void }) {
   return (
-    <div style={{display:'flex', gap:'6px'}}>
+    <div style={{display:'flex',gap:'6px'}}>
       <BtnCan label="◀ Trái"  active={value==='left'}   onClick={() => onChange('left')}/>
       <BtnCan label="● Giữa"  active={value==='center'} onClick={() => onChange('center')}/>
       <BtnCan label="▶ Phải"  active={value==='right'}  onClick={() => onChange('right')}/>
@@ -433,13 +396,10 @@ function NhomCan({ value, onChange }: { value:string; onChange:(v:string)=>void 
 }
 
 // ── MODAL CÀI ĐẶT ──
-function ModalCaiDat({ settings, onSave, onClose }: {
-  settings: Settings; onSave:(s:Settings)=>void; onClose:()=>void
-}) {
-  const [s, setS]   = useState<Settings>({ ...settings })
+function ModalCaiDat({ settings, onSave, onClose }: { settings:Settings; onSave:(s:Settings)=>void; onClose:()=>void }) {
+  const [s, setS]           = useState<Settings>({ ...settings })
   const [saving, setSaving] = useState(false)
-  const fileRef = useRef<HTMLInputElement>(null)
-
+  const fileRef             = useRef<HTMLInputElement>(null)
   const upd = (k: keyof Settings, v: string) => setS(p => ({ ...p, [k]: v }))
 
   function handleLogoUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -451,131 +411,136 @@ function ModalCaiDat({ settings, onSave, onClose }: {
     reader.readAsDataURL(file)
   }
 
-  async function handleSave() {
-    setSaving(true)
-    await onSave(s)
-    setSaving(false)
-  }
+  async function handleSave() { setSaving(true); await onSave(s); setSaving(false) }
 
   const logoSize = Number(s.logoSize) || 72
+  const coChu    = Number(s.coChuTenCH) || 22
 
   return (
-    <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.5)',zIndex:200,display:'flex',alignItems:'center',justifyContent:'center',padding:'16px'}}
-      onClick={onClose}>
-      <div style={{background:'white',borderRadius:'12px',padding:'24px',width:'100%',maxWidth:'500px',maxHeight:'93vh',overflowY:'auto'}}
-        onClick={e => e.stopPropagation()}>
+    <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.5)',zIndex:200,display:'flex',alignItems:'center',justifyContent:'center',padding:'16px'}} onClick={onClose}>
+      <div style={{background:'white',borderRadius:'12px',padding:'24px',width:'100%',maxWidth:'500px',maxHeight:'93vh',overflowY:'auto'}} onClick={e=>e.stopPropagation()}>
 
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'16px'}}>
           <h2 style={{fontSize:'16px',fontWeight:700,margin:0}}>⚙️ Cài đặt hóa đơn</h2>
           <button onClick={onClose} style={{background:'none',border:'none',cursor:'pointer',fontSize:'20px',color:'#6B7280'}}>✕</button>
         </div>
-
-        <p style={{fontSize:'12px',color:'#16A34A',margin:'0 0 18px',background:'#F0FDF4',padding:'8px 12px',borderRadius:'6px'}}>
+        <p style={{fontSize:'12px',color:'#16A34A',margin:'0 0 16px',background:'#F0FDF4',padding:'8px 12px',borderRadius:'6px'}}>
           ✅ Cài đặt lưu trên <strong>máy chủ</strong> — dùng được mọi thiết bị.
         </p>
 
-        <div style={{display:'flex',flexDirection:'column',gap:'16px'}}>
+        <div style={{display:'flex',flexDirection:'column',gap:'14px'}}>
 
           {/* LOGO */}
           <fieldset style={{border:'1px solid #E5E7EB',borderRadius:'8px',padding:'12px 14px',margin:0}}>
-            <legend style={{fontSize:'12px',fontWeight:700,color:'#374151',padding:'0 6px'}}>🖼️ Logo cửa hàng</legend>
-            <div style={{display:'flex',alignItems:'center',gap:'14px',marginBottom:'10px'}}>
-              <div style={{width:`${Math.min(logoSize,80)}px`,height:`${Math.min(logoSize,80)}px`,border:'1px dashed #D1D5DB',borderRadius:'8px',display:'flex',alignItems:'center',justifyContent:'center',overflow:'hidden',flexShrink:0,background:'#F9FAFB'}}>
-                {s.logo
-                  ? <img src={s.logo} alt="Logo" style={{width:'100%',height:'100%',objectFit:'contain'}}/>
-                  : <span style={{fontSize:'10px',color:'#9CA3AF',textAlign:'center',padding:'4px'}}>Chưa có logo</span>}
+            <legend style={{fontSize:'12px',fontWeight:700,color:'#374151',padding:'0 6px'}}>🖼️ Logo</legend>
+            <div style={{display:'flex',alignItems:'center',gap:'12px',marginBottom:'10px'}}>
+              <div style={{width:`${Math.min(logoSize,72)}px`,height:`${Math.min(logoSize,72)}px`,border:'1px dashed #D1D5DB',borderRadius:'8px',display:'flex',alignItems:'center',justifyContent:'center',overflow:'hidden',flexShrink:0,background:'#F9FAFB'}}>
+                {s.logo?<img src={s.logo} alt="Logo" style={{width:'100%',height:'100%',objectFit:'contain'}}/>:<span style={{fontSize:'10px',color:'#9CA3AF',textAlign:'center'}}>Chưa có</span>}
               </div>
               <div style={{flex:1}}>
                 <input ref={fileRef} type="file" accept="image/*" style={{display:'none'}} onChange={handleLogoUpload}/>
-                <button onClick={() => fileRef.current?.click()} style={{padding:'7px 12px',border:'1px solid #D1D5DB',borderRadius:'6px',background:'white',cursor:'pointer',fontSize:'12px',display:'block',marginBottom:'6px',width:'100%'}}>
-                  📁 Chọn ảnh logo (tối đa 500KB)
-                </button>
-                {s.logo && (
-                  <button onClick={() => upd('logo','')} style={{padding:'5px 10px',border:'1px solid #FCA5A5',borderRadius:'6px',background:'#FEF2F2',color:'#DC2626',cursor:'pointer',fontSize:'11px',width:'100%'}}>
-                    🗑️ Xoá logo
-                  </button>
-                )}
+                <button onClick={()=>fileRef.current?.click()} style={{padding:'6px 12px',border:'1px solid #D1D5DB',borderRadius:'6px',background:'white',cursor:'pointer',fontSize:'12px',display:'block',marginBottom:'5px',width:'100%'}}>📁 Chọn ảnh logo (≤500KB)</button>
+                {s.logo&&<button onClick={()=>upd('logo','')} style={{padding:'4px 10px',border:'1px solid #FCA5A5',borderRadius:'6px',background:'#FEF2F2',color:'#DC2626',cursor:'pointer',fontSize:'11px',width:'100%'}}>🗑️ Xoá logo</button>}
               </div>
             </div>
-
-            {/* Vị trí logo */}
-            <div style={{marginBottom:'10px'}}>
-              <label style={{fontSize:'11px',fontWeight:600,display:'block',marginBottom:'6px'}}>Vị trí logo</label>
+            <div style={{marginBottom:'8px'}}>
+              <label style={{fontSize:'11px',fontWeight:600,display:'block',marginBottom:'5px'}}>Vị trí logo</label>
               <div style={{display:'flex',gap:'6px'}}>
-                <BtnCan label="◀ Bên trái tên CH" active={s.logoPart==='left'} onClick={() => upd('logoPart','left')}/>
-                <BtnCan label="▲ Phía trên tên CH" active={s.logoPart==='top'}  onClick={() => upd('logoPart','top')}/>
+                <BtnCan label="◀ Bên trái tên CH" active={s.logoPart==='left'} onClick={()=>upd('logoPart','left')}/>
+                <BtnCan label="▲ Phía trên tên CH" active={s.logoPart==='top'}  onClick={()=>upd('logoPart','top')}/>
               </div>
             </div>
-
-            <label style={{fontSize:'11px',color:'#6B7280',display:'block',marginBottom:'4px'}}>
-              Kích thước logo: <strong>{s.logoSize}px</strong>
-            </label>
-            <input type="range" min="40" max="200" step="5" value={s.logoSize}
-              onChange={e => upd('logoSize', e.target.value)} style={{width:'100%'}}/>
-            <div style={{display:'flex',justifyContent:'space-between',fontSize:'10px',color:'#9CA3AF'}}>
-              <span>Nhỏ (40px)</span><span>Lớn (200px)</span>
-            </div>
+            <label style={{fontSize:'11px',color:'#6B7280',display:'block',marginBottom:'3px'}}>Kích thước logo: <strong>{s.logoSize}px</strong></label>
+            <input type="range" min="40" max="200" step="5" value={s.logoSize} onChange={e=>upd('logoSize',e.target.value)} style={{width:'100%'}}/>
+            <div style={{display:'flex',justifyContent:'space-between',fontSize:'10px',color:'#9CA3AF'}}><span>40px</span><span>200px</span></div>
           </fieldset>
 
           {/* THÔNG TIN CỬA HÀNG */}
           <fieldset style={{border:'1px solid #E5E7EB',borderRadius:'8px',padding:'12px 14px',margin:0}}>
             <legend style={{fontSize:'12px',fontWeight:700,color:'#374151',padding:'0 6px'}}>🏪 Thông tin cửa hàng</legend>
             <div style={{display:'flex',flexDirection:'column',gap:'10px'}}>
+
+              {/* Tên CH + cỡ chữ */}
+              <div>
+                <label style={{fontSize:'11px',fontWeight:600,display:'block',marginBottom:'3px'}}>Tên cửa hàng *</label>
+                <input style={{width:'100%',padding:'7px 10px',border:'1px solid #D1D5DB',borderRadius:'6px',fontSize:'13px',boxSizing:'border-box'}}
+                  value={s.tenCH} onChange={e=>upd('tenCH',e.target.value)} placeholder="Nội Thất Tính Tuyết"/>
+                <div style={{marginTop:'6px'}}>
+                  <label style={{fontSize:'11px',color:'#6B7280',display:'block',marginBottom:'3px'}}>Cỡ chữ tên CH: <strong>{s.coChuTenCH}px</strong></label>
+                  <input type="range" min="14" max="40" step="1" value={s.coChuTenCH} onChange={e=>upd('coChuTenCH',e.target.value)} style={{width:'100%'}}/>
+                  <div style={{display:'flex',justifyContent:'space-between',fontSize:'10px',color:'#9CA3AF'}}><span>Nhỏ (14px)</span><span>Lớn (40px)</span></div>
+                  {/* Preview tên CH */}
+                  <div style={{marginTop:'6px',padding:'6px 10px',background:'#F9FAFB',borderRadius:'6px',fontSize:`${coChu}px`,fontWeight:900,color:'#1B3A6B',fontFamily:'serif'}}>
+                    {s.tenCH || 'Tên cửa hàng'}
+                  </div>
+                </div>
+              </div>
+
               {([
-                ['Tên cửa hàng *',  'tenCH',    'Nội Thất Tính Tuyết'],
                 ['Địa chỉ',         'diaChiCH', 'Số 123 Đường ABC, TP...'],
                 ['Số điện thoại',   'sdtCH',    '0901 234 567'],
-                ['Giới thiệu ngắn', 'gioiThieu','Chuyên cung cấp nội thất...'],
               ] as [string, keyof Settings, string][]).map(([lb, k, ph]) => (
                 <div key={String(k)}>
                   <label style={{fontSize:'11px',fontWeight:600,display:'block',marginBottom:'3px'}}>{lb}</label>
                   <input style={{width:'100%',padding:'7px 10px',border:'1px solid #D1D5DB',borderRadius:'6px',fontSize:'13px',boxSizing:'border-box'}}
-                    placeholder={ph} value={s[k] as string} onChange={e => upd(k, e.target.value)}/>
+                    placeholder={ph} value={s[k] as string} onChange={e=>upd(k,e.target.value)}/>
                 </div>
               ))}
+
               <div>
-                <label style={{fontSize:'11px',fontWeight:600,display:'block',marginBottom:'3px'}}>Website / Fanpage / Zalo / YouTube... (mỗi dòng 1 mục)</label>
+                <label style={{fontSize:'11px',fontWeight:600,display:'block',marginBottom:'3px'}}>
+                  Website / Fanpage / Zalo / YouTube...
+                  <span style={{fontWeight:400,color:'#6B7280'}}> (mỗi dòng 1 mục — hiển thị cột phải hóa đơn)</span>
+                </label>
                 <textarea style={{width:'100%',padding:'7px 10px',border:'1px solid #D1D5DB',borderRadius:'6px',fontSize:'12px',resize:'vertical',boxSizing:'border-box'}}
-                  rows={4} placeholder={'🌐 noithattinhtuyet.com\n📘 fb.com/noithattinh\n💬 Zalo: 0901 234 567'}
-                  value={s.mangXH} onChange={e => upd('mangXH', e.target.value)}/>
+                  rows={4} placeholder={'🌐 noithattinhtuyet.com\n📘 fb.com/noithattinh\n📺 youtube.com/@nttt\n💬 Zalo: 0901 234 567'}
+                  value={s.mangXH} onChange={e=>upd('mangXH',e.target.value)}/>
               </div>
+
               <div>
-                <label style={{fontSize:'11px',fontWeight:600,display:'block',marginBottom:'6px'}}>Căn chỉnh khối thông tin cửa hàng</label>
-                <NhomCan value={s.canThongTinCH} onChange={v => upd('canThongTinCH', v)}/>
+                <label style={{fontSize:'11px',fontWeight:600,display:'block',marginBottom:'3px'}}>
+                  Giới thiệu ngắn
+                  <span style={{fontWeight:400,color:'#6B7280'}}> (dòng cuối cột phải hóa đơn)</span>
+                </label>
+                <input style={{width:'100%',padding:'7px 10px',border:'1px solid #D1D5DB',borderRadius:'6px',fontSize:'13px',boxSizing:'border-box'}}
+                  placeholder="Chuyên cung cấp nội thất..." value={s.gioiThieu} onChange={e=>upd('gioiThieu',e.target.value)}/>
+              </div>
+
+              <div>
+                <label style={{fontSize:'11px',fontWeight:600,display:'block',marginBottom:'5px'}}>Căn chỉnh cột trái (logo + tên CH + địa chỉ)</label>
+                <NhomCan value={s.canThongTinCH} onChange={v=>upd('canThongTinCH',v)}/>
               </div>
             </div>
           </fieldset>
 
           {/* TIÊU ĐỀ */}
           <fieldset style={{border:'1px solid #E5E7EB',borderRadius:'8px',padding:'12px 14px',margin:0}}>
-            <legend style={{fontSize:'12px',fontWeight:700,color:'#374151',padding:'0 6px'}}>📄 Tiêu đề "Hóa đơn bán hàng"</legend>
-            <label style={{fontSize:'11px',fontWeight:600,display:'block',marginBottom:'6px'}}>Căn chỉnh tiêu đề</label>
-            <NhomCan value={s.canTieuDe} onChange={v => upd('canTieuDe', v)}/>
+            <legend style={{fontSize:'12px',fontWeight:700,color:'#374151',padding:'0 6px'}}>📄 Tiêu đề hóa đơn</legend>
+            <label style={{fontSize:'11px',fontWeight:600,display:'block',marginBottom:'5px'}}>Căn chỉnh</label>
+            <NhomCan value={s.canTieuDe} onChange={v=>upd('canTieuDe',v)}/>
           </fieldset>
 
           {/* CHÂN TRANG */}
           <fieldset style={{border:'1px solid #E5E7EB',borderRadius:'8px',padding:'12px 14px',margin:0}}>
             <legend style={{fontSize:'12px',fontWeight:700,color:'#374151',padding:'0 6px'}}>📝 Chân trang</legend>
-            <div style={{marginBottom:'10px'}}>
-              <label style={{fontSize:'11px',fontWeight:600,display:'block',marginBottom:'3px'}}>Nội dung chân trang</label>
+            <div style={{marginBottom:'8px'}}>
+              <label style={{fontSize:'11px',fontWeight:600,display:'block',marginBottom:'3px'}}>Nội dung</label>
               <input style={{width:'100%',padding:'7px 10px',border:'1px solid #D1D5DB',borderRadius:'6px',fontSize:'13px',boxSizing:'border-box'}}
-                placeholder="Cảm ơn quý khách..." value={s.chanTrang} onChange={e => upd('chanTrang', e.target.value)}/>
+                value={s.chanTrang} onChange={e=>upd('chanTrang',e.target.value)} placeholder="Cảm ơn quý khách..."/>
             </div>
-            <label style={{fontSize:'11px',fontWeight:600,display:'block',marginBottom:'6px'}}>Căn chỉnh chân trang</label>
-            <NhomCan value={s.canChanTrang} onChange={v => upd('canChanTrang', v)}/>
+            <label style={{fontSize:'11px',fontWeight:600,display:'block',marginBottom:'5px'}}>Căn chỉnh</label>
+            <NhomCan value={s.canChanTrang} onChange={v=>upd('canChanTrang',v)}/>
           </fieldset>
 
           <div style={{display:'flex',gap:'10px'}}>
             <button onClick={handleSave} disabled={saving} style={{flex:1,padding:'12px',borderRadius:'8px',border:'none',background:saving?'#9CA3AF':'#1B3A6B',color:'white',fontWeight:700,fontSize:'14px',cursor:saving?'not-allowed':'pointer'}}>
-              {saving ? '⏳ Đang lưu...' : '✅ Lưu cài đặt'}
+              {saving?'⏳ Đang lưu...':'✅ Lưu cài đặt'}
             </button>
             <button onClick={onClose} style={{padding:'12px 16px',borderRadius:'8px',border:'1px solid #D1D5DB',background:'white',cursor:'pointer',fontSize:'14px'}}>Huỷ</button>
           </div>
         </div>
 
-        <p style={{fontSize:'11px',color:'#9CA3AF',marginTop:'12px',textAlign:'center'}}>
-          Thay đổi áp dụng cho tất cả hóa đơn sau khi lưu
-        </p>
+        <p style={{fontSize:'11px',color:'#9CA3AF',marginTop:'10px',textAlign:'center'}}>Thay đổi áp dụng cho tất cả hóa đơn sau khi lưu</p>
       </div>
     </div>
   )

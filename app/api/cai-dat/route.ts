@@ -1,4 +1,4 @@
-// app/api/cai-dat/route.ts — v3.0
+// app/api/cai-dat/route.ts — v4.0
 import { NextRequest, NextResponse } from 'next/server'
 import { getRecords, createRecord, updateRecord } from '@/lib/nocodb'
 
@@ -6,6 +6,7 @@ export const dynamic = 'force-dynamic'
 
 const VALID_KEYS = [
   'hoadon_tenCH',
+  'hoadon_coChuTenCH',     // ← MỚI: cỡ chữ tên cửa hàng
   'hoadon_diaChiCH',
   'hoadon_sdtCH',
   'hoadon_gioiThieu',
@@ -13,7 +14,7 @@ const VALID_KEYS = [
   'hoadon_chanTrang',
   'hoadon_logo',
   'hoadon_logoSize',
-  'hoadon_logoPart',       // ← MỚI: vị trí logo ('left' hoặc 'top')
+  'hoadon_logoPart',
   'hoadon_canThongTinCH',
   'hoadon_canTieuDe',
   'hoadon_canChanTrang',
@@ -21,6 +22,7 @@ const VALID_KEYS = [
 
 const MO_TA: Record<string, string> = {
   hoadon_tenCH:         'Tên cửa hàng',
+  hoadon_coChuTenCH:    'Cỡ chữ tên cửa hàng (px)',
   hoadon_diaChiCH:      'Địa chỉ cửa hàng',
   hoadon_sdtCH:         'Số điện thoại',
   hoadon_gioiThieu:     'Giới thiệu ngắn',
@@ -55,7 +57,6 @@ export async function POST(req: NextRequest) {
     for (const row of data.list || []) {
       if (row['key']) existingMap[row['key']] = { id: row['Id'] || row['id'] }
     }
-
     const errors: string[] = []
     for (const [k, v] of Object.entries(body)) {
       if (!VALID_KEYS.includes(k)) continue
@@ -68,7 +69,6 @@ export async function POST(req: NextRequest) {
         if (!ok) errors.push(`Không tạo được: ${k}`)
       }
     }
-
     if (errors.length > 0) return NextResponse.json({ ok: false, errors }, { status: 500 })
     return NextResponse.json({ ok: true })
   } catch (err) {

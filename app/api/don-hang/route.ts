@@ -1,7 +1,9 @@
-// app/api/don-hang/route.ts — v2.0
-// Sửa: trả về maDon rõ ràng trong response để TaoDonHangForm đọc được
+// app/api/don-hang/route.ts — v3.0
+// Sửa lỗi chính: NocoDB trả Mã đơn hàng = null ngay sau khi tạo
+// Giải pháp: sau khi tạo, query lại bằng Id để lấy Mã đơn hàng thực tế
+
 import { NextRequest, NextResponse } from 'next/server'
-import { createRecord, getRecords, TABLES } from '@/lib/nocodb'
+import { createRecord, getRecord, getRecords, updateRecord, TABLES } from '@/lib/nocodb'
 import { getSession } from '@/lib/auth'
 
 export async function POST(request: NextRequest) {
@@ -11,15 +13,36 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json()
     const result = await createRecord(TABLES.DON_HANG, body)
-
     if (!result) return NextResponse.json({ message: 'Lỗi tạo đơn hàng' }, { status: 500 })
 
-    // ✅ Trả về cả result (chứa Mã đơn hàng) lẫn field riêng để dễ đọc
+    const rowId = result['Id'] || result['id']
+    let maDon   = result['Mã đơn hàng'] || ''
+
+    // ── NocoDB đôi khi trả Mã đơn hàng = null ngay sau khi INSERT ──
+    // Đợi 800ms rồi query lại bằng rowId để lấy mã thực tế
+    if (!maDon && rowId) {
+      await new Promise(r => setTimeout(r, 800))
+      const fresh = await getRecord(TABLES.DON_HANG, rowId)
+      maDon = fresh?.['Mã đơn hàng'] || ''
+
+      // Nếu vẫn null, thử thêm 1 lần nữa sau 1.2 giây
+      if (!maDon) {
+        await new Promise(r => setTimeout(r, 1200))
+        const fresh2 = await getRecord(TABLES.DON_HANG, rowId)
+        maDon = fresh2?.['Mã đơn hàng'] || ''
+      }
+    }
+
+    // Fallback cuối cùng: tạo mã tạm dựa trên Id
+    // (trường hợp NocoDB chưa có formula tự động)
+    if (!maDon && rowId) {
+      maDon = `DH-${String(rowId).padStart(3, '0')}`
+    }
+
     return NextResponse.json({
       success: true,
-      data: result,
-      // Trích thẳng maDon ra ngoài để client đọc dễ hơn
-      maDon: result['Mã đơn hàng'] || '',
+      data:    result,
+      maDon,   // ← field riêng để client đọc dễ
     })
   } catch (error: any) {
     return NextResponse.json({ message: error.message }, { status: 500 })
@@ -53,7 +76,6 @@ export async function PATCH(request: NextRequest) {
     const { id, ...updateData } = body
     if (!id) return NextResponse.json({ message: 'Thiếu id' }, { status: 400 })
 
-    const { updateRecord } = await import('@/lib/nocodb')
     const result = await updateRecord(TABLES.DON_HANG, id, updateData)
     return NextResponse.json({ success: true, data: result })
   } catch (error: any) {
