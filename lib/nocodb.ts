@@ -30,6 +30,7 @@ export const TABLES = {
   BAO_CAO:        '15_Báo cáo tháng',
   TAI_KHOAN:      '16_Tài khoản',
   KIEM_KHO:       '17_Kiểm kho',
+  CAI_DAT:        'CaiDat',
 }
 
 let tableCache: Record<string, string> = {}
