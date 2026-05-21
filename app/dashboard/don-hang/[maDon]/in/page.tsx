@@ -1,43 +1,44 @@
 // app/dashboard/don-hang/[maDon]/in/page.tsx
 import { getRecords, TABLES } from '@/lib/nocodb'
 import { getSession } from '@/lib/auth'
-import { notFound } from 'next/navigation'
 import InHoaDonClient from '@/components/InHoaDonClient'
+import { notFound } from 'next/navigation'
 
 export default async function InHoaDonPage({
   params,
 }: {
   params: { maDon: string }
 }) {
-  await getSession()
-  const { maDon } = params
+  const session  = await getSession()
+  const maDon    = decodeURIComponent(params.maDon)
 
-  const donHangResult = await getRecords(TABLES.DON_HANG, {
-    where: `(Mã đơn hàng,eq,${maDon})`,
-    limit: 1,
-  })
-  const donHang = donHangResult.list?.[0]
-  if (!donHang) notFound()
+  const [donResult, chiTietResult, khachHangResult] = await Promise.all([
+    getRecords(TABLES.DON_HANG, {
+      where: `(Mã đơn hàng,eq,${maDon})`, limit: 1,
+    }),
+    getRecords(TABLES.CHI_TIET_DON, {
+      where: `(Mã đơn hàng,eq,${maDon})`, limit: 50,
+    }),
+    getRecords(TABLES.KHACH_HANG, { limit: 500, fields: 'Mã KH,Tên khách hàng,Số điện thoại,Địa chỉ' }),
+  ])
 
-  const chiTietResult = await getRecords(TABLES.CHI_TIET_DON, {
-    where: `(Mã đơn hàng,eq,${maDon})`,
-    limit: 50,
-  })
+  const don = donResult.list?.[0]
+  if (!don) notFound()
 
-  let khachHang = null
-  if (donHang['Mã KH']) {
-    const khResult = await getRecords(TABLES.KHACH_HANG, {
-      where: `(Mã KH,eq,${donHang['Mã KH']})`,
-      limit: 1,
-    })
-    khachHang = khResult.list?.[0] || null
+  const khMap: Record<string,any> = {}
+  for (const kh of (khachHangResult.list || [])) {
+    if (kh['Mã KH']) khMap[kh['Mã KH']] = kh
   }
+
+  const maKH   = don['Mã KH'] || ''
+  const khInfo = khMap[maKH] || {}
 
   return (
     <InHoaDonClient
-      donHang={donHang}
+      don={don}
       chiTiet={chiTietResult.list || []}
-      khachHang={khachHang}
+      khInfo={khInfo}
+      user={session!}
     />
   )
 }
