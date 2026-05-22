@@ -392,6 +392,12 @@ export default function TaoDonHangForm({
                 </div>
               ))}
             </div>
+            {/* Nút + Thêm SP — ngay dưới danh sách, dễ bấm */}
+            <button onClick={themDong}
+              style={{width:'100%',marginTop:'8px',padding:'8px',borderRadius:'7px',border:'2px dashed var(--primary)',background:'white',color:'var(--primary)',fontWeight:600,fontSize:'13px',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:'6px'}}>
+              ➕ Thêm sản phẩm
+            </button>
+
             <div style={{marginTop:'12px',padding:'12px',borderRadius:'8px',background:'var(--primary-pale)',border:'1px solid rgba(27,58,107,.15)'}}>
               <div style={{display:'flex',justifyContent:'space-between',fontSize:'13px',marginBottom:'4px'}}>
                 <span style={{color:'var(--text-secondary)'}}>Tổng tiền đơn:</span><span style={{fontWeight:700}}>{fVND(tongTien)}</span>
