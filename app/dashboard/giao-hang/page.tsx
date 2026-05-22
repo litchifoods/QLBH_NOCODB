@@ -1,4 +1,4 @@
-// app/dashboard/giao-hang/page.tsx — v3.3
+// app/dashboard/giao-hang/page.tsx — v3.4
 export const dynamic = 'force-dynamic'
 
 import { getRecords, TABLES } from '@/lib/nocodb'
@@ -11,20 +11,20 @@ export default async function GiaoHangPage() {
   const [giaoHang, chiTietGiao, donHang, chiTietDon, nhanVien, khachHang] = await Promise.all([
     getRecords(TABLES.GIAO_HANG, { limit: 500, sort: '-Id' }),
     getRecords(TABLES.CHI_TIET_GIAO, { limit: 1000 }),
+    // ✅ Lấy TẤT CẢ đơn hàng không lọc trạng thái để donHangMap đủ dữ liệu
     getRecords(TABLES.DON_HANG, {
-      limit: 300, sort: '-Id',
+      limit: 500, sort: '-Id',
       fields: 'Mã đơn hàng,Mã KH,Tên khách hàng,Trạng thái,Tổng tiền đơn,Còn phải thu,Địa chỉ giao,Ngày hẹn giao',
     }),
-    // ✅ Lọc bỏ dòng null — chỉ lấy chi tiết có Mã đơn hàng thực
+    // ✅ Sort -Id để lấy dòng có dữ liệu thực trước (Id lớn = dòng mới có dữ liệu)
+    // Sau đó lọc null ở code
     getRecords(TABLES.CHI_TIET_DON, {
-      limit: 1000,
-      where: '(Mã đơn hàng,isnot,null)',
+      limit: 500, sort: 'Id',
       fields: 'Mã chi tiết,Mã đơn hàng,Mã SP,Tên SP (ghi nhanh),Số lượng,Đơn giá,Thành tiền,Ghi chú SP',
     }),
     getRecords(TABLES.NHAN_VIEN, {
-      limit: 200,
+      limit: 200, sort: 'Mã NV',
       fields: 'Mã NV,Họ tên,Vai trò,Số điện thoại,Tháng',
-      sort: 'Mã NV',
     }),
     getRecords(TABLES.KHACH_HANG, {
       limit: 500,
@@ -38,17 +38,18 @@ export default async function GiaoHangPage() {
     if (kh['Mã KH']) khachHangMap[kh['Mã KH']] = kh
   }
 
-  // Map đơn hàng
+  // Map đơn hàng — TẤT CẢ đơn kể cả đã hoàn thành
   const donHangMap: Record<string, any> = {}
   for (const d of (donHang.list || [])) {
     if (d['Mã đơn hàng']) donHangMap[d['Mã đơn hàng']] = d
   }
 
-  // Map chi tiết đơn — chỉ dòng có Mã đơn hàng hợp lệ
+  // ✅ Map chi tiết đơn — lọc null ngay tại đây
   const chiTietDonMap: Record<string, any[]> = {}
   for (const ct of (chiTietDon.list || [])) {
     const maDon = ct['Mã đơn hàng']
-    if (!maDon || maDon === 'null') continue
+    // Bỏ qua dòng null
+    if (!maDon || maDon === 'null' || maDon === null) continue
     if (!chiTietDonMap[maDon]) chiTietDonMap[maDon] = []
     chiTietDonMap[maDon].push(ct)
   }
@@ -77,7 +78,7 @@ export default async function GiaoHangPage() {
   const danhSachNVCuaHang = danhSachNV.filter(nv => (nv['Mã NV']||'').startsWith('NV-'))
   const danhSachDoiTac    = danhSachNV.filter(nv => (nv['Mã NV']||'').startsWith('DT-'))
 
-  // donChuaGiao — gắn thêm thông tin KH để search dropdown
+  // ✅ donChuaGiao — dùng TẤT CẢ đơn chưa hoàn thành/huỷ
   const donChuaGiao = (donHang.list || [])
     .filter((d: any) =>
       d['Mã đơn hàng']?.trim() &&
