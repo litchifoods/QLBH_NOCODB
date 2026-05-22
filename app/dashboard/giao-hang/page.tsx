@@ -1,4 +1,4 @@
-// app/dashboard/giao-hang/page.tsx — v3.2
+// app/dashboard/giao-hang/page.tsx — v3.3
 export const dynamic = 'force-dynamic'
 
 import { getRecords, TABLES } from '@/lib/nocodb'
@@ -15,9 +15,10 @@ export default async function GiaoHangPage() {
       limit: 300, sort: '-Id',
       fields: 'Mã đơn hàng,Mã KH,Tên khách hàng,Trạng thái,Tổng tiền đơn,Còn phải thu,Địa chỉ giao,Ngày hẹn giao',
     }),
-    // ✅ Tăng limit để lấy đủ chi tiết đơn
+    // ✅ Lọc bỏ dòng null — chỉ lấy chi tiết có Mã đơn hàng thực
     getRecords(TABLES.CHI_TIET_DON, {
-      limit: 2000,
+      limit: 1000,
+      where: '(Mã đơn hàng,isnot,null)',
       fields: 'Mã chi tiết,Mã đơn hàng,Mã SP,Tên SP (ghi nhanh),Số lượng,Đơn giá,Thành tiền,Ghi chú SP',
     }),
     getRecords(TABLES.NHAN_VIEN, {
@@ -43,14 +44,13 @@ export default async function GiaoHangPage() {
     if (d['Mã đơn hàng']) donHangMap[d['Mã đơn hàng']] = d
   }
 
-  // Map chi tiết đơn theo Mã đơn hàng
+  // Map chi tiết đơn — chỉ dòng có Mã đơn hàng hợp lệ
   const chiTietDonMap: Record<string, any[]> = {}
   for (const ct of (chiTietDon.list || [])) {
     const maDon = ct['Mã đơn hàng']
-    if (maDon) {
-      if (!chiTietDonMap[maDon]) chiTietDonMap[maDon] = []
-      chiTietDonMap[maDon].push(ct)
-    }
+    if (!maDon || maDon === 'null') continue
+    if (!chiTietDonMap[maDon]) chiTietDonMap[maDon] = []
+    chiTietDonMap[maDon].push(ct)
   }
 
   // Map đã giao
@@ -64,7 +64,7 @@ export default async function GiaoHangPage() {
     }
   }
 
-  // Xử lý NV — lấy dòng mới nhất theo Tháng
+  // Xử lý NV
   const nvMapTemp: Record<string, any> = {}
   for (const nv of (nhanVien.list || [])) {
     const ma = nv['Mã NV']
@@ -77,7 +77,7 @@ export default async function GiaoHangPage() {
   const danhSachNVCuaHang = danhSachNV.filter(nv => (nv['Mã NV']||'').startsWith('NV-'))
   const danhSachDoiTac    = danhSachNV.filter(nv => (nv['Mã NV']||'').startsWith('DT-'))
 
-  // ✅ donChuaGiao — gắn thêm thông tin KH từ khachHangMap để search được
+  // donChuaGiao — gắn thêm thông tin KH để search dropdown
   const donChuaGiao = (donHang.list || [])
     .filter((d: any) =>
       d['Mã đơn hàng']?.trim() &&
@@ -88,9 +88,8 @@ export default async function GiaoHangPage() {
       const kh = khachHangMap[d['Mã KH']] || {}
       return {
         ...d,
-        // Gắn thêm để search dropdown
-        '_tenKH':   kh['Tên khách hàng'] || d['Tên khách hàng'] || '',
-        '_sdtKH':   kh['Số điện thoại'] || '',
+        '_tenKH':    kh['Tên khách hàng'] || d['Tên khách hàng'] || '',
+        '_sdtKH':    kh['Số điện thoại'] || '',
         '_diaChiKH': d['Địa chỉ giao'] || kh['Địa chỉ'] || '',
       }
     })
