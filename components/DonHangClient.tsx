@@ -244,7 +244,10 @@ export default function DonHangClient({
                     </td>
                     <td>
                       <div style={{ fontWeight:600 }}>{tenKH}</div>
-                      {maKH && <div style={{ fontSize:'11px', color:'var(--text-muted)' }}>{maKH}</div>}
+                      {khachHangMap[maKH]?.['Số điện thoại']
+                        ? <div style={{ fontSize:'11px', color:'var(--text-muted)' }}>📞 {khachHangMap[maKH]['Số điện thoại']}</div>
+                        : maKH ? <div style={{ fontSize:'11px', color:'var(--text-muted)' }}>{maKH}</div> : null
+                      }
                     </td>
                     <td className="col-ngay" style={{ fontSize:'12px', color:'var(--text-secondary)', whiteSpace:'nowrap' }}>
                       {formatDate(don['Ngày hẹn giao'])}
