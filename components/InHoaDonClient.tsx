@@ -164,7 +164,7 @@ export default function InHoaDonClient({
           margin: 0 auto;
           padding: 28px 36px 32px;
           box-shadow: 0 8px 40px rgba(0,0,0,.15);
-          font-family: 'Segoe UI', Arial, sans-serif;
+          font-family: Arial, Helvetica, sans-serif;
         }
         .sp-table { width: 100%; border-collapse: collapse; }
         .sp-table th {
@@ -173,8 +173,9 @@ export default function InHoaDonClient({
           font-weight: 700;
           letter-spacing: .04em;
           text-transform: uppercase;
+          font-family: Arial, Helvetica, sans-serif;
         }
-        .sp-table td { padding: 9px 12px; font-size: 13px; border-bottom: 1px solid #F0F0F0; }
+        .sp-table td { padding: 9px 12px; font-size: 13px; border-bottom: 1px solid #F0F0F0; font-family: Arial, Helvetica, sans-serif; }
         .sp-table tr:last-child td { border-bottom: none; }
         .sp-table tr:hover td { background: #FAFBFD; }
       `}</style>
@@ -224,7 +225,7 @@ export default function InHoaDonClient({
                   <img src={settings.logo} alt="Logo" style={{width:`${logoSize}px`, height:`${logoSize}px`, objectFit:'contain', flexShrink:0, borderRadius:'6px'}}/>
                 )}
                 <div>
-                  <div style={{fontSize:`${coChu}px`, fontWeight:900, color:mau, fontFamily:'Georgia,serif', lineHeight:1.1, letterSpacing:'-.01em'}}>
+                  <div style={{fontSize:`${coChu}px`, fontWeight:900, color:mau, fontFamily:'Arial Black, Arial, sans-serif', lineHeight:1.2, letterSpacing:'normal'}}>
                     {settings.tenCH}
                   </div>
                   {settings.diaChiCH && (
@@ -267,11 +268,8 @@ export default function InHoaDonClient({
             alignItems: 'center',
           }}>
             <div>
-              <div style={{fontSize:'22px', fontWeight:900, color:'white', letterSpacing:'.08em', textTransform:'uppercase', fontFamily:'Georgia,serif'}}>
+              <div style={{fontSize:'22px', fontWeight:900, color:'white', letterSpacing:'.06em', textTransform:'uppercase', fontFamily:'Arial Black, Arial, sans-serif'}}>
                 HÓA ĐƠN BÁN HÀNG
-              </div>
-              <div style={{fontSize:'13px', color:'rgba(255,255,255,.8)', marginTop:'3px'}}>
-                {settings.tenCH}
               </div>
             </div>
             <div style={{textAlign:'right'}}>
@@ -322,6 +320,8 @@ export default function InHoaDonClient({
               </div>
               {[
                 ['NV bán', nvBan],
+                ['Ngày mua', fDate(ngayDat)],
+                ['Ngày giao', ngayGiao ? fDate(ngayGiao) : '—'],
                 ['Kênh', don['Kênh bán'] || '—'],
                 ['Giao hàng', don['Hình thức giao hàng'] || '—'],
               ].map(([lb, val]) => (
