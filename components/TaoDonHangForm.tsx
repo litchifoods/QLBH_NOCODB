@@ -59,6 +59,7 @@ export default function TaoDonHangForm({
   const [newDiaChi,  setNewDiaChi]  = useState('')
   const [newLoai,    setNewLoai]    = useState('Cá nhân')
   const [errKH,      setErrKH]      = useState('')
+  const [sdtErrKH,   setSdtErrKH]   = useState('')
 
   useEffect(() => {
     if (khDaChon) {
@@ -420,7 +421,7 @@ export default function TaoDonHangForm({
       </div>
 
       {showFormKH&&(
-        <div className="ov" onClick={()=>setShowFormKH(false)}>
+        <div className="ov" onClick={()=>{setShowFormKH(false);setSdtErrKH('')}}>
           <div className="mk" onClick={e=>e.stopPropagation()}>
             <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'16px'}}>
               <h2 style={{fontSize:'16px',fontWeight:700,margin:0}}>👤 Thêm khách hàng mới</h2>
@@ -433,7 +434,10 @@ export default function TaoDonHangForm({
                 <input className="input" placeholder="Nguyễn Văn A / Công ty..." value={newTen} onChange={e=>setNewTen(e.target.value)} autoFocus/></div>
               <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'10px'}}>
                 <div><label style={{fontSize:'11px',fontWeight:600,display:'block',marginBottom:'3px'}}>Số điện thoại</label>
-                  <input className="input" placeholder="0901 234 567" value={newSdt} onChange={e=>setNewSdt(e.target.value)}/></div>
+                  <input className="input" placeholder="0901234567 (10 số)" value={newSdt}
+                    onChange={e=>{setNewSdt(e.target.value);setSdtErrKH(e.target.value.trim()?checkSdt(e.target.value):''  )}}
+                    style={{borderColor:sdtErrKH?'#EF4444':''}}/>
+                  {sdtErrKH&&<div style={{fontSize:'11px',color:'#DC2626',marginTop:'3px'}}>⚠️ {sdtErrKH}</div>}</div>
                 <div><label style={{fontSize:'11px',fontWeight:600,display:'block',marginBottom:'3px'}}>Đối tượng</label>
                   <select className="input" value={newLoai} onChange={e=>setNewLoai(e.target.value)}>
                     <option>Cá nhân</option><option>Cơ quan</option><option>Công ty</option>
@@ -442,7 +446,7 @@ export default function TaoDonHangForm({
               <div><label style={{fontSize:'11px',fontWeight:600,display:'block',marginBottom:'3px'}}>Địa chỉ</label>
                 <input className="input" placeholder="Số nhà, đường, quận..." value={newDiaChi} onChange={e=>setNewDiaChi(e.target.value)}/></div>
               <div style={{display:'flex',gap:'10px',marginTop:'4px'}}>
-                <button onClick={luuKHMoi} disabled={loadingKH} style={{flex:1,padding:'11px',borderRadius:'8px',border:'none',background:'var(--primary)',color:'white',fontWeight:700,fontSize:'14px',cursor:'pointer'}}>
+                <button onClick={luuKHMoi} disabled={loadingKH||!!sdtErrKH} style={{flex:1,padding:'11px',borderRadius:'8px',border:'none',background:(loadingKH||!!sdtErrKH)?'#9CA3AF':'var(--primary)',color:'white',fontWeight:700,fontSize:'14px',cursor:(loadingKH||!!sdtErrKH)?'not-allowed':'pointer'}}>
                   {loadingKH?'⏳ Đang lưu...':'✅ Lưu khách hàng'}
                 </button>
                 <button onClick={()=>setShowFormKH(false)} style={{padding:'11px 16px',borderRadius:'8px',border:'1px solid var(--border)',background:'white',cursor:'pointer',fontSize:'14px'}}>Huỷ</button>
