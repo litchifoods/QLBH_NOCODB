@@ -86,8 +86,19 @@ export default function TaoDonHangForm({
     setSearchKH(kh['Tên khách hàng']); setShowKH(false)
   }
 
+  // Validate SĐT Việt Nam
+  function checkSdt(sdt: string): string {
+    if (!sdt.trim()) return ''
+    const d = sdt.replace(/\D/g,'')
+    if (d.length !== 10) return `SĐT phải đúng 10 số (đang có ${d.length} số)`
+    if (!d.startsWith('0')) return 'SĐT phải bắt đầu bằng số 0'
+    return ''
+  }
+
   async function luuKHMoi() {
     if (!newTen.trim()) { setErrKH('Vui lòng nhập tên KH'); return }
+    const sdtErrMsg = checkSdt(newSdt)
+    if (sdtErrMsg) { setErrKH(sdtErrMsg); return }
     setLoadingKH(true); setErrKH('')
     try {
       const res = await fetch('/api/khach-hang', {

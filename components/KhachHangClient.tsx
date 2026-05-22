@@ -1,8 +1,8 @@
 'use client'
-// components/KhachHangClient.tsx — v5.0
-// Sửa: Id đúng cho Sửa/Xóa, KH mới luôn đầu, validate SĐT 10 số
+// components/KhachHangClient.tsx — v6.0
+// Sửa dứt điểm: Id đúng, KH mới lên đầu, validate SĐT 10 số
 
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { UserSession } from '@/lib/auth'
 import ExcelToolbar from '@/components/ExcelToolbar'
@@ -11,11 +11,10 @@ function boDau(s: string) {
   return (s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/đ/g,'d').replace(/Đ/g,'D').toLowerCase()
 }
 
-// Validate SĐT Việt Nam: đúng 10 số, bắt đầu bằng 0
 function validateSdt(sdt: string): string {
-  if (!sdt.trim()) return '' // SĐT không bắt buộc
-  const digits = sdt.replace(/\D/g, '') // chỉ giữ số
-  if (digits.length !== 10) return `SĐT phải đúng 10 số (hiện có ${digits.length} số)`
+  if (!sdt.trim()) return ''
+  const digits = sdt.replace(/\D/g, '')
+  if (digits.length !== 10) return `SĐT phải đúng 10 số (đang có ${digits.length} số)`
   if (!digits.startsWith('0')) return 'SĐT Việt Nam phải bắt đầu bằng số 0'
   return ''
 }
@@ -23,36 +22,36 @@ function validateSdt(sdt: string): string {
 const LOAI    = ['Tất cả','Cá nhân','Cơ quan','Công ty','Đại lý']
 const SO_DONG = 10
 
-// ── Tạo key duy nhất cho mỗi KH để React render đúng thứ tự ──
-let _seq = Date.now()
-function nextKey() { return String(++_seq) }
-
 export default function KhachHangClient({ khachHang, user }: { khachHang: any[]; user: UserSession }) {
-  const router = useRouter()
+  const router  = useRouter()
+  const seqRef  = useRef(0)
+  const nextKey = () => `k${++seqRef.current}`
 
-  // ── Gán _key cho mỗi KH từ server để React giữ đúng thứ tự ──
-  const [localKH,    setLocalKH]    = useState<any[]>(() =>
-    khachHang.map(kh => ({ ...kh, _key: nextKey() }))
+  // Gán _key và _rowId cho từng KH từ server
+  const [localKH, setLocalKH] = useState<any[]>(() =>
+    khachHang.map(kh => ({
+      ...kh,
+      _key:   nextKey(),
+      _rowId: Number(kh['Id'] ?? kh['id'] ?? 0), // ✅ lưu rowId ngay khi init
+    }))
   )
+
   const [search,     setSearch]     = useState('')
   const [filterLoai, setFilterLoai] = useState('Tất cả')
   const [trang,      setTrang]      = useState(1)
   const [msg,        setMsg]        = useState('')
   const [msgOk,      setMsgOk]      = useState(true)
-
-  const [showModal, setShowModal] = useState(false)
-  const [editKH,    setEditKH]    = useState<any>(null)
-  const [loading,   setLoading]   = useState(false)
-
-  const [tenKH,    setTenKH]    = useState('')
-  const [sdtKH,    setSdtKH]    = useState('')
-  const [sdtErr,   setSdtErr]   = useState('')
-  const [diaChiKH, setDiaChiKH] = useState('')
-  const [loaiKH,   setLoaiKH]   = useState('Cá nhân')
-  const [ghiChuKH, setGhiChuKH] = useState('')
-
-  const [xoaKH,   setXoaKH]   = useState<any>(null)
-  const [dangXoa, setDangXoa] = useState(false)
+  const [showModal,  setShowModal]  = useState(false)
+  const [editKH,     setEditKH]     = useState<any>(null)
+  const [loading,    setLoading]    = useState(false)
+  const [tenKH,      setTenKH]      = useState('')
+  const [sdtKH,      setSdtKH]      = useState('')
+  const [sdtErr,     setSdtErr]     = useState('')
+  const [diaChiKH,   setDiaChiKH]   = useState('')
+  const [loaiKH,     setLoaiKH]     = useState('Cá nhân')
+  const [ghiChuKH,   setGhiChuKH]   = useState('')
+  const [xoaKH,      setXoaKH]      = useState<any>(null)
+  const [dangXoa,    setDangXoa]    = useState(false)
 
   // Lọc
   const filtered = useMemo(() => localKH.filter((kh:any) => {
@@ -67,10 +66,8 @@ export default function KhachHangClient({ khachHang, user }: { khachHang: any[];
     )
   }), [localKH, search, filterLoai])
 
-  // Reset trang khi filter thay đổi
   useEffect(() => { setTrang(1) }, [search, filterLoai])
 
-  // Phân trang
   const tongTrang     = Math.max(1, Math.ceil(filtered.length / SO_DONG))
   const trangHT       = Math.min(trang, tongTrang)
   const danhSachTrang = filtered.slice((trangHT-1)*SO_DONG, trangHT*SO_DONG)
@@ -79,52 +76,39 @@ export default function KhachHangClient({ khachHang, user }: { khachHang: any[];
     setTenKH(''); setSdtKH(''); setSdtErr(''); setDiaChiKH('')
     setLoaiKH('Cá nhân'); setGhiChuKH(''); setEditKH(null)
   }
-
   function moModalThem() { resetForm(); setShowModal(true) }
-
   function moModalSua(kh: any) {
     setEditKH(kh)
     setTenKH(kh['Tên khách hàng']||'')
-    setSdtKH(kh['Số điện thoại']||'')
-    setSdtErr('')
+    setSdtKH(kh['Số điện thoại']||''); setSdtErr('')
     setDiaChiKH(kh['Địa chỉ']||'')
     setLoaiKH(kh['Đối tượng khách hàng']||'Cá nhân')
     setGhiChuKH(kh['Ghi chú']||'')
     setShowModal(true)
   }
 
-  function handleSdtChange(val: string) {
-    setSdtKH(val)
-    if (val.trim()) setSdtErr(validateSdt(val))
-    else setSdtErr('')
-  }
-
   function urlTaoDon(kh: any) {
     const maKH = kh['Mã KH'] || ''
     if (maKH) return `/dashboard/don-hang/tao?maKH=${encodeURIComponent(maKH)}`
-    const ten    = encodeURIComponent(kh['Tên khách hàng'] || '')
-    const sdt    = encodeURIComponent(kh['Số điện thoại']  || '')
-    const diaChi = encodeURIComponent(kh['Địa chỉ']        || '')
-    return `/dashboard/don-hang/tao?tenKH=${ten}&sdtKH=${sdt}&diaChiKH=${diaChi}`
+    return `/dashboard/don-hang/tao?tenKH=${encodeURIComponent(kh['Tên khách hàng']||'')}&sdtKH=${encodeURIComponent(kh['Số điện thoại']||'')}&diaChiKH=${encodeURIComponent(kh['Địa chỉ']||'')}`
   }
 
-  // Lấy rowId từ KH object — NocoDB có thể trả Id hoặc id
-  function getRowId(kh: any): number | null {
-    const v = kh['Id'] ?? kh['id'] ?? kh['ID'] ?? null
-    return v !== null ? Number(v) : null
+  function showMsg(text: string, ok: boolean) {
+    setMsg(text); setMsgOk(ok)
+    setTimeout(() => setMsg(''), 6000)
   }
 
   async function luuKH() {
-    if (!tenKH.trim()) { setMsg('Vui lòng nhập tên khách hàng'); setMsgOk(false); return }
-    const sdtErrMsg = validateSdt(sdtKH)
-    if (sdtErrMsg) { setSdtErr(sdtErrMsg); return }
-    setLoading(true); setMsg('')
+    if (!tenKH.trim()) { showMsg('Vui lòng nhập tên khách hàng', false); return }
+    const err = validateSdt(sdtKH)
+    if (err) { setSdtErr(err); return }
+    setLoading(true)
 
     try {
       if (editKH) {
         // ── SỬA ──
-        const rowId = getRowId(editKH)
-        if (!rowId) throw new Error('Không tìm thấy ID khách hàng để cập nhật')
+        const rowId = editKH['_rowId']
+        if (!rowId) throw new Error('Không tìm thấy ID — vui lòng tải lại trang')
 
         const res = await fetch('/api/khach-hang', {
           method: 'PATCH',
@@ -141,13 +125,11 @@ export default function KhachHangClient({ khachHang, user }: { khachHang: any[];
         const data = await res.json()
         if (!res.ok) throw new Error(data.message || 'Lỗi cập nhật')
 
-        // Cập nhật localKH giữ nguyên vị trí
-        setLocalKH(prev => prev.map(kh =>
-          kh['_key'] === editKH['_key']
-            ? { ...kh, 'Tên khách hàng': tenKH.trim(), 'Số điện thoại': sdtKH.trim(), 'Địa chỉ': diaChiKH.trim(), 'Đối tượng khách hàng': loaiKH, 'Ghi chú': ghiChuKH.trim() }
-            : kh
+        setLocalKH(prev => prev.map(kh => kh['_key'] === editKH['_key']
+          ? { ...kh, 'Tên khách hàng': tenKH.trim(), 'Số điện thoại': sdtKH.trim(), 'Địa chỉ': diaChiKH.trim(), 'Đối tượng khách hàng': loaiKH, 'Ghi chú': ghiChuKH.trim() }
+          : kh
         ))
-        setMsg('✅ Đã cập nhật: ' + tenKH.trim()); setMsgOk(true)
+        showMsg('✅ Đã cập nhật: ' + tenKH.trim(), true)
 
       } else {
         // ── THÊM MỚI ──
@@ -164,62 +146,57 @@ export default function KhachHangClient({ khachHang, user }: { khachHang: any[];
           }),
         })
         const data = await res.json()
-        if (!res.ok) throw new Error(data.message || 'Lỗi thêm khách hàng')
+        if (!res.ok) throw new Error(data.message || 'Lỗi thêm')
 
-        // Lấy dữ liệu đầy đủ từ server (có cả Id thực)
-        const khData = data.data || {}
-        const maKHMoi = data['Mã KH'] || khData['Mã KH'] || ''
+        const rec    = data.data || {}
+        const rowId  = Number(rec['Id'] ?? rec['id'] ?? 0)
+        const maKHMoi = data['Mã KH'] || rec['Mã KH'] || ''
 
-        const khMoi: any = {
-          // ✅ Lưu đủ Id để Sửa/Xóa hoạt động
-          'Id':                    khData['Id'] ?? khData['id'] ?? '',
-          'id':                    khData['id'] ?? khData['Id'] ?? '',
+        const khMoi = {
+          'Id':                    rowId,
+          'id':                    rowId,
+          '_rowId':                rowId,   // ✅ lưu _rowId để Sửa/Xóa dùng
+          '_key':                  nextKey(),
           'Mã KH':                 maKHMoi,
           'Tên khách hàng':        tenKH.trim(),
           'Số điện thoại':         sdtKH.trim(),
           'Địa chỉ':               diaChiKH.trim(),
           'Đối tượng khách hàng':  loaiKH,
           'Ghi chú':               ghiChuKH.trim(),
-          'Ngày tạo':              new Date().toISOString(),
-          '_key':                  nextKey(), // key duy nhất để React render đúng
+          'Ngày tạo':              new Date().toISOString().split('T')[0],
         }
 
-        // ✅ Thêm vào ĐẦU mảng — KH mới nhất luôn vị trí 1
-        setLocalKH(prev => [khMoi, ...prev])
+        setLocalKH(prev => [khMoi, ...prev]) // ✅ đầu mảng
         setTrang(1)
-        setMsg('✅ Đã thêm: ' + tenKH.trim() + (maKHMoi ? ` (${maKHMoi})` : '')); setMsgOk(true)
+        showMsg(`✅ Đã thêm: ${tenKH.trim()}${maKHMoi ? ` (${maKHMoi})` : ''}`, true)
       }
 
       resetForm(); setShowModal(false)
     } catch (err: any) {
-      setMsg('❌ ' + (err.message || 'Có lỗi xảy ra')); setMsgOk(false)
+      showMsg('❌ ' + (err.message || 'Có lỗi'), false)
     } finally {
       setLoading(false)
-      setTimeout(() => setMsg(''), 6000)
     }
   }
 
-  // ── XÓA ──
   async function xacNhanXoa() {
     if (!xoaKH) return
-    const rowId = getRowId(xoaKH)
-    if (!rowId) { setMsg('❌ Không tìm thấy ID để xóa'); setMsgOk(false); setXoaKH(null); return }
-
+    const rowId = xoaKH['_rowId']
+    if (!rowId) {
+      showMsg('❌ Không tìm thấy ID — vui lòng tải lại trang', false)
+      setXoaKH(null); return
+    }
     setDangXoa(true)
     try {
       const res = await fetch(`/api/khach-hang?id=${rowId}`, { method: 'DELETE' })
       const data = await res.json()
       if (!res.ok) throw new Error(data.message || 'Lỗi xóa')
-
       setLocalKH(prev => prev.filter(kh => kh['_key'] !== xoaKH['_key']))
-      setMsg('✅ Đã xóa: ' + xoaKH['Tên khách hàng']); setMsgOk(true)
+      showMsg('✅ Đã xóa: ' + xoaKH['Tên khách hàng'], true)
       setXoaKH(null)
     } catch (err: any) {
-      setMsg('❌ ' + (err.message || 'Lỗi xóa')); setMsgOk(false)
-    } finally {
-      setDangXoa(false)
-      setTimeout(() => setMsg(''), 6000)
-    }
+      showMsg('❌ ' + (err.message || 'Lỗi xóa'), false)
+    } finally { setDangXoa(false) }
   }
 
   async function handleNhap(rows: Record<string,string>[]) {
@@ -252,15 +229,15 @@ export default function KhachHangClient({ khachHang, user }: { khachHang: any[];
     return (
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'10px 14px',borderTop:'1px solid #F0F0F0',flexWrap:'wrap',gap:'8px'}}>
         <span style={{fontSize:'12px',color:'var(--text-secondary)'}}>
-          {(trangHT-1)*SO_DONG+1}–{Math.min(trangHT*SO_DONG,filtered.length)} / {filtered.length} KH
+          {(trangHT-1)*SO_DONG+1}–{Math.min(trangHT*SO_DONG, filtered.length)} / {filtered.length} KH
         </span>
         <div style={{display:'flex',gap:'4px'}}>
-          <BtnPage disabled={trangHT===1} onClick={()=>setTrang(t=>t-1)}>‹</BtnPage>
+          <Btn disabled={trangHT===1} onClick={()=>setTrang(t=>t-1)}>‹</Btn>
           {hienThi.map((p,i) => p<0
-            ? <span key={`d${i}`} style={{padding:'4px 2px',color:'#9CA3AF'}}>…</span>
-            : <BtnPage key={p} active={p===trangHT} onClick={()=>setTrang(p)}>{p}</BtnPage>
+            ? <span key={`d${i}`} style={{padding:'4px 2px',color:'#9CA3AF',fontSize:'13px'}}>…</span>
+            : <Btn key={p} active={p===trangHT} onClick={()=>setTrang(p)}>{p}</Btn>
           )}
-          <BtnPage disabled={trangHT===tongTrang} onClick={()=>setTrang(t=>t+1)}>›</BtnPage>
+          <Btn disabled={trangHT===tongTrang} onClick={()=>setTrang(t=>t+1)}>›</Btn>
         </div>
       </div>
     )
@@ -279,7 +256,6 @@ export default function KhachHangClient({ khachHang, user }: { khachHang: any[];
         @media(max-width:900px){.col-dia{display:none;}}
       `}</style>
 
-      {/* Header */}
       <div className="kh-hdr">
         <div>
           <h1 style={{fontFamily:'Playfair Display,serif',fontSize:'20px',fontWeight:700,margin:0}}>👥 Khách hàng</h1>
@@ -293,7 +269,6 @@ export default function KhachHangClient({ khachHang, user }: { khachHang: any[];
 
       {msg && <div style={{padding:'10px 14px',borderRadius:'8px',marginBottom:'14px',fontSize:'13px',background:msgOk?'#D1FAE5':'#FEE2E2',color:msgOk?'#065F46':'#991B1B'}}>{msg}</div>}
 
-      {/* Filter */}
       <div className="card" style={{padding:'12px 14px',marginBottom:'14px'}}>
         <div style={{display:'flex',gap:'10px',flexWrap:'wrap',alignItems:'center'}}>
           <input className="input" placeholder="🔍 Tìm tên, SĐT, địa chỉ, mã KH..."
@@ -307,7 +282,6 @@ export default function KhachHangClient({ khachHang, user }: { khachHang: any[];
         </div>
       </div>
 
-      {/* Bảng */}
       <div className="card" style={{overflow:'hidden'}}>
         <div style={{overflowX:'auto'}}>
           <table className="kh-t" style={{width:'100%',borderCollapse:'collapse',fontSize:'13px'}}>
@@ -326,18 +300,18 @@ export default function KhachHangClient({ khachHang, user }: { khachHang: any[];
                 <tr><td colSpan={6} style={{textAlign:'center',padding:'48px',color:'var(--text-muted)'}}>
                   {search||filterLoai!=='Tất cả'?'Không tìm thấy':'Chưa có khách hàng'}
                 </td></tr>
-              ) : danhSachTrang.map((kh:any,i:number)=>{
-                const c=loaiColor(kh['Đối tượng khách hàng']||'')
+              ) : danhSachTrang.map((kh:any,i:number) => {
+                const c = loaiColor(kh['Đối tượng khách hàng']||'')
                 return (
-                  <tr key={kh['_key']||i} style={{background:i%2===0?'white':'#FAFBFD'}}>
+                  <tr key={kh['_key']} style={{background:i%2===0?'white':'#FAFBFD'}}>
                     <td style={{fontWeight:700,color:'var(--primary)',whiteSpace:'nowrap'}}>
-                      {kh['Mã KH']||<span style={{color:'#9CA3AF',fontWeight:400,fontSize:'11px'}}>—</span>}
+                      {kh['Mã KH'] || <span style={{color:'#9CA3AF',fontWeight:400,fontSize:'11px'}}>—</span>}
                     </td>
                     <td style={{fontWeight:600}}>{kh['Tên khách hàng']}</td>
                     <td style={{whiteSpace:'nowrap'}}>
                       {kh['Số điện thoại']
-                        ?<a href={`tel:${kh['Số điện thoại']}`} style={{color:'var(--primary)',textDecoration:'none'}}>📞 {kh['Số điện thoại']}</a>
-                        :'—'}
+                        ? <a href={`tel:${kh['Số điện thoại']}`} style={{color:'var(--primary)',textDecoration:'none'}}>📞 {kh['Số điện thoại']}</a>
+                        : '—'}
                     </td>
                     <td className="col-dia" style={{fontSize:'12px',color:'var(--text-secondary)',maxWidth:'180px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
                       {kh['Địa chỉ']||'—'}
@@ -364,7 +338,7 @@ export default function KhachHangClient({ khachHang, user }: { khachHang: any[];
         <PhanTrang/>
       </div>
 
-      {/* ── MODAL THÊM / SỬA ── */}
+      {/* MODAL THÊM / SỬA */}
       {showModal&&(
         <div className="ov" onClick={()=>{setShowModal(false);resetForm()}}>
           <div className="mk" onClick={e=>e.stopPropagation()}>
@@ -372,8 +346,10 @@ export default function KhachHangClient({ khachHang, user }: { khachHang: any[];
               <h2 style={{fontSize:'16px',fontWeight:700,margin:0}}>{editKH?'✏️ Sửa khách hàng':'+ Thêm khách hàng mới'}</h2>
               <button onClick={()=>{setShowModal(false);resetForm()}} style={{background:'none',border:'none',cursor:'pointer',fontSize:'20px',color:'#6B7280'}}>✕</button>
             </div>
-            {editKH&&<div style={{fontSize:'12px',color:'#1E40AF',margin:'0 0 14px',background:'#EFF6FF',padding:'8px 12px',borderRadius:'6px'}}>📋 Mã KH: <strong>{editKH['Mã KH']}</strong></div>}
-            {!editKH&&<p style={{fontSize:'12px',color:'#1E40AF',margin:'0 0 14px',background:'#EFF6FF',padding:'8px 12px',borderRadius:'6px'}}>💡 Mã KH tự động. KH mới hiện đầu danh sách.</p>}
+            {editKH
+              ? <div style={{fontSize:'12px',color:'#1E40AF',margin:'0 0 14px',background:'#EFF6FF',padding:'8px 12px',borderRadius:'6px'}}>📋 Mã KH: <strong>{editKH['Mã KH']}</strong></div>
+              : <p style={{fontSize:'12px',color:'#1E40AF',margin:'0 0 14px',background:'#EFF6FF',padding:'8px 12px',borderRadius:'6px'}}>💡 Mã KH tự động. KH mới hiện đầu danh sách.</p>
+            }
             <div style={{display:'flex',flexDirection:'column',gap:'10px'}}>
               <div>
                 <label style={{fontSize:'11px',fontWeight:600,display:'block',marginBottom:'3px'}}>Tên khách hàng *</label>
@@ -382,10 +358,10 @@ export default function KhachHangClient({ khachHang, user }: { khachHang: any[];
               <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'10px'}}>
                 <div>
                   <label style={{fontSize:'11px',fontWeight:600,display:'block',marginBottom:'3px'}}>Số điện thoại</label>
-                  <input className="input" placeholder="0901234567" value={sdtKH}
-                    onChange={e=>handleSdtChange(e.target.value)}
-                    style={{borderColor:sdtErr?'#EF4444':'',outline:sdtErr?'1px solid #EF4444':''}}/>
-                  {sdtErr&&<div style={{fontSize:'11px',color:'#DC2626',marginTop:'3px'}}>⚠️ {sdtErr}</div>}
+                  <input className="input" placeholder="0901234567 (10 số)" value={sdtKH}
+                    onChange={e=>{setSdtKH(e.target.value); setSdtErr(e.target.value.trim()?validateSdt(e.target.value):'' )}}
+                    style={{borderColor:sdtErr?'#EF4444':''}}/>
+                  {sdtErr && <div style={{fontSize:'11px',color:'#DC2626',marginTop:'3px'}}>⚠️ {sdtErr}</div>}
                 </div>
                 <div>
                   <label style={{fontSize:'11px',fontWeight:600,display:'block',marginBottom:'3px'}}>Đối tượng</label>
@@ -414,14 +390,14 @@ export default function KhachHangClient({ khachHang, user }: { khachHang: any[];
         </div>
       )}
 
-      {/* ── MODAL XÁC NHẬN XÓA ── */}
+      {/* MODAL XÁC NHẬN XÓA */}
       {xoaKH&&(
         <div className="ov" onClick={()=>setXoaKH(null)}>
           <div style={{background:'white',borderRadius:'12px',padding:'24px',width:'100%',maxWidth:'360px'}} onClick={e=>e.stopPropagation()}>
             <div style={{textAlign:'center',marginBottom:'16px'}}>
               <div style={{fontSize:'36px',marginBottom:'8px'}}>🗑️</div>
               <h2 style={{fontSize:'16px',fontWeight:700,margin:'0 0 6px'}}>Xác nhận xóa</h2>
-              <p style={{fontSize:'13px',color:'#6B7280',margin:0}}>Xóa <strong>{xoaKH['Tên khách hàng']}</strong> ({xoaKH['Mã KH']})?</p>
+              <p style={{fontSize:'13px',color:'#6B7280',margin:0}}>Xóa <strong>{xoaKH['Tên khách hàng']}</strong>?</p>
               <p style={{fontSize:'12px',color:'#DC2626',margin:'8px 0 0',background:'#FEF2F2',padding:'6px 10px',borderRadius:'6px'}}>⚠️ Không thể hoàn tác!</p>
             </div>
             <div style={{display:'flex',gap:'10px'}}>
@@ -437,18 +413,15 @@ export default function KhachHangClient({ khachHang, user }: { khachHang: any[];
   )
 }
 
-// ── Nút phân trang ──
-function BtnPage({ children, active, disabled, onClick }: { children:any; active?:boolean; disabled?:boolean; onClick:()=>void }) {
+function Btn({ children, active, disabled, onClick }: any) {
   return (
     <button onClick={onClick} disabled={disabled} style={{
       padding:'4px 10px', borderRadius:'5px', border:'1px solid',
-      borderColor: active ? 'var(--primary)' : 'var(--border)',
-      background:  active ? 'var(--primary)' : disabled ? '#F9FAFB' : 'white',
-      color:       active ? 'white' : disabled ? '#CCC' : 'var(--text-secondary)',
-      cursor:      disabled ? 'not-allowed' : 'pointer',
-      fontSize:'13px', fontWeight: active ? 700 : 400, minWidth:'32px',
-    }}>
-      {children}
-    </button>
+      borderColor: active?'var(--primary)':'var(--border)',
+      background: active?'var(--primary)': disabled?'#F9FAFB':'white',
+      color: active?'white': disabled?'#CCC':'var(--text-secondary)',
+      cursor: disabled?'not-allowed':'pointer',
+      fontSize:'13px', fontWeight:active?700:400, minWidth:'32px',
+    }}>{children}</button>
   )
 }
