@@ -1,6 +1,7 @@
 'use client'
-// components/KhachHangClient.tsx -- v2.2
-// Nút Tạo đơn truyền đủ thông tin KH để form tự điền kể cả KH mới tạo
+// components/KhachHangClient.tsx — v3.0
+// Sửa: Mã KH tự động, phân trang 10/trang, KH mới luôn lên đầu
+
 import { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { UserSession } from '@/lib/auth'
@@ -10,6 +11,7 @@ function boDau(s: string) {
   return (s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/đ/g,'d').replace(/Đ/g,'D').toLowerCase()
 }
 const LOAI = ['Tất cả','Cá nhân','Cơ quan','Công ty','Đại lý']
+const SO_TRANG = 10  // số KH mỗi trang
 
 export default function KhachHangClient({ khachHang, user }: { khachHang: any[]; user: UserSession }) {
   const router = useRouter()
@@ -19,8 +21,8 @@ export default function KhachHangClient({ khachHang, user }: { khachHang: any[];
   const [loading,    setLoading]    = useState(false)
   const [msg,        setMsg]        = useState('')
   const [msgOk,      setMsgOk]      = useState(true)
-  // Dùng local list để cập nhật ngay khi thêm KH mới mà không cần reload
   const [localKH,    setLocalKH]    = useState(khachHang)
+  const [trang,      setTrang]      = useState(1)  // trang hiện tại
 
   // Form thêm KH
   const [tenKH,    setTenKH]    = useState('')
@@ -29,28 +31,34 @@ export default function KhachHangClient({ khachHang, user }: { khachHang: any[];
   const [loaiKH,   setLoaiKH]   = useState('Cá nhân')
   const [ghiChuKH, setGhiChuKH] = useState('')
 
-  const filtered = useMemo(() => localKH.filter((kh:any) => {
-    if (filterLoai !== 'Tất cả' && kh['Đối tượng khách hàng'] !== filterLoai) return false
-    if (!search.trim()) return true
-    const q = boDau(search)
-    return (
-      boDau(kh['Tên khách hàng']||'').includes(q) ||
-      (kh['Số điện thoại']||'').includes(search) ||
-      boDau(kh['Mã KH']||'').includes(q) ||
-      boDau(kh['Địa chỉ']||'').includes(q)
-    )
-  }), [localKH, search, filterLoai])
+  // Lọc
+  const filtered = useMemo(() => {
+    setTrang(1) // reset về trang 1 khi filter thay đổi
+    return localKH.filter((kh:any) => {
+      if (filterLoai !== 'Tất cả' && kh['Đối tượng khách hàng'] !== filterLoai) return false
+      if (!search.trim()) return true
+      const q = boDau(search)
+      return (
+        boDau(kh['Tên khách hàng']||'').includes(q) ||
+        (kh['Số điện thoại']||'').includes(search) ||
+        boDau(kh['Mã KH']||'').includes(q) ||
+        boDau(kh['Địa chỉ']||'').includes(q)
+      )
+    })
+  }, [localKH, search, filterLoai])
+
+  // Phân trang
+  const tongTrang  = Math.max(1, Math.ceil(filtered.length / SO_TRANG))
+  const trangHienTai = Math.min(trang, tongTrang)
+  const danhSachTrang = filtered.slice((trangHienTai-1)*SO_TRANG, trangHienTai*SO_TRANG)
 
   function resetForm() {
     setTenKH(''); setSdtKH(''); setDiaChiKH(''); setLoaiKH('Cá nhân'); setGhiChuKH('')
   }
 
-  // ✅ Hàm tạo URL cho nút Tạo đơn — truyền maKH qua params
-  // Form tao/page.tsx sẽ tìm KH theo maKH và tự điền
   function urlTaoDon(kh: any) {
     const maKH = kh['Mã KH'] || ''
     if (maKH) return `/dashboard/don-hang/tao?maKH=${encodeURIComponent(maKH)}`
-    // KH chưa có mã (vừa tạo chưa sync) → truyền trực tiếp thông tin qua params
     const ten    = encodeURIComponent(kh['Tên khách hàng'] || '')
     const sdt    = encodeURIComponent(kh['Số điện thoại']  || '')
     const diaChi = encodeURIComponent(kh['Địa chỉ']        || '')
@@ -75,18 +83,21 @@ export default function KhachHangClient({ khachHang, user }: { khachHang: any[];
       const data = await res.json()
       if (!res.ok) throw new Error(data.message || 'Lỗi')
 
-      // ✅ Thêm KH mới vào đầu danh sách cục bộ (kh mới nhất lên đầu)
+      // ✅ Lấy Mã KH từ API (đã tự tạo sẵn)
+      const maKHMoi = data['Mã KH'] || data.data?.['Mã KH'] || ''
       const khMoi = {
-        'Mã KH':               data['Mã KH'] || data.data?.['Mã KH'] || '',
-        'Tên khách hàng':      tenKH.trim(),
-        'Số điện thoại':       sdtKH.trim(),
-        'Địa chỉ':             diaChiKH.trim(),
+        'Mã KH':                maKHMoi,
+        'Tên khách hàng':       tenKH.trim(),
+        'Số điện thoại':        sdtKH.trim(),
+        'Địa chỉ':              diaChiKH.trim(),
         'Đối tượng khách hàng': loaiKH,
-        'Ghi chú':             ghiChuKH.trim(),
-        'Ngày tạo':            new Date().toISOString(),
+        'Ghi chú':              ghiChuKH.trim(),
+        'Ngày tạo':             new Date().toISOString(),
       }
+      // ✅ Đẩy lên đầu danh sách + về trang 1
       setLocalKH(prev => [khMoi, ...prev])
-      setMsg('✅ Đã thêm: ' + tenKH.trim()); setMsgOk(true)
+      setTrang(1)
+      setMsg('✅ Đã thêm: ' + tenKH.trim() + (maKHMoi ? ` (${maKHMoi})` : '')); setMsgOk(true)
       resetForm(); setShowModal(false)
     } catch (err: any) {
       setMsg('❌ ' + (err.message || 'Lỗi')); setMsgOk(false)
@@ -111,6 +122,47 @@ export default function KhachHangClient({ khachHang, user }: { khachHang: any[];
       'Công ty':  {bg:'#D1FAE5',c:'#065F46'}, 'Đại lý':  {bg:'#EDE9FE',c:'#6D28D9'},
     }
     return m[loai] || {bg:'#F3F4F6',c:'#374151'}
+  }
+
+  // Component phân trang dùng chung
+  function PhanTrang() {
+    if (tongTrang <= 1) return null
+    const pages = []
+    for (let i=1; i<=tongTrang; i++) pages.push(i)
+    // Hiện tối đa 7 nút trang
+    let hienThi = pages
+    if (tongTrang > 7) {
+      if (trangHienTai <= 4) hienThi = [...pages.slice(0,5), -1, tongTrang]
+      else if (trangHienTai >= tongTrang - 3) hienThi = [1, -1, ...pages.slice(tongTrang-5)]
+      else hienThi = [1, -1, trangHienTai-1, trangHienTai, trangHienTai+1, -2, tongTrang]
+    }
+    return (
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'10px 14px',borderTop:'1px solid #F0F0F0',flexWrap:'wrap',gap:'8px'}}>
+        <div style={{fontSize:'12px',color:'var(--text-secondary)'}}>
+          Hiển thị {(trangHienTai-1)*SO_TRANG+1}–{Math.min(trangHienTai*SO_TRANG, filtered.length)} / {filtered.length} khách hàng
+        </div>
+        <div style={{display:'flex',gap:'4px',alignItems:'center'}}>
+          <button onClick={()=>setTrang(t=>Math.max(1,t-1))} disabled={trangHienTai===1}
+            style={{padding:'4px 10px',borderRadius:'5px',border:'1px solid var(--border)',background:trangHienTai===1?'#F9FAFB':'white',color:trangHienTai===1?'#CCC':'var(--primary)',cursor:trangHienTai===1?'not-allowed':'pointer',fontSize:'13px',fontWeight:600}}>
+            ‹
+          </button>
+          {hienThi.map((p,idx) =>
+            p < 0 ? (
+              <span key={`dot${idx}`} style={{padding:'4px 2px',color:'#9CA3AF',fontSize:'13px'}}>…</span>
+            ) : (
+              <button key={p} onClick={()=>setTrang(p)}
+                style={{padding:'4px 10px',borderRadius:'5px',border:'1px solid',borderColor:p===trangHienTai?'var(--primary)':'var(--border)',background:p===trangHienTai?'var(--primary)':'white',color:p===trangHienTai?'white':'var(--text-secondary)',cursor:'pointer',fontSize:'13px',fontWeight:p===trangHienTai?700:400,minWidth:'32px'}}>
+                {p}
+              </button>
+            )
+          )}
+          <button onClick={()=>setTrang(t=>Math.min(tongTrang,t+1))} disabled={trangHienTai===tongTrang}
+            style={{padding:'4px 10px',borderRadius:'5px',border:'1px solid var(--border)',background:trangHienTai===tongTrang?'#F9FAFB':'white',color:trangHienTai===tongTrang?'#CCC':'var(--primary)',cursor:trangHienTai===tongTrang?'not-allowed':'pointer',fontSize:'13px',fontWeight:600}}>
+            ›
+          </button>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -141,7 +193,7 @@ export default function KhachHangClient({ khachHang, user }: { khachHang: any[];
       {/* Filter */}
       <div className="card" style={{padding:'12px 14px',marginBottom:'14px'}}>
         <div style={{display:'flex',gap:'10px',flexWrap:'wrap',alignItems:'center'}}>
-          <input className="input" placeholder="🔍 Tìm tên, SĐT, địa chỉ..." value={search}
+          <input className="input" placeholder="🔍 Tìm tên, SĐT, địa chỉ, mã KH..." value={search}
             onChange={e=>setSearch(e.target.value)} style={{flex:'1',minWidth:'180px',maxWidth:'300px'}}/>
           <div style={{display:'flex',gap:'5px',flexWrap:'wrap'}}>
             {LOAI.map(l=>{
@@ -153,7 +205,7 @@ export default function KhachHangClient({ khachHang, user }: { khachHang: any[];
       </div>
 
       {/* Bảng */}
-      <div className="card">
+      <div className="card" style={{overflow:'hidden'}}>
         <div style={{overflowX:'auto'}}>
           <table className="kh-t" style={{width:'100%',borderCollapse:'collapse',fontSize:'13px'}}>
             <thead>
@@ -167,14 +219,16 @@ export default function KhachHangClient({ khachHang, user }: { khachHang: any[];
               </tr>
             </thead>
             <tbody>
-              {filtered.length===0?(
-                <tr><td colSpan={6} style={{textAlign:'center',padding:'48px',color:'var(--text-muted)'}}>Không tìm thấy khách hàng nào</td></tr>
-              ):filtered.map((kh:any,i:number)=>{
+              {danhSachTrang.length===0?(
+                <tr><td colSpan={6} style={{textAlign:'center',padding:'48px',color:'var(--text-muted)'}}>
+                  {search||filterLoai!=='Tất cả' ? 'Không tìm thấy khách hàng nào' : 'Chưa có khách hàng'}
+                </td></tr>
+              ):danhSachTrang.map((kh:any,i:number)=>{
                 const c=loaiColor(kh['Đối tượng khách hàng']||'')
                 return (
-                  <tr key={i} style={{borderBottom:'1px solid #F0F0F0',background:i%2===0?'white':'#FAFBFD'}}>
+                  <tr key={kh['Mã KH']||i} style={{borderBottom:'1px solid #F0F0F0',background:i%2===0?'white':'#FAFBFD'}}>
                     <td style={{fontWeight:700,color:'var(--primary)',whiteSpace:'nowrap'}}>
-                      {kh['Mã KH'] || <span style={{color:'#9CA3AF',fontSize:'11px'}}>chưa có</span>}
+                      {kh['Mã KH'] || <span style={{color:'#9CA3AF',fontSize:'11px',fontWeight:400}}>—</span>}
                     </td>
                     <td style={{fontWeight:600}}>{kh['Tên khách hàng']}</td>
                     <td style={{whiteSpace:'nowrap'}}>
@@ -190,9 +244,7 @@ export default function KhachHangClient({ khachHang, user }: { khachHang: any[];
                     </td>
                     <td style={{textAlign:'center'}}>
                       <div style={{display:'flex',gap:'6px',justifyContent:'center'}}>
-                        {/* ✅ Truyền maKH hoặc thông tin KH vào URL → form tự điền */}
-                        <a href={urlTaoDon(kh)}
-                          style={{padding:'5px 12px',borderRadius:'6px',border:'none',background:'var(--primary)',color:'white',fontSize:'12px',fontWeight:700,textDecoration:'none',display:'inline-flex',alignItems:'center',gap:'4px',whiteSpace:'nowrap'}}>
+                        <a href={urlTaoDon(kh)} style={{padding:'5px 12px',borderRadius:'6px',border:'none',background:'var(--primary)',color:'white',fontSize:'12px',fontWeight:700,textDecoration:'none',display:'inline-flex',alignItems:'center',gap:'4px',whiteSpace:'nowrap'}}>
                           + Tạo đơn
                         </a>
                         <a href={`/dashboard/don-hang?q=${encodeURIComponent(kh['Mã KH']||kh['Tên khách hàng']||'')}`}
@@ -207,6 +259,7 @@ export default function KhachHangClient({ khachHang, user }: { khachHang: any[];
             </tbody>
           </table>
         </div>
+        <PhanTrang/>
       </div>
 
       {/* Modal thêm KH */}
@@ -218,7 +271,7 @@ export default function KhachHangClient({ khachHang, user }: { khachHang: any[];
               <button onClick={()=>{setShowModal(false);resetForm()}} style={{background:'none',border:'none',cursor:'pointer',fontSize:'20px',color:'#6B7280'}}>✕</button>
             </div>
             <p style={{fontSize:'12px',color:'#1E40AF',margin:'0 0 14px',background:'#EFF6FF',padding:'8px 12px',borderRadius:'6px'}}>
-              💡 Mã KH sẽ được NocoDB tự động tạo. Khách hàng mới sẽ hiện lên đầu danh sách.
+              💡 Mã KH được tạo tự động. Khách hàng mới hiện đầu danh sách.
             </p>
             <div style={{display:'flex',flexDirection:'column',gap:'10px'}}>
               <div><label style={{fontSize:'11px',fontWeight:600,display:'block',marginBottom:'3px'}}>Tên khách hàng *</label>
@@ -241,9 +294,7 @@ export default function KhachHangClient({ khachHang, user }: { khachHang: any[];
                   {loading?'⏳ Đang lưu...':'✅ Lưu khách hàng'}
                 </button>
                 <button onClick={()=>{setShowModal(false);resetForm()}}
-                  style={{padding:'11px 16px',borderRadius:'8px',border:'1px solid var(--border)',background:'white',cursor:'pointer',fontSize:'14px'}}>
-                  Huỷ
-                </button>
+                  style={{padding:'11px 16px',borderRadius:'8px',border:'1px solid var(--border)',background:'white',cursor:'pointer',fontSize:'14px'}}>Huỷ</button>
               </div>
             </div>
           </div>
