@@ -12,7 +12,7 @@ export default async function GiaoHangPage() {
     getRecords(TABLES.GIAO_HANG, { limit: 500, sort: '-Id' }),
     getRecords(TABLES.CHI_TIET_GIAO, { limit: 1000 }),
     // ✅ Bỏ fields filter — lấy toàn bộ để có đủ Mã KH, Địa chỉ giao
-    getRecords(TABLES.DON_HANG, { limit: 500, sort: 'Id' }),
+    getRecords(TABLES.DON_HANG, { limit: 500, sort: '-Id' }), // ✅ đơn mới nhất lên đầu dropdown
     // ✅ Sort Id tăng — dữ liệu thực (Id nhỏ) lên trước, null (Id lớn) ở sau
     getRecords(TABLES.CHI_TIET_DON, {
       limit: 500, sort: 'Id',
