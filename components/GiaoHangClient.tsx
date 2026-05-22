@@ -44,19 +44,20 @@ const SO_DONG = 10
 
 export default function GiaoHangClient({
   giaoHangList, chiTietDonMap, daGiaoMap,
-  donChuaGiao, donHangMap,
+  donChuaGiao, donCanGiao, donHangMap,
   danhSachNVCuaHang, danhSachDoiTac,
   khachHangMap, user,
 }: {
   giaoHangList:any[]; chiTietDonMap:Record<string,any[]>
   daGiaoMap:Record<string,Record<string,number>>
-  donChuaGiao:any[]; donHangMap:Record<string,any>
+  donChuaGiao:any[]; donCanGiao:any[]; donHangMap:Record<string,any>
   danhSachNVCuaHang:any[]; danhSachDoiTac:any[]
   khachHangMap:Record<string,any>; user:UserSession
 }) {
   const router = useRouter()
-  const [filterTT, setFilterTT] = useState('Tất cả')
-  const [trang,    setTrang]    = useState(1)
+  const [filterTT,    setFilterTT]    = useState('Tất cả')
+  const [trang,       setTrang]       = useState(1)
+  const [donChonTao,  setDonChonTao]  = useState<any>(null) // đơn được chọn từ bảng donCanGiao để tạo chuyến
   const [showForm, setShowForm] = useState(false)
   const [loading,  setLoading]  = useState(false)
   const [msg,      setMsg]      = useState('')
@@ -176,6 +177,24 @@ export default function GiaoHangClient({
     setDanhSachNguoi([{...NGUOI_MAC_DINH}]);setDanhSachSP([])
   }
 
+  // Mở form tạo chuyến với đơn chọn sẵn từ bảng donCanGiao
+  function taoChuyen_TuDon(don: any) {
+    setDonChonTao(don)
+    setSearchDon(don['Mã đơn hàng'])
+    setDonChon(don)
+    // Load SP của đơn
+    const ct     = chiTietDonMap[don['Mã đơn hàng']] || []
+    const daGiao = daGiaoMap[don['Mã đơn hàng']] || {}
+    setDanhSachSP(ct.filter((c:any)=>c['Tên SP (ghi nhanh)']||c['Mã SP']).map((c:any)=>{
+      const key  = c['Mã chi tiết']||c['Tên SP (ghi nhanh)']||c['Mã SP']
+      const sl   = Number(c['Số lượng']||1)
+      const daDG = daGiao[key]||0
+      const con  = Math.max(0,sl-daDG)
+      return { maChiTiet:c['Mã chi tiết']||'', tenSP:c['Tên SP (ghi nhanh)']||c['Mã SP']||'—', soLuongDon:sl, daGiao:daDG, soLuongGiao:con, checked:con>0, ghiChu:'' }
+    }))
+    setShowForm(true)
+  }
+
   function moModalDS(gh:any) {
     const don = donHangMap[gh['Mã đơn hàng']]
     setModalDS(gh)
@@ -284,6 +303,8 @@ export default function GiaoHangClient({
         .sp-row{display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:6px;border:1px solid #E5E7EB;margin-bottom:5px;background:white;font-size:13px;}
         .sec-title{font-size:11px;font-weight:700;color:var(--primary);text-transform:uppercase;letter-spacing:.05em;margin:0 0 10px;}
         .kq-btn{padding:8px 12px;border-radius:8px;border:2px solid;cursor:pointer;font-size:12px;font-weight:600;text-align:center;}
+        .btn-tao-chuyen:hover::after{content:'Tạo chuyến giao';position:absolute;bottom:calc(100% + 4px);left:50%;transform:translateX(-50%);background:#1F2937;color:white;font-size:11px;padding:3px 8px;border-radius:4px;white-space:nowrap;pointer-events:none;z-index:10;}
+        .btn-tao-chuyen:hover::before{content:'';position:absolute;bottom:calc(100% + 1px);left:50%;transform:translateX(-50%);border:4px solid transparent;border-top-color:#1F2937;pointer-events:none;}
         /* ✅ Tooltip đối soát */
         .btn-doi-soat{position:relative;display:inline-block;}
         .btn-doi-soat:hover::after{content:'Đối soát';position:absolute;bottom:calc(100% + 4px);left:50%;transform:translateX(-50%);background:#1F2937;color:white;font-size:11px;padding:3px 8px;border-radius:4px;white-space:nowrap;pointer-events:none;z-index:10;}
@@ -306,6 +327,92 @@ export default function GiaoHangClient({
       </div>
 
       {msg&&<div style={{padding:'10px 14px',borderRadius:'8px',marginBottom:'14px',fontSize:'13px',background:msgOk?'#D1FAE5':'#FEE2E2',color:msgOk?'#065F46':'#991B1B'}}>{msg}</div>}
+
+      {/* ── BẢNG ĐƠN HÀNG CẦN GIAO ── */}
+      <div className="card" style={{marginBottom:'20px',overflow:'hidden'}}>
+        <div style={{padding:'12px 16px',borderBottom:'1px solid var(--border)',display:'flex',justifyContent:'space-between',alignItems:'center',background:'#F8FAFC'}}>
+          <div>
+            <span style={{fontWeight:700,fontSize:'14px',color:'var(--primary)'}}>📦 Đơn hàng chờ giao</span>
+            <span style={{marginLeft:'8px',fontSize:'12px',color:'var(--text-secondary)'}}>
+              {donCanGiao.length} đơn · hình thức "Giao hàng cho khách" · sắp xếp theo ngày hẹn giao
+            </span>
+          </div>
+        </div>
+        <div style={{overflowX:'auto'}}>
+          <table style={{width:'100%',borderCollapse:'collapse',fontSize:'13px'}}>
+            <thead>
+              <tr style={{background:'#F0F4FF',borderBottom:'2px solid var(--border)'}}>
+                <th style={{textAlign:'left',fontWeight:700,padding:'8px 10px',whiteSpace:'nowrap'}}>Mã đơn</th>
+                <th style={{textAlign:'left',fontWeight:700,padding:'8px 10px',whiteSpace:'nowrap'}}>Ngày hẹn giao</th>
+                <th style={{textAlign:'left',fontWeight:700,padding:'8px 10px'}}>Khách hàng</th>
+                <th style={{textAlign:'left',fontWeight:700,padding:'8px 10px'}}>Địa chỉ</th>
+                <th style={{textAlign:'left',fontWeight:700,padding:'8px 10px'}}>Sản phẩm</th>
+                <th style={{textAlign:'center',fontWeight:700,padding:'8px 10px'}}>Trạng thái</th>
+                <th style={{textAlign:'center',fontWeight:700,padding:'8px 10px',width:'60px'}}></th>
+              </tr>
+            </thead>
+            <tbody>
+              {donCanGiao.length===0?(
+                <tr><td colSpan={7} style={{textAlign:'center',padding:'32px',color:'var(--text-muted)'}}>Không có đơn nào chờ giao</td></tr>
+              ):donCanGiao.map((don:any,i:number)=>{
+                const maKH   = don['Mã KH']||''
+                const tenKH  = don['_tenKH'] || getTenKH(maKH, don['Tên khách hàng'])
+                const sdt    = don['_sdtKH'] || khachHangMap[maKH]?.['Số điện thoại'] || ''
+                const diaChi = don['_diaChiKH'] || getDiaChi(don)
+                const {tenSP,tongSP,coNhieu} = getThongTinSP(don['Mã đơn hàng'])
+                const ngayHen = don['Ngày hẹn giao']
+                const qua    = ngayHen && new Date(ngayHen) < new Date()
+                const ttColor: Record<string,{bg:string,c:string}> = {
+                  'Chờ giao':  {bg:'#FEF3C7',c:'#92400E'},
+                  'Đang giao': {bg:'#DBEAFE',c:'#1E40AF'},
+                }
+                const ttC = ttColor[don['Trạng thái']] || {bg:'#F3F4F6',c:'#374151'}
+                return (
+                  <tr key={don['Mã đơn hàng']} style={{borderBottom:'1px solid #F0F0F0',background:i%2===0?'white':'#FAFBFD'}}>
+                    <td style={{padding:'8px 10px',fontWeight:700,color:'var(--primary)',whiteSpace:'nowrap'}}>
+                      {don['Mã đơn hàng']}
+                    </td>
+                    <td style={{padding:'8px 10px',whiteSpace:'nowrap'}}>
+                      {ngayHen ? (
+                        <span style={{color:qua?'#DC2626':'#374151',fontWeight:qua?700:400,fontSize:'12px'}}>
+                          {qua&&'⚠️ '}{new Date(ngayHen).toLocaleDateString('vi-VN')}
+                        </span>
+                      ) : (
+                        <span style={{color:'#F59E0B',fontWeight:700,fontSize:'12px'}}>⏳ Chưa hẹn</span>
+                      )}
+                    </td>
+                    <td style={{padding:'8px 10px'}}>
+                      <div style={{fontWeight:600}}>{tenKH}</div>
+                      {sdt&&<div style={{fontSize:'11px',color:'var(--text-muted)'}}>📞 {sdt}</div>}
+                    </td>
+                    <td style={{padding:'8px 10px',fontSize:'12px',color:'var(--text-secondary)',maxWidth:'160px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}} title={diaChi}>
+                      {diaChi}
+                    </td>
+                    <td style={{padding:'8px 10px',maxWidth:'160px'}}>
+                      <div style={{fontSize:'12px',fontWeight:600,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}} title={tenSP}>{tenSP}</div>
+                      {coNhieu&&<div style={{fontSize:'11px',color:'#6B7280'}}>tổng {tongSP} SP</div>}
+                    </td>
+                    <td style={{padding:'8px 10px',textAlign:'center'}}>
+                      <span style={{padding:'3px 9px',borderRadius:'20px',fontSize:'11px',fontWeight:700,background:ttC.bg,color:ttC.c,whiteSpace:'nowrap'}}>
+                        {don['Trạng thái']}
+                      </span>
+                    </td>
+                    <td style={{padding:'8px 10px',textAlign:'center'}}>
+                      {/* Nút Tạo chuyến giao cho từng đơn */}
+                      <span style={{position:'relative',display:'inline-block'}} className="btn-tao-chuyen">
+                        <button onClick={()=>taoChuyen_TuDon(don)} title="Tạo chuyến giao"
+                          style={{padding:'5px 10px',borderRadius:'6px',border:'none',background:'#0F6B3B',color:'white',fontWeight:700,fontSize:'13px',cursor:'pointer'}}>
+                          🚚
+                        </button>
+                      </span>
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
 
       {/* Filter */}
       <div className="card" style={{padding:'12px 14px',marginBottom:'14px'}}>
