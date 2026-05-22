@@ -67,12 +67,18 @@ export default function DonHangClient({
       if (trangThai !== 'Tất cả' && d['Trạng thái'] !== trangThai) return false
       if (kenh      !== 'Tất cả' && d['Kênh bán']   !== kenh)      return false
       if (search) {
-        const q   = search.toLowerCase()
-        const ten = (khachHangMap[d['Mã KH']]?.['Tên khách hàng'] || d['Tên khách hàng'] || '').toLowerCase()
+        const q      = search.toLowerCase().trim()
+        const kh     = khachHangMap[d['Mã KH']] || {}
+        const ten    = (kh['Tên khách hàng'] || d['Tên khách hàng'] || '').toLowerCase()
+        const sdt    = (kh['Số điện thoại'] || '').replace(/\D/g, '')
+        const diaChi = (kh['Địa chỉ'] || d['Địa chỉ giao'] || '').toLowerCase()
+        const qSo    = q.replace(/\D/g, '')
         return (
           (d['Mã đơn hàng'] || '').toLowerCase().includes(q) ||
           ten.includes(q) ||
-          (d['Mã KH'] || '').toLowerCase().includes(q)
+          (d['Mã KH'] || '').toLowerCase().includes(q) ||
+          (qSo.length >= 4 && sdt.includes(qSo)) ||
+          diaChi.includes(q)
         )
       }
       return true
@@ -168,7 +174,7 @@ export default function DonHangClient({
       {/* Filters */}
       <div className="card" style={{ padding:'12px 14px', marginBottom:'14px' }}>
         <div style={{ display:'flex', gap:'10px', flexWrap:'wrap', alignItems:'center' }}>
-          <input className="input" placeholder="🔍 Tìm mã đơn, tên KH..."
+          <input className="input" placeholder="🔍 Tìm mã đơn, tên KH, SĐT, địa chỉ..."
             value={search} onChange={e => setSearch(e.target.value)}
             style={{ flex:'1', minWidth:'160px', maxWidth:'260px' }} />
           <div style={{ display:'flex', gap:'5px', flexWrap:'wrap' }}>
