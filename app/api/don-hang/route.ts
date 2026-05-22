@@ -1,49 +1,68 @@
-// app/api/don-hang/route.ts — v3.0
-// Sửa lỗi chính: NocoDB trả Mã đơn hàng = null ngay sau khi tạo
-// Giải pháp: sau khi tạo, query lại bằng Id để lấy Mã đơn hàng thực tế
+// app/api/don-hang/route.ts — v4.0
+// Sửa lỗi 404: tự tạo Mã đơn hàng (format DH-YYYY-NNN) trước khi gửi lên NocoDB
+// Vì cột "Mã đơn hàng" là Single Line Text — NocoDB không tự tạo
 
 import { NextRequest, NextResponse } from 'next/server'
-import { createRecord, getRecord, getRecords, updateRecord, TABLES } from '@/lib/nocodb'
+import { createRecord, getRecords, updateRecord, TABLES } from '@/lib/nocodb'
 import { getSession } from '@/lib/auth'
+
+// Hàm tạo mã đơn hàng tiếp theo: DH-YYYY-NNN
+async function taoMaDonMoi(): Promise<string> {
+  const nam = new Date().getFullYear()
+
+  try {
+    // Lấy đơn hàng gần nhất để tính số thứ tự
+    const result = await getRecords(TABLES.DON_HANG, {
+      limit: 1,
+      sort: '-Id',
+      fields: 'Mã đơn hàng,Id',
+    })
+
+    const donCuoi = result.list?.[0]
+    if (donCuoi?.['Mã đơn hàng']) {
+      const ma = donCuoi['Mã đơn hàng'] as string
+      const parts = ma.split('-')
+      const soHienTai = parseInt(parts[parts.length - 1] || '0')
+      if (!isNaN(soHienTai)) {
+        return `DH-${nam}-${String(soHienTai + 1).padStart(3, '0')}`
+      }
+    }
+
+    return `DH-${nam}-001`
+
+  } catch {
+    const ts = Date.now().toString().slice(-4)
+    return `DH-${nam}-${ts}`
+  }
+}
 
 export async function POST(request: NextRequest) {
   try {
     const session = await getSession()
-    if (!session) return NextResponse.json({ message: 'Chưa đăng nhập' }, { status: 401 })
-
-    const body = await request.json()
-    const result = await createRecord(TABLES.DON_HANG, body)
-    if (!result) return NextResponse.json({ message: 'Lỗi tạo đơn hàng' }, { status: 500 })
-
-    const rowId = result['Id'] || result['id']
-    let maDon   = result['Mã đơn hàng'] || ''
-
-    // ── NocoDB đôi khi trả Mã đơn hàng = null ngay sau khi INSERT ──
-    // Đợi 800ms rồi query lại bằng rowId để lấy mã thực tế
-    if (!maDon && rowId) {
-      await new Promise(r => setTimeout(r, 800))
-      const fresh = await getRecord(TABLES.DON_HANG, rowId)
-      maDon = fresh?.['Mã đơn hàng'] || ''
-
-      // Nếu vẫn null, thử thêm 1 lần nữa sau 1.2 giây
-      if (!maDon) {
-        await new Promise(r => setTimeout(r, 1200))
-        const fresh2 = await getRecord(TABLES.DON_HANG, rowId)
-        maDon = fresh2?.['Mã đơn hàng'] || ''
-      }
+    if (!session) {
+      return NextResponse.json({ message: 'Chưa đăng nhập' }, { status: 401 })
     }
 
-    // Fallback cuối cùng: tạo mã tạm dựa trên Id
-    // (trường hợp NocoDB chưa có formula tự động)
-    if (!maDon && rowId) {
-      maDon = `DH-${String(rowId).padStart(3, '0')}`
+    const body = await request.json()
+
+    // Tạo mã đơn trước khi lưu
+    const maDon = await taoMaDonMoi()
+
+    const result = await createRecord(TABLES.DON_HANG, {
+      ...body,
+      'Mã đơn hàng': maDon,
+    })
+
+    if (!result) {
+      return NextResponse.json({ message: 'Lỗi tạo đơn hàng' }, { status: 500 })
     }
 
     return NextResponse.json({
       success: true,
       data:    result,
-      maDon,   // ← field riêng để client đọc dễ
+      maDon:   result['Mã đơn hàng'] || maDon,
     })
+
   } catch (error: any) {
     return NextResponse.json({ message: error.message }, { status: 500 })
   }
@@ -52,7 +71,9 @@ export async function POST(request: NextRequest) {
 export async function GET(request: NextRequest) {
   try {
     const session = await getSession()
-    if (!session) return NextResponse.json({ message: 'Chưa đăng nhập' }, { status: 401 })
+    if (!session) {
+      return NextResponse.json({ message: 'Chưa đăng nhập' }, { status: 401 })
+    }
 
     const { searchParams } = new URL(request.url)
     const where  = searchParams.get('where')  || undefined
@@ -62,6 +83,7 @@ export async function GET(request: NextRequest) {
 
     const result = await getRecords(TABLES.DON_HANG, { where, limit, offset, sort })
     return NextResponse.json(result)
+
   } catch (error: any) {
     return NextResponse.json({ message: error.message }, { status: 500 })
   }
@@ -70,14 +92,19 @@ export async function GET(request: NextRequest) {
 export async function PATCH(request: NextRequest) {
   try {
     const session = await getSession()
-    if (!session) return NextResponse.json({ message: 'Chưa đăng nhập' }, { status: 401 })
+    if (!session) {
+      return NextResponse.json({ message: 'Chưa đăng nhập' }, { status: 401 })
+    }
 
     const body = await request.json()
     const { id, ...updateData } = body
-    if (!id) return NextResponse.json({ message: 'Thiếu id' }, { status: 400 })
+    if (!id) {
+      return NextResponse.json({ message: 'Thiếu id' }, { status: 400 })
+    }
 
     const result = await updateRecord(TABLES.DON_HANG, id, updateData)
     return NextResponse.json({ success: true, data: result })
+
   } catch (error: any) {
     return NextResponse.json({ message: error.message }, { status: 500 })
   }
