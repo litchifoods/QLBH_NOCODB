@@ -1,5 +1,5 @@
 // app/dashboard/don-hang/tao/page.tsx — v2.3
-// Sửa: tên cột NocoDB là "Họ và Tên" thay vì "Họ tên"
+export const dynamic = 'force-dynamic'
 import { getRecords, TABLES } from '@/lib/nocodb'
 import { getSession } from '@/lib/auth'
 import TaoDonHangForm from '@/components/TaoDonHangForm'
