@@ -244,7 +244,7 @@ export default function ChiTietDonHangClient({
             body: JSON.stringify({
               id: sp.id,
               'Trạng thái SP': 'Huỷ',
-              'Ghi chú SP': (sp.ghiChu?sp.ghiChu+' | ':'')+`[Huỷ: ${user.hoTen||user.tenDangNhap} ${new Date().toLocaleDateString('vi-VN')}]`,
+              'Ghi chú SP': `[Huỷ bởi ${user.hoTen||user.tenDangNhap} ngày ${new Date().toLocaleDateString('vi-VN')}]`,
             }),
           })
         }
