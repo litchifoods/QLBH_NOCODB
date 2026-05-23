@@ -76,7 +76,8 @@ export default function ChiTietDonHangClient({
         donGia:     Number(ct['Đơn giá']||0),
         thanhTien:  Number(ct['Thành tiền']||0),
         ghiChu:     ct['Ghi chú SP']||'',
-        da_huy:     false,
+        // ✅ Đọc Trạng thái SP từ NocoDB để biết đã hủy chưa
+        da_huy:     ct['Trạng thái SP'] === 'Huỷ',
         la_moi:     false,
       }))
   )
@@ -192,13 +193,17 @@ export default function ChiTietDonHangClient({
       const spMoi  = spList.filter(sp => sp.la_moi && !sp.da_huy)
       const spSua  = spList.filter(sp => !sp.da_huy && !sp.la_moi)
 
-      // 1. Đánh dấu SP hủy (PATCH thêm field Trạng thái='Hủy')
+      // 1. Đánh dấu SP hủy — lưu vào field 'Trạng thái SP' = 'Huỷ'
       for (const sp of spHuy) {
         if (sp.id && !sp.id.startsWith('new-')) {
-          await fetch(`/api/chi-tiet-don?id=${sp.id}`, {
+          await fetch('/api/chi-tiet-don', {
             method:'PATCH',
             headers:{'Content-Type':'application/json'},
-            body: JSON.stringify({'Ghi chú SP': (sp.ghiChu?sp.ghiChu+' | ':'')+`[HUỶ bởi ${user.hoTen||user.tenDangNhap} ${new Date().toLocaleDateString('vi-VN')}]`}),
+            body: JSON.stringify({
+              id: sp.id,
+              'Trạng thái SP': 'Huỷ',
+              'Ghi chú SP': (sp.ghiChu?sp.ghiChu+' | ':'')+`[Huỷ: ${user.hoTen||user.tenDangNhap} ${new Date().toLocaleDateString('vi-VN')}]`,
+            }),
           })
         }
       }
@@ -220,15 +225,18 @@ export default function ChiTietDonHangClient({
         })
       }
 
-      // 3. Cập nhật tổng tiền đơn
-      const ttMoi = spList.filter(sp=>!sp.da_huy).reduce((s,sp)=>s+sp.thanhTien,0)
+      // 3. Cập nhật tổng tiền đơn — tính lại đúng
+      // Lấy danh sách SP sau khi cập nhật hủy
+      const spSauHuy  = spList.map(sp => spHuy.find(h=>h.id===sp.id) ? {...sp,da_huy:true} : sp)
+      const spConLai  = spSauHuy.filter(sp => !sp.da_huy)
+      const ttMoi     = spConLai.reduce((s,sp) => s + (sp.donGia * sp.soLuong), 0)
       const conPhaiThu = Math.max(0, ttMoi - datCoc)
 
       // Nếu tất cả SP bị hủy → đơn Huỷ
-      const tatCaHuy = spList.every(sp => sp.da_huy)
+      const tatCaHuy = spSauHuy.length > 0 && spSauHuy.every(sp => sp.da_huy)
       const ttDon    = tatCaHuy ? 'Huỷ' : trangThai
 
-      await fetch('/api/don-hang', {
+      const resDon = await fetch('/api/don-hang', {
         method:'PATCH',
         headers:{'Content-Type':'application/json'},
         body: JSON.stringify({
@@ -238,6 +246,7 @@ export default function ChiTietDonHangClient({
           'Trạng thái':    ttDon,
         }),
       })
+      if (!resDon.ok) throw new Error('Lỗi cập nhật đơn hàng')
 
       if (tatCaHuy) setTrangThai('Huỷ')
 
