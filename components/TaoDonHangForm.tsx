@@ -286,10 +286,10 @@ export default function TaoDonHangForm({
                   <span style={{position:'absolute',right:'10px',top:'50%',transform:'translateY(-50%)',color:'#9CA3AF',fontSize:'14px',pointerEvents:'none'}}>🔍</span>
                   {showNV&&<div className="db">
                     {searchNV&&!danhSachNV.find(n=>n['Họ tên']===searchNV)&&
-                      <div className="di" onClick={()=>setShowNV(false)} style={{background:'#FEF9C3',color:'#92400E',fontSize:'12px'}}>✏️ Dùng tên: <strong>"{searchNV}"</strong></div>}
+                      <div className="di" onMouseDown={e=>{e.preventDefault();setShowNV(false)}} style={{background:'#FEF9C3',color:'#92400E',fontSize:'12px'}}>✏️ Dùng tên: <strong>"{searchNV}"</strong></div>}
                     {nvLoc.length===0
                       ?<div style={{padding:'12px',fontSize:'12px',color:'#6B7280',textAlign:'center'}}>Không tìm thấy</div>
-                      :nvLoc.map(nv=><div key={nv['Mã NV']} className="di" onClick={()=>{setSearchNV(nv['Họ tên']);setMaNV(nv['Mã NV']);setShowNV(false)}}>
+                      :nvLoc.map(nv=><div key={nv['Mã NV']} className="di" onMouseDown={e=>{e.preventDefault();setSearchNV(nv['Họ tên']);setMaNV(nv['Mã NV']);setShowNV(false)}}>
                         <div style={{fontWeight:600}}>{nv['Họ tên']}</div>
                         <div style={{fontSize:'11px',color:'#6B7280'}}>{nv['Mã NV']} · {nv['Vai trò']||'—'}</div>
                       </div>)}
@@ -323,9 +323,9 @@ export default function TaoDonHangForm({
                   {khLoc.length===0
                     ?<div style={{padding:'12px',textAlign:'center',fontSize:'12px',color:'#6B7280'}}>
                       Không tìm thấy
-                      <button onClick={()=>{setShowFormKH(true);setNewTen(searchKH)}} style={{display:'block',margin:'6px auto 0',padding:'4px 12px',borderRadius:'6px',border:'none',background:'var(--primary)',color:'white',cursor:'pointer',fontSize:'12px'}}>+ Thêm "{searchKH}"</button>
+                      <button onMouseDown={e=>{e.preventDefault();setShowFormKH(true);setNewTen(searchKH)}} style={{display:'block',margin:'6px auto 0',padding:'4px 12px',borderRadius:'6px',border:'none',background:'var(--primary)',color:'white',cursor:'pointer',fontSize:'12px'}}>+ Thêm "{searchKH}"</button>
                     </div>
-                    :khLoc.map(kh=><div key={kh['Mã KH']} className="di" onClick={()=>chonKH(kh)}>
+                    :khLoc.map(kh=><div key={kh['Mã KH']} className="di" onMouseDown={e=>{e.preventDefault();chonKH(kh)}}>
                       <div style={{fontWeight:600}}>{kh['Tên khách hàng']}</div>
                       <div style={{fontSize:'11px',color:'#6B7280'}}>{kh['Mã KH']} · {kh['Số điện thoại']}{kh['Địa chỉ']?` · ${kh['Địa chỉ']}`:''}</div>
                     </div>)}
@@ -388,7 +388,7 @@ export default function TaoDonHangForm({
                         onFocus={()=>setShowSP(p=>({...p,[dong.id]:true}))}
                         onBlur={()=>setTimeout(()=>setShowSP(p=>({...p,[dong.id]:false})),200)}/>
                       {showSP[dong.id]&&<div className="db">
-                        {spLoc(dong.id).map(sp=><div key={sp['Mã SP']} className="di" style={{fontSize:'12px'}} onClick={()=>chonSP(dong.id,sp)}>
+                        {spLoc(dong.id).map(sp=><div key={sp['Mã SP']} className="di" style={{fontSize:'12px'}} onMouseDown={e=>{e.preventDefault();chonSP(dong.id,sp)}}>
                           <div style={{fontWeight:600}}>{sp['Tên sản phẩm']}</div>
                           <div style={{fontSize:'11px',color:'#6B7280'}}>{sp['Mã SP']} · {Number(sp['Giá bán lẻ']).toLocaleString('vi-VN')}đ
                             {Number(sp['Tồn kho'])===0?<span style={{color:'#DC2626',marginLeft:'6px'}}>⚠️ Hết</span>:<span style={{color:'#16A34A',marginLeft:'6px'}}>Kho:{sp['Tồn kho']}</span>}
