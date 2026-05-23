@@ -40,6 +40,7 @@ interface SPItem {
   ghiChu: string
   da_huy: boolean     // true = đã bị hủy (hiển thị mờ/đỏ)
   la_moi: boolean     // true = mới thêm chưa lưu
+  _da_sua: boolean    // true = đã sửa SL hoặc giá (highlight)
 }
 
 export default function ChiTietDonHangClient({
@@ -63,6 +64,15 @@ export default function ChiTietDonHangClient({
   // Chế độ sửa
   const [dangSua, setDangSua] = useState(false)
 
+  // Sửa thông tin giao hàng
+  const [htGiao,      setHtGiao]      = useState(donHang['Hình thức giao hàng']||'Giao hàng cho khách')
+  const [ngayHenGiao, setNgayHenGiao] = useState(donHang['Ngày hẹn giao']
+    ? new Date(donHang['Ngày hẹn giao']).toISOString().slice(0,16) : '')
+
+  // Sửa thanh toán
+  const [datCocEdit,  setDatCocEdit]  = useState(Number(donHang['Đặt cọc']||0))
+  const [cpDoiTra,    setCpDoiTra]    = useState(0)
+
   // Danh sách SP — kết hợp từ server + thêm mới local
   const [spList, setSpList] = useState<SPItem[]>(() =>
     chiTiet
@@ -79,6 +89,7 @@ export default function ChiTietDonHangClient({
         // ✅ Đọc Trạng thái SP từ NocoDB để biết đã hủy chưa
         da_huy:     ct['Trạng thái SP'] === 'Huỷ',
         la_moi:     false,
+        _da_sua:    false,
       }))
   )
 
@@ -108,8 +119,8 @@ export default function ChiTietDonHangClient({
     .filter(sp => !sp.da_huy)
     .reduce((s,sp) => s+(sp.soLuong*sp.donGia), 0)
 
-  const datCoc  = Number(donHang['Đặt cọc']||0)
-  const conLai  = tongTienHienTai - datCoc
+  const datCoc  = dangSua ? datCocEdit : Number(donHang['Đặt cọc']||0)
+  const conLai  = tongTienHienTai + (dangSua ? cpDoiTra : Number(donHang['CP đổi trả']||0)) - datCoc
   const tt      = TT_COLOR[trangThai]||{bg:'#F3F4F6',color:'#374151'}
 
   function showMsg(text: string, ok=true) {
@@ -187,6 +198,8 @@ export default function ChiTietDonHangClient({
       const u = {...sp, [field]:val}
       if (field==='soLuong'||field==='donGia') {
         u.thanhTien = (field==='soLuong'?Number(val):sp.soLuong) * (field==='donGia'?Number(val):sp.donGia)
+        // Đánh dấu đã sửa để highlight + hiện trong thông báo
+        if (!sp.la_moi) u._da_sua = true
       }
       return u
     }))
@@ -225,6 +238,23 @@ export default function ChiTietDonHangClient({
         }
       }
 
+      // 1b. Cập nhật SP đã sửa SL/giá (không phải hủy, không phải mới)
+      const spSuaGia = spList.filter(sp => sp._da_sua && !sp.da_huy && !sp.la_moi)
+      for (const sp of spSuaGia) {
+        if (sp.id && !sp.id.startsWith('new-')) {
+          await fetch('/api/chi-tiet-don', {
+            method:'PATCH',
+            headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({
+              id: sp.id,
+              'Số lượng':   sp.soLuong,
+              'Đơn giá':    sp.donGia,
+              'Thành tiền': sp.soLuong * sp.donGia,
+            }),
+          })
+        }
+      }
+
       // 2. Thêm SP mới
       for (const sp of spMoi) {
         await fetch('/api/chi-tiet-don', {
@@ -253,14 +283,21 @@ export default function ChiTietDonHangClient({
       const tatCaHuy = spSauHuy.length > 0 && spSauHuy.every(sp => sp.da_huy)
       const ttDon    = tatCaHuy ? 'Huỷ' : trangThai
 
+      const cpDoiTraFinal = cpDoiTra || 0
+      const conPhaiThuFinal = Math.max(0, ttMoi + cpDoiTraFinal - datCocEdit)
+
       const resDon = await fetch('/api/don-hang', {
         method:'PATCH',
         headers:{'Content-Type':'application/json'},
         body: JSON.stringify({
-          id:              donHang['Id']||donHang['id'],
-          'Tổng tiền đơn': ttMoi,
-          'Còn phải thu':  conPhaiThu,
-          'Trạng thái':    ttDon,
+          id:                    donHang['Id']||donHang['id'],
+          'Tổng tiền đơn':       ttMoi,
+          'Đặt cọc':             datCocEdit,
+          'Còn phải thu':        conPhaiThuFinal,
+          'Trạng thái':          ttDon,
+          'Hình thức giao hàng': htGiao,
+          'Ngày hẹn giao':       ngayHenGiao || null,
+          'CP đổi trả':          cpDoiTraFinal,
         }),
       })
       if (!resDon.ok) throw new Error('Lỗi cập nhật đơn hàng')
@@ -294,6 +331,9 @@ export default function ChiTietDonHangClient({
   }
 
   const spHienThi = spList // hiển thị tất cả kể cả đã hủy
+  const soSPHuy  = spList.filter(sp=>sp.da_huy && !sp.la_moi).length
+  const soSPMoi  = spList.filter(sp=>sp.la_moi && !sp.da_huy).length
+  const soSPSua  = spList.filter(sp=>sp._da_sua && !sp.da_huy && !sp.la_moi).length
   const coBatKyHuy = spList.some(sp=>sp.da_huy)
 
   return (
@@ -314,7 +354,9 @@ export default function ChiTietDonHangClient({
           <div style={{display:'flex',alignItems:'center',gap:'12px',marginBottom:'4px'}}>
             <h1 style={{fontFamily:'Playfair Display,serif',fontSize:'22px',fontWeight:700}}>📋 {maDon}</h1>
             <span style={{padding:'4px 12px',borderRadius:'20px',fontSize:'12px',fontWeight:700,background:tt.bg,color:tt.color}}>{trangThai}</span>
-            {coBatKyHuy && <span style={{padding:'3px 10px',borderRadius:'20px',fontSize:'11px',background:'#FEE2E2',color:'#991B1B',fontWeight:600}}>⚠️ Có SP đã hủy</span>}
+            {soSPHuy>0 && <span style={{padding:'3px 10px',borderRadius:'20px',fontSize:'11px',background:'#FEE2E2',color:'#991B1B',fontWeight:600}}>🚫 Đã hủy {soSPHuy} SP</span>}
+            {soSPMoi>0 && <span style={{padding:'3px 10px',borderRadius:'20px',fontSize:'11px',background:'#D1FAE5',color:'#065F46',fontWeight:600}}>➕ Thêm {soSPMoi} SP mới</span>}
+            {soSPSua>0 && <span style={{padding:'3px 10px',borderRadius:'20px',fontSize:'11px',background:'#DBEAFE',color:'#1E40AF',fontWeight:600}}>✏️ Sửa {soSPSua} SP</span>}
           </div>
           <p style={{color:'var(--text-secondary)',fontSize:'13px'}}>
             Ngày đặt: {fDate(donHang['Ngày bán']||donHang['Ngày đặt'])} &nbsp;·&nbsp;
@@ -378,13 +420,21 @@ export default function ChiTietDonHangClient({
           <div className="card" style={{padding:'20px'}}>
             <h3 style={{fontSize:'13px',fontWeight:700,color:'var(--primary)',marginBottom:'12px'}}>🚚 Giao hàng</h3>
             <div style={{display:'flex',flexDirection:'column',gap:'8px',fontSize:'13px'}}>
-              <div style={{display:'flex',justifyContent:'space-between'}}>
-                <span style={{color:'var(--text-secondary)'}}>Hình thức:</span>
-                <span style={{fontWeight:600}}>{donHang['Hình thức giao hàng']||'—'}</span>
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                <span style={{color:'var(--text-secondary)',flexShrink:0}}>Hình thức:</span>
+                {dangSua ? (
+                  <select value={htGiao} onChange={e=>setHtGiao(e.target.value)} className="input" style={{width:'auto',fontSize:'12px',padding:'3px 8px'}}>
+                    <option>Giao hàng cho khách</option>
+                    <option>Khách mang hàng về</option>
+                  </select>
+                ) : <span style={{fontWeight:600}}>{donHang['Hình thức giao hàng']||'—'}</span>}
               </div>
-              <div style={{display:'flex',justifyContent:'space-between'}}>
-                <span style={{color:'var(--text-secondary)'}}>Ngày hẹn giao:</span>
-                <span style={{fontWeight:600}}>{fDT(donHang['Ngày hẹn giao'])}</span>
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                <span style={{color:'var(--text-secondary)',flexShrink:0}}>Ngày hẹn giao:</span>
+                {dangSua ? (
+                  <input type="datetime-local" value={ngayHenGiao} onChange={e=>setNgayHenGiao(e.target.value)}
+                    className="input" style={{width:'auto',fontSize:'12px',padding:'3px 8px'}}/>
+                ) : <span style={{fontWeight:600}}>{fDT(donHang['Ngày hẹn giao'])}</span>}
               </div>
               {giaoHang.length>0 && (
                 <div style={{marginTop:'8px',borderTop:'1px solid var(--border)',paddingTop:'8px'}}>
@@ -405,13 +455,37 @@ export default function ChiTietDonHangClient({
             <h3 style={{fontSize:'13px',fontWeight:700,color:'var(--primary)',marginBottom:'12px'}}>💰 Thanh toán</h3>
             <div style={{display:'flex',flexDirection:'column',gap:'8px'}}>
               <div style={{display:'flex',justifyContent:'space-between',fontSize:'13px'}}>
-                <span style={{color:'var(--text-secondary)'}}>Tổng tiền đơn:</span>
+                <span style={{color:'var(--text-secondary)'}}>Tổng tiền hàng:</span>
                 <span style={{fontWeight:700}}>{fVND(tongTienHienTai)}</span>
               </div>
-              <div style={{display:'flex',justifyContent:'space-between',fontSize:'13px'}}>
+              {Number(donHang['CP giao hàng']||0)>0 && (
+                <div style={{display:'flex',justifyContent:'space-between',fontSize:'13px'}}>
+                  <span style={{color:'var(--text-secondary)'}}>CP giao hàng:</span>
+                  <span style={{fontWeight:600,color:'#92400E'}}>+ {fVND(Number(donHang['CP giao hàng']||0))}</span>
+                </div>
+              )}
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',fontSize:'13px'}}>
                 <span style={{color:'var(--text-secondary)'}}>Đặt cọc ({donHang['Hình thức cọc']||'—'}):</span>
-                <span style={{color:'var(--success)',fontWeight:600}}>{fVND(datCoc)}</span>
+                {dangSua ? (
+                  <input type="number" min="0" value={datCocEdit||''} placeholder="0"
+                    onChange={e=>setDatCocEdit(Number(e.target.value))}
+                    style={{width:'120px',padding:'3px 8px',border:'1px solid #E5E7EB',borderRadius:'4px',fontSize:'12px',textAlign:'right'}}/>
+                ) : <span style={{color:'var(--success)',fontWeight:600}}>{fVND(datCoc)}</span>}
               </div>
+              {dangSua && (
+                <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',fontSize:'13px'}}>
+                  <span style={{color:'var(--text-secondary)'}}>CP đổi trả (thu thêm KH):</span>
+                  <input type="number" min="0" value={cpDoiTra||''} placeholder="0"
+                    onChange={e=>setCpDoiTra(Number(e.target.value))}
+                    style={{width:'120px',padding:'3px 8px',border:'1px solid #FCD34D',borderRadius:'4px',fontSize:'12px',textAlign:'right',background:'#FFFBEB'}}/>
+                </div>
+              )}
+              {!dangSua && Number(donHang['CP đổi trả']||0)>0 && (
+                <div style={{display:'flex',justifyContent:'space-between',fontSize:'13px'}}>
+                  <span style={{color:'var(--text-secondary)'}}>CP đổi trả:</span>
+                  <span style={{fontWeight:600,color:'#DC2626'}}>+ {fVND(Number(donHang['CP đổi trả']||0))}</span>
+                </div>
+              )}
               <div style={{display:'flex',justifyContent:'space-between',fontSize:'15px',fontWeight:800,borderTop:'1px solid var(--border)',paddingTop:'8px',marginTop:'4px'}}>
                 <span>Còn phải thu:</span>
                 <span style={{color:conLai>0?'#DC2626':'#16A34A'}}>{fVND(Math.max(0,conLai))}</span>
@@ -479,7 +553,7 @@ export default function ChiTietDonHangClient({
             ) : (
               <div style={{display:'flex',flexDirection:'column',gap:'8px'}}>
                 {spHienThi.map((sp,i)=>(
-                  <div key={sp.id} className={sp.da_huy?'sp-huy':''} style={{border:'1px solid var(--border)',borderRadius:'8px',padding:'10px 12px',background:'#FAFBFD'}}>
+                  <div key={sp.id} className={sp.da_huy?'sp-huy':''} style={{border:`1px solid ${sp.da_huy?'#FCA5A5':sp._da_sua&&!sp.la_moi?'#60A5FA':'var(--border)'}`,borderRadius:'8px',padding:'10px 12px',background:sp.da_huy?'#FFF1F1':sp._da_sua&&!sp.la_moi?'#EFF6FF':'#FAFBFD'}}>
                     <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:'8px'}}>
                       <div style={{flex:1,minWidth:0}}>
                         {/* Tên SP */}

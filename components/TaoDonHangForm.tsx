@@ -123,11 +123,12 @@ export default function TaoDonHangForm({
   const [dongSP,   setDongSP]   = useState<Dong[]>([{id:'1',maSP:'',tenSP:'',soLuong:1,donGia:0,thanhTien:0,ghiChu:''}])
   const [searchSP, setSearchSP] = useState<Record<string,string>>({})
   const [showSP,   setShowSP]   = useState<Record<string,boolean>>({})
+  const [cpGiaoHang, setCpGiaoHang] = useState(0)
   const [tienMat,  setTienMat]  = useState(0)
   const [ckCoc,    setCkCoc]    = useState(0)
   const tongTien   = dongSP.reduce((s,d)=>s+d.thanhTien,0)
   const datCocTong = tienMat+ckCoc
-  const conPhaiThu = tongTien-datCocTong
+  const conPhaiThu = tongTien + cpGiaoHang - datCocTong
 
   function spLoc(id:string) {
     const q=searchSP[id]||''
@@ -334,6 +335,18 @@ export default function TaoDonHangForm({
           </div>
 
           <div className="card" style={{padding:'14px'}}>
+            <h3 style={{fontSize:'11px',fontWeight:700,marginBottom:'10px',color:'var(--primary)',textTransform:'uppercase',letterSpacing:'.05em'}}>🚚 Chi phí giao hàng</h3>
+            <div>
+              <LBL>CP giao hàng / lắp đặt (VNĐ)</LBL>
+              <input className="input" type="number" min="0" value={cpGiaoHang||''} placeholder="0 — để trống nếu không có"
+                onChange={e=>setCpGiaoHang(Number(e.target.value))}/>
+              {cpGiaoHang>0&&<div style={{marginTop:'4px',fontSize:'11px',color:'#6B7280',fontStyle:'italic'}}>
+                💡 CP giao hàng sẽ được cộng vào "Còn phải thu"
+              </div>}
+            </div>
+          </div>
+
+          <div className="card" style={{padding:'14px'}}>
             <h3 style={{fontSize:'11px',fontWeight:700,marginBottom:'12px',color:'var(--primary)',textTransform:'uppercase',letterSpacing:'.05em'}}>💰 Đặt cọc</h3>
             <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'10px'}}>
               <div><LBL>💵 Tiền mặt (VNĐ)</LBL><input className="input" type="number" min="0" value={tienMat||''} placeholder="0" onChange={e=>setTienMat(Number(e.target.value))}/></div>
@@ -400,8 +413,11 @@ export default function TaoDonHangForm({
 
             <div style={{marginTop:'12px',padding:'12px',borderRadius:'8px',background:'var(--primary-pale)',border:'1px solid rgba(27,58,107,.15)'}}>
               <div style={{display:'flex',justifyContent:'space-between',fontSize:'13px',marginBottom:'4px'}}>
-                <span style={{color:'var(--text-secondary)'}}>Tổng tiền đơn:</span><span style={{fontWeight:700}}>{fVND(tongTien)}</span>
+                <span style={{color:'var(--text-secondary)'}}>Tổng tiền hàng:</span><span style={{fontWeight:700}}>{fVND(tongTien)}</span>
               </div>
+              {cpGiaoHang>0&&<div style={{display:'flex',justifyContent:'space-between',fontSize:'13px',marginBottom:'4px'}}>
+                <span style={{color:'var(--text-secondary)'}}>CP giao hàng:</span><span style={{fontWeight:600,color:'#92400E'}}>+ {fVND(cpGiaoHang)}</span>
+              </div>}
               <div style={{display:'flex',justifyContent:'space-between',fontSize:'13px',marginBottom:'4px'}}>
                 <span style={{color:'var(--text-secondary)'}}>Đã đặt cọc:</span><span style={{color:'var(--success)',fontWeight:600}}>- {fVND(datCocTong)}</span>
               </div>

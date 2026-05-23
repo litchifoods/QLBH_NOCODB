@@ -131,6 +131,8 @@ export default function InHoaDonClient({
   const tongTien   = Number(don['Tổng tiền đơn']||0)
   const datCoc     = Number(don['Đặt cọc']||0)
   const conLai     = Number(don['Còn phải thu']||0)
+  const cpGiaoHang = Number(don['CP giao hàng']||0)
+  const cpDoiTra   = Number(don['CP đổi trả']||0)
   const nvBan      = don['Nhân viên bán']||'—'
   const htCoc      = don['Hình thức cọc']||''
   const ghiChuDon  = don['Ghi chú']||''
@@ -316,6 +318,18 @@ export default function InHoaDonClient({
             <span style={{color:'#777'}}>Tổng tiền hàng:</span>
             <span style={{fontWeight:700}}>{fVND(tongTien)}đ</span>
           </div>
+          {cpGiaoHang>0&&(
+            <div style={{padding:'5px 12px',display:'flex',justifyContent:'space-between',fontSize:`${fzN}px`,borderBottom:`1px solid ${mauBd}`,background:'#F8FAFC'}}>
+              <span style={{color:'#777'}}>CP giao hàng/lắp đặt:</span>
+              <span style={{fontWeight:700,color:'#92400E'}}>+ {fVND(cpGiaoHang)}đ</span>
+            </div>
+          )}
+          {cpDoiTra>0&&(
+            <div style={{padding:'5px 12px',display:'flex',justifyContent:'space-between',fontSize:`${fzN}px`,borderBottom:`1px solid ${mauBd}`,background:'#FEF9C3'}}>
+              <span style={{color:'#92400E',fontWeight:600}}>CP đổi/trả hàng:</span>
+              <span style={{fontWeight:700,color:'#DC2626'}}>+ {fVND(cpDoiTra)}đ</span>
+            </div>
+          )}
           {datCoc>0&&(
             <div style={{padding:'5px 12px',display:'flex',justifyContent:'space-between',fontSize:`${fzN}px`,borderBottom:`1px solid ${mauBd}`,background:'#F8FAFC'}}>
               <span style={{color:'#777'}}>Đã cọc{htCoc?` (${htCoc})`:''}: </span>
