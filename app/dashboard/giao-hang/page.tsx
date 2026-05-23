@@ -55,18 +55,19 @@ export default async function GiaoHangPage() {
   }
 
   const nvMapTemp: Record<string, any> = {}
+  // ✅ Đúng tên cột: "Mã Nhân Viên" và "Họ và Tên"
   for (const nv of (nhanVien.list || [])) {
-    const ma  = nv['Mã NV']
-    const ten = nv['Họ và Tên'] || nv['Họ tên'] || nv['Tên'] || ''
-    if (!ma || !ten.trim()) continue
+    const ma  = nv['Mã Nhân Viên']
+    const ten = (nv['Họ và Tên'] || '').trim()
+    if (!ma || !ten) continue
     if (!nvMapTemp[ma] || (nv['Tháng']||'') > (nvMapTemp[ma]['Tháng']||'')) {
       nvMapTemp[ma] = nv
     }
   }
-  // Lấy tên từ bất kỳ cột nào NocoDB trả về
   const danhSachNV = Object.values(nvMapTemp).map((nv:any) => ({
     ...nv,
-    'Họ tên': nv['Họ và Tên'] || nv['Họ tên'] || nv['Tên'] || '',
+    'Mã NV':  nv['Mã Nhân Viên'],
+    'Họ tên': nv['Họ và Tên'] || '',
   }))
   const danhSachNVCuaHang = danhSachNV.filter((nv:any) => (nv['Mã NV']||'').startsWith('NV-'))
   const danhSachDoiTac    = danhSachNV.filter((nv:any) => (nv['Mã NV']||'').startsWith('DT-'))

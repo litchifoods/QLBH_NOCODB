@@ -35,31 +35,21 @@ export default async function TaoDonHangPage({
     nextMaDon   = `DH-${new Date().getFullYear()}-${String(num).padStart(3,'0')}`
   }
 
-  // DEBUG: xem NocoDB trả về fields gì
-  if (nhanVien.list?.length > 0) {
-    console.log('[DEBUG NV] keys:', Object.keys(nhanVien.list[0]))
-    console.log('[DEBUG NV] row0:', JSON.stringify(nhanVien.list[0]))
-  }
-
-  // Lấy tên NV từ bất kỳ cột nào NocoDB trả về
-  function layTenNV(nv: any): string {
-    return nv['Họ và Tên'] || nv['Họ tên'] || nv['Ho va Ten'] || nv['Ho ten'] || nv['Tên'] || nv['Ten'] || ''
-  }
-
+  // ✅ Đúng tên cột NocoDB: "Mã Nhân Viên" và "Họ và Tên"
   const nvMap: Record<string,any> = {}
   for (const nv of (nhanVien.list || [])) {
-    const ma  = nv['Mã NV']
-    const ten = layTenNV(nv).trim()
+    const ma  = nv['Mã Nhân Viên']
+    const ten = (nv['Họ và Tên'] || '').trim()
     if (!ma || !ten) continue
     if (!nvMap[ma] || (nv['Tháng']||'') > (nvMap[ma]['Tháng']||'')) nvMap[ma] = nv
   }
   const danhSachNV = Object.values(nvMap)
     .map((nv:any) => ({
-      'Mã NV':   nv['Mã NV'],
-      'Họ tên':  layTenNV(nv),
+      'Mã NV':   nv['Mã Nhân Viên'],
+      'Họ tên':  nv['Họ và Tên'] || '',
       'Vai trò': nv['Vai trò'] || '',
     }))
-    .sort((a,b) => a['Họ tên'].localeCompare(b['Họ tên'], 'vi'))
+    .sort((a,b) => (a['Họ tên']||'').localeCompare(b['Họ tên']||'', 'vi'))
 
   let khDaChon: any = null
   if (searchParams.maKH) {
