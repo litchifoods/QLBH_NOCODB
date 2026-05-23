@@ -219,7 +219,7 @@ export default function DoiSoatClient({
                 <th className="col-vt" style={{textAlign:'left',fontWeight:700}}>Vai trò</th>
                 <th style={{textAlign:'center',fontWeight:700}}>Trạng thái</th>
                 <th style={{textAlign:'center',fontWeight:700}}>Đối soát</th>
-                <th style={{width:'52px'}}></th>
+                <th style={{width:'44px'}}></th>
               </tr>
             </thead>
             <tbody>
@@ -282,7 +282,7 @@ export default function DoiSoatClient({
                           </button>
                         </span>
                       ):(
-                        <span style={{fontSize:'11px',color:'var(--text-muted)'}}>{ds?.['Ghi chú']||''}</span>
+                        <span style={{fontSize:'11px',color:'#16A34A',fontWeight:600}}>✅</span>
                       )}
                     </td>
                   </tr>

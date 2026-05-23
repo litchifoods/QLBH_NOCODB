@@ -50,9 +50,14 @@ export default async function DoiSoatPage({
     if (ds['Mã giao hàng']) doiSoatMap[ds['Mã giao hàng']] = ds
   }
 
+  // Lọc dòng trống trong bảng giao hàng
+  const giaoHangHopLe = (giaoHang.list || []).filter(
+    (g: any) => g['Mã giao hàng']?.toString().trim() && g['Mã đơn hàng']?.toString().trim()
+  )
+
   return (
     <DoiSoatClient
-      giaoHangList={giaoHang.list || []}
+      giaoHangList={giaoHangHopLe}
       doiSoatMap={doiSoatMap}
       donHangMap={donHangMap}
       khachHangMap={khachHangMap}
