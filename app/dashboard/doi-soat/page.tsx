@@ -1,22 +1,28 @@
-// app/dashboard/doi-soat/page.tsx -- v3.0
+// app/dashboard/doi-soat/page.tsx — v2.0
+export const dynamic = 'force-dynamic'
+
 import { getRecords, TABLES } from '@/lib/nocodb'
 import { getSession } from '@/lib/auth'
 import DoiSoatClient from '@/components/DoiSoatClient'
 
 export default async function DoiSoatPage({
-  searchParams
-}: { searchParams: { maGH?: string; maDon?: string } }) {
+  searchParams,
+}: {
+  searchParams: { maGH?: string }
+}) {
   const session = await getSession()
 
-  const [giaoHang, doiSoatList, donHang, khachHang] = await Promise.all([
-    getRecords(TABLES.GIAO_HANG, { limit: 500, sort: '-Ngày giao' }),
+  const [giaoHang, doiSoat, donHang, chiTietDon, khachHang] = await Promise.all([
+    getRecords(TABLES.GIAO_HANG, { limit: 500, sort: '-Id' }),
     getRecords(TABLES.DOI_SOAT,  { limit: 500 }),
-    getRecords(TABLES.DON_HANG, {
-      limit: 200,
-      fields: 'Mã đơn hàng,Mã KH,Tên khách hàng,Tổng tiền đơn,Còn phải thu,Trạng thái,Địa chỉ giao',
+    getRecords(TABLES.DON_HANG,  { limit: 500, sort: '-Id' }),
+    getRecords(TABLES.CHI_TIET_DON, {
+      limit: 500, sort: 'Id',
+      fields: 'Mã chi tiết,Mã đơn hàng,Mã SP,Tên SP (ghi nhanh),Số lượng,Ghi chú SP',
     }),
     getRecords(TABLES.KHACH_HANG, {
-      limit: 500, fields: 'Mã KH,Tên khách hàng,Số điện thoại,Địa chỉ',
+      limit: 500,
+      fields: 'Mã KH,Tên khách hàng,Số điện thoại,Địa chỉ',
     }),
   ])
 
@@ -30,27 +36,28 @@ export default async function DoiSoatPage({
     if (d['Mã đơn hàng']) donHangMap[d['Mã đơn hàng']] = d
   }
 
-  // Map: mã giao hàng → bản ghi đối soát
+  // Map chi tiết đơn — lọc null
+  const chiTietDonMap: Record<string, any[]> = {}
+  for (const ct of (chiTietDon.list || [])) {
+    const maDon = ct['Mã đơn hàng']
+    if (!maDon) continue
+    if (!chiTietDonMap[maDon]) chiTietDonMap[maDon] = []
+    chiTietDonMap[maDon].push(ct)
+  }
+
   const doiSoatMap: Record<string, any> = {}
-  for (const ds of (doiSoatList.list || [])) {
+  for (const ds of (doiSoat.list || [])) {
     if (ds['Mã giao hàng']) doiSoatMap[ds['Mã giao hàng']] = ds
   }
 
-  // Lọc theo params nếu có
-  const giaoHangLoc = (giaoHang.list || []).filter((g: any) => {
-    if (!g['Mã đơn hàng']?.trim()) return false
-    if (searchParams.maGH)  return g['Mã giao hàng'] === searchParams.maGH
-    if (searchParams.maDon) return g['Mã đơn hàng']  === searchParams.maDon
-    return true
-  })
-
   return (
     <DoiSoatClient
-      giaoHangList={giaoHangLoc}
+      giaoHangList={giaoHang.list || []}
       doiSoatMap={doiSoatMap}
       donHangMap={donHangMap}
       khachHangMap={khachHangMap}
-      filterParam={searchParams.maGH || searchParams.maDon}
+      chiTietDonMap={chiTietDonMap}
+      filterParam={searchParams.maGH}
       user={session!}
     />
   )
