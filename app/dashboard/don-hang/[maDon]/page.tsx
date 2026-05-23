@@ -12,7 +12,7 @@ export default async function ChiTietDonHangPage({ params }: { params: { maDon: 
 
   const [donHangResult, chiTietResult, giaoHangResult, danhSachSPResult] = await Promise.all([
     getRecords(TABLES.DON_HANG, { where:`(Mã đơn hàng,eq,${maDon})`, limit:1 }),
-    getRecords(TABLES.CHI_TIET_DON, { where:`(Mã đơn hàng,eq,${maDon})`, limit:50, fields:'Id,Mã chi tiết,Mã đơn hàng,Mã SP,Tên SP (ghi nhanh),Số lượng,Đơn giá,Thành tiền,Ghi chú SP,Trạng thái SP' }),
+    getRecords(TABLES.CHI_TIET_DON, { where:`(Mã đơn hàng,eq,${maDon})`, limit:50, fields:'Id,Mã chi tiết,Mã đơn hàng,Mã SP,Tên SP (ghi nhanh),Số lượng,Đơn giá,Thành tiền,Ghi chú SP,Trạng thái SP,Sửa giá,Sửa số lượng' }),
     getRecords(TABLES.GIAO_HANG, { where:`(Mã đơn hàng,eq,${maDon})`, limit:10 }),
     getRecords(TABLES.SAN_PHAM, {
       limit:200,

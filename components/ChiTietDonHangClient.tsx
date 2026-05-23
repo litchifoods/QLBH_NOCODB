@@ -41,6 +41,8 @@ interface SPItem {
   da_huy: boolean     // true = đã bị hủy (hiển thị mờ/đỏ)
   la_moi: boolean     // true = mới thêm chưa lưu
   _da_sua: boolean    // true = đã sửa SL hoặc giá (highlight)
+  _giaGoc: number     // giá gốc trước khi sửa (0 = chưa sửa)
+  _slGoc: number      // SL gốc trước khi sửa (0 = chưa sửa)
 }
 
 export default function ChiTietDonHangClient({
@@ -89,7 +91,10 @@ export default function ChiTietDonHangClient({
         // ✅ Đọc Trạng thái SP từ NocoDB để biết đã hủy chưa
         da_huy:     ct['Trạng thái SP'] === 'Huỷ',
         la_moi:     false,
-        _da_sua:    false,
+        // Đọc lịch sử sửa từ NocoDB
+        _da_sua:    !!(ct['Sửa giá'] || ct['Sửa số lượng']),
+        _giaGoc:    Number(ct['Sửa giá'] || 0),
+        _slGoc:     Number(ct['Sửa số lượng'] || 0),
       }))
   )
 
@@ -175,6 +180,8 @@ export default function ChiTietDonHangClient({
         da_huy:    false,
         la_moi:    true,
         _da_sua:   false,
+        _giaGoc:   0,
+        _slGoc:    0,
       }
       setSpList(prev => [...prev, moi])
     }
@@ -187,7 +194,7 @@ export default function ChiTietDonHangClient({
       id:        `new-${Date.now()}`,
       maCT:      '', maSP:'', tenSP:searchSP.trim()||'Sản phẩm mới',
       soLuong:1, donGia:0, thanhTien:0, ghiChu:'',
-      da_huy:false, la_moi:true, _da_sua:false,
+      da_huy:false, la_moi:true, _da_sua:false, _giaGoc:0, _slGoc:0,
     }
     setSpList(prev=>[...prev,moi])
     setSearchSP(''); setShowTimSP(false)
@@ -199,8 +206,12 @@ export default function ChiTietDonHangClient({
       const u = {...sp, [field]:val}
       if (field==='soLuong'||field==='donGia') {
         u.thanhTien = (field==='soLuong'?Number(val):sp.soLuong) * (field==='donGia'?Number(val):sp.donGia)
-        // Đánh dấu đã sửa để highlight + hiện trong thông báo
-        if (!sp.la_moi) u._da_sua = true
+        if (!sp.la_moi) {
+          u._da_sua = true
+          // Lưu giá/SL gốc lần đầu tiên sửa (chưa có gốc thì lưu lại)
+          if (field==='donGia'  && !sp._giaGoc) u._giaGoc = sp.donGia
+          if (field==='soLuong' && !sp._slGoc)  u._slGoc  = sp.soLuong
+        }
       }
       return u
     }))
@@ -239,7 +250,7 @@ export default function ChiTietDonHangClient({
         }
       }
 
-      // 1b. Cập nhật SP đã sửa SL/giá (không phải hủy, không phải mới)
+      // 1b. Cập nhật SP đã sửa SL/giá — lưu luôn giá/SL gốc vào NocoDB
       const spSuaGia = spList.filter(sp => sp._da_sua && !sp.da_huy && !sp.la_moi)
       for (const sp of spSuaGia) {
         if (sp.id && !sp.id.startsWith('new-')) {
@@ -247,10 +258,13 @@ export default function ChiTietDonHangClient({
             method:'PATCH',
             headers:{'Content-Type':'application/json'},
             body: JSON.stringify({
-              id: sp.id,
-              'Số lượng':   sp.soLuong,
-              'Đơn giá':    sp.donGia,
-              'Thành tiền': sp.soLuong * sp.donGia,
+              id:            sp.id,
+              'Số lượng':    sp.soLuong,
+              'Đơn giá':     sp.donGia,
+              'Thành tiền':  sp.soLuong * sp.donGia,
+              // Lưu giá/SL gốc để hiện thông báo sau khi reload
+              'Sửa giá':          sp._giaGoc || undefined,
+              'Sửa số lượng':     sp._slGoc  || undefined,
             }),
           })
         }
@@ -334,7 +348,12 @@ export default function ChiTietDonHangClient({
   const spHienThi = spList // hiển thị tất cả kể cả đã hủy
   const soSPHuy  = spList.filter(sp=>sp.da_huy && !sp.la_moi).length
   const soSPMoi  = spList.filter(sp=>sp.la_moi && !sp.da_huy).length
-  const soSPSua  = spList.filter(sp=>sp._da_sua && !sp.da_huy && !sp.la_moi).length
+  const soSPSuaGia = spList.filter(sp=>sp._giaGoc>0 && !sp.da_huy && !sp.la_moi).length
+  const soSPSuaSL  = spList.filter(sp=>sp._slGoc>0  && !sp.da_huy && !sp.la_moi).length
+  // Đang sửa (chưa lưu) — dùng _da_sua
+  const soSPDangSuaGia = spList.filter(sp=>sp._da_sua && sp._giaGoc>0 && !sp.da_huy && !sp.la_moi).length
+  const soSPDangSuaSL  = spList.filter(sp=>sp._da_sua && sp._slGoc>0  && !sp.da_huy && !sp.la_moi).length
+  const soSPSua  = soSPSuaGia + soSPSuaSL
   const coBatKyHuy = spList.some(sp=>sp.da_huy)
 
   return (
@@ -357,7 +376,8 @@ export default function ChiTietDonHangClient({
             <span style={{padding:'4px 12px',borderRadius:'20px',fontSize:'12px',fontWeight:700,background:tt.bg,color:tt.color}}>{trangThai}</span>
             {soSPHuy>0 && <span style={{padding:'3px 10px',borderRadius:'20px',fontSize:'11px',background:'#FEE2E2',color:'#991B1B',fontWeight:600}}>🚫 Đã hủy {soSPHuy} SP</span>}
             {soSPMoi>0 && <span style={{padding:'3px 10px',borderRadius:'20px',fontSize:'11px',background:'#D1FAE5',color:'#065F46',fontWeight:600}}>➕ Thêm {soSPMoi} SP mới</span>}
-            {soSPSua>0 && <span style={{padding:'3px 10px',borderRadius:'20px',fontSize:'11px',background:'#DBEAFE',color:'#1E40AF',fontWeight:600}}>✏️ Sửa {soSPSua} SP</span>}
+            {soSPSuaGia>0 && <span style={{padding:'3px 10px',borderRadius:'20px',fontSize:'11px',background:'#DBEAFE',color:'#1E40AF',fontWeight:600}}>💲 Đã sửa giá {soSPSuaGia} SP</span>}
+            {soSPSuaSL>0  && <span style={{padding:'3px 10px',borderRadius:'20px',fontSize:'11px',background:'#EDE9FE',color:'#6D28D9',fontWeight:600}}>🔢 Đã sửa SL {soSPSuaSL} SP</span>}
           </div>
           <p style={{color:'var(--text-secondary)',fontSize:'13px'}}>
             Ngày đặt: {fDate(donHang['Ngày bán']||donHang['Ngày đặt'])} &nbsp;·&nbsp;
