@@ -174,6 +174,7 @@ export default function ChiTietDonHangClient({
         ghiChu:    '',
         da_huy:    false,
         la_moi:    true,
+        _da_sua:   false,
       }
       setSpList(prev => [...prev, moi])
     }
@@ -186,7 +187,7 @@ export default function ChiTietDonHangClient({
       id:        `new-${Date.now()}`,
       maCT:      '', maSP:'', tenSP:searchSP.trim()||'Sản phẩm mới',
       soLuong:1, donGia:0, thanhTien:0, ghiChu:'',
-      da_huy:false, la_moi:true,
+      da_huy:false, la_moi:true, _da_sua:false,
     }
     setSpList(prev=>[...prev,moi])
     setSearchSP(''); setShowTimSP(false)
