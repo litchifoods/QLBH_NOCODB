@@ -18,7 +18,8 @@ export default async function GiaoHangPage() {
     }),
     getRecords(TABLES.NHAN_VIEN, {
       limit: 200, sort: 'Mã NV',
-      fields: 'Mã NV,Họ tên,Vai trò,Số điện thoại,Tháng',
+      // ✅ Đúng tên cột NocoDB: "Họ và Tên"
+      fields: 'Mã NV,Họ và Tên,Vai trò,Số điện thoại,Tháng',
     }),
     getRecords(TABLES.KHACH_HANG, {
       limit: 500,
@@ -62,9 +63,13 @@ export default async function GiaoHangPage() {
       nvMapTemp[ma] = nv
     }
   }
-  const danhSachNV        = Object.values(nvMapTemp)
-  const danhSachNVCuaHang = danhSachNV.filter(nv => (nv['Mã NV']||'').startsWith('NV-'))
-  const danhSachDoiTac    = danhSachNV.filter(nv => (nv['Mã NV']||'').startsWith('DT-'))
+  // Chuẩn hoá "Họ và Tên" → "Họ tên" để component dùng thống nhất
+  const danhSachNV = Object.values(nvMapTemp).map((nv:any) => ({
+    ...nv,
+    'Họ tên': nv['Họ và Tên'] || nv['Họ tên'] || '',
+  }))
+  const danhSachNVCuaHang = danhSachNV.filter((nv:any) => (nv['Mã NV']||'').startsWith('NV-'))
+  const danhSachDoiTac    = danhSachNV.filter((nv:any) => (nv['Mã NV']||'').startsWith('DT-'))
 
   // donChuaGiao — cho dropdown tạo chuyến
   const donChuaGiao = (donHang.list || [])
