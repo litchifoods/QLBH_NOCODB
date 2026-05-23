@@ -134,21 +134,38 @@ export default function ChiTietDonHangClient({
   }
 
   // ── Thêm SP mới từ danh sách ──
+  // Nếu trùng tên với SP chưa hủy → tăng số lượng thay vì thêm mới
   function themSP(sp: any) {
-    const dg = Number(sp['Giá bán lẻ']||0)
-    const moi: SPItem = {
-      id:        `new-${Date.now()}`,
-      maCT:      '',
-      maSP:      sp['Mã SP']||'',
-      tenSP:     sp['Tên sản phẩm']||'',
-      soLuong:   1,
-      donGia:    dg,
-      thanhTien: dg,
-      ghiChu:    '',
-      da_huy:    false,
-      la_moi:    true,
+    const tenMoi = (sp['Tên sản phẩm']||'').trim()
+    const maSPMoi = sp['Mã SP']||''
+    const trung = spList.find(s =>
+      !s.da_huy && (
+        s.tenSP.trim() === tenMoi ||
+        (maSPMoi && s.maSP === maSPMoi)
+      )
+    )
+    if (trung) {
+      // Tăng số lượng SP đã có
+      setSpList(prev => prev.map(s => s.id===trung.id
+        ? { ...s, soLuong: s.soLuong+1, thanhTien: (s.soLuong+1)*s.donGia }
+        : s
+      ))
+    } else {
+      const dg = Number(sp['Giá bán lẻ']||0)
+      const moi: SPItem = {
+        id:        `new-${Date.now()}`,
+        maCT:      '',
+        maSP:      maSPMoi,
+        tenSP:     tenMoi,
+        soLuong:   1,
+        donGia:    dg,
+        thanhTien: dg,
+        ghiChu:    '',
+        da_huy:    false,
+        la_moi:    true,
+      }
+      setSpList(prev => [...prev, moi])
     }
-    setSpList(prev => [...prev, moi])
     setSearchSP(''); setShowTimSP(false)
   }
 
@@ -413,23 +430,21 @@ export default function ChiTietDonHangClient({
             </div>
           )}
 
-          {/* Cập nhật trạng thái — chỉ khi không đang sửa */}
-          {!dangSua && user.vaiTro==='Chủ cửa hàng' && (
-            <div className="card" style={{padding:'20px'}}>
-              <h3 style={{fontSize:'13px',fontWeight:700,color:'var(--primary)',marginBottom:'12px'}}>🔄 Cập nhật trạng thái</h3>
-              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'8px'}}>
-                {['Chờ giao','Đang giao','Hoàn thành','Huỷ'].map(t=>{
-                  const c=TT_COLOR[t]; const isA=trangThai===t
-                  return (
-                    <button key={t} onClick={()=>capNhatTrangThai(t)} disabled={loading||isA}
-                      style={{padding:'10px',borderRadius:'8px',border:'2px solid',borderColor:isA?c.color:'var(--border)',background:isA?c.bg:'white',color:isA?c.color:'var(--text-secondary)',fontWeight:isA?700:500,cursor:isA?'default':'pointer',fontSize:'13px'}}>
-                      {t}
-                    </button>
-                  )
-                })}
-              </div>
+          {/* Trạng thái đơn — chỉ xem, không cho sửa */}
+          <div className="card" style={{padding:'16px 20px'}}>
+            <h3 style={{fontSize:'13px',fontWeight:700,color:'var(--primary)',marginBottom:'10px'}}>📌 Trạng thái đơn hàng</h3>
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'8px'}}>
+              {['Chờ giao','Đang giao','Hoàn thành','Huỷ'].map(t=>{
+                const c=TT_COLOR[t]; const isA=trangThai===t
+                return (
+                  <div key={t} style={{padding:'10px',borderRadius:'8px',border:'2px solid',borderColor:isA?c.color:'#F0F0F0',background:isA?c.bg:'#FAFAFA',color:isA?c.color:'#C0C0C0',fontWeight:isA?700:400,fontSize:'13px',textAlign:'center'}}>
+                    {isA && '● '}{t}
+                  </div>
+                )
+              })}
             </div>
-          )}
+            <p style={{fontSize:'11px',color:'#9CA3AF',margin:'8px 0 0',fontStyle:'italic'}}>Trạng thái tự động cập nhật theo quá trình xử lý đơn</p>
+          </div>
         </div>
 
         {/* Cột phải — Sản phẩm */}
@@ -568,6 +583,20 @@ export default function ChiTietDonHangClient({
                   <span style={{color:'var(--primary)'}}>Tổng cộng:</span>
                   <span>{fVND(tongTienHienTai)}</span>
                 </div>
+
+                {/* ✅ Nút Lưu/Thoát thứ 2 — ngay dưới Tổng cộng */}
+                {dangSua && (
+                  <div style={{display:'flex',flexDirection:'column',gap:'8px',marginTop:'4px'}}>
+                    <button onClick={luuSua} disabled={loading}
+                      style={{width:'100%',padding:'11px',borderRadius:'8px',border:'none',background:loading?'#9CA3AF':'var(--primary)',color:'white',fontWeight:700,fontSize:'14px',cursor:loading?'not-allowed':'pointer'}}>
+                      {loading?'⏳ Đang lưu...':'💾 Lưu chỉnh sửa'}
+                    </button>
+                    <button onClick={()=>setDangSua(false)} disabled={loading}
+                      style={{width:'100%',padding:'9px',borderRadius:'8px',border:'2px solid #E5E7EB',background:'white',fontWeight:600,fontSize:'13px',cursor:loading?'not-allowed':'pointer',color:'#6B7280'}}>
+                      ✕ Thoát sửa (không lưu)
+                    </button>
+                  </div>
+                )}
               </div>
             )}
           </div>
