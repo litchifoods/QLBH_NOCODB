@@ -11,7 +11,7 @@ export default async function TaoDonHangPage({
 }) {
   const session = await getSession()
 
-  const [khachHang, sanPham, donHang, nhanVien] = await Promise.all([
+  const [khachHang, sanPham, donHang] = await Promise.all([
     getRecords(TABLES.KHACH_HANG, {
       limit: 300, sort: '-Id',
       fields: 'Mã KH,Tên khách hàng,Số điện thoại,Địa chỉ,Đối tượng khách hàng',
@@ -21,11 +21,15 @@ export default async function TaoDonHangPage({
       fields: 'Mã SP,Tên sản phẩm,Đơn vị tính,Giá bán lẻ,Tồn kho',
     }),
     getRecords(TABLES.DON_HANG, { limit: 1, sort: '-Id', fields: 'Mã đơn hàng' }),
-    // Bỏ fields filter — lấy tất cả cột để tránh lỗi tên cột tiếng Việt
-    getRecords(TABLES.NHAN_VIEN, {
-      limit: 200, sort: '-Tháng',
-    }),
   ])
+
+  // Query NV riêng — không dùng fields filter, không sort (tránh lỗi tên cột tiếng Việt)
+  let nhanVien: any = { list: [] }
+  try {
+    nhanVien = await getRecords(TABLES.NHAN_VIEN, { limit: 200 })
+  } catch (e) {
+    console.error('[NV ERROR]', e)
+  }
 
   const lastDon = donHang.list?.[0]
   let nextMaDon = `DH-${new Date().getFullYear()}-001`
