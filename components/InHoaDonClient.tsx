@@ -136,7 +136,8 @@ export default function InHoaDonClient({
   const nvBan      = don['Nhân viên bán']||'—'
   const htCoc      = don['Hình thức cọc']||''
   const ghiChuDon  = don['Ghi chú']||''
-  const dsSP       = chiTiet.filter(ct=>ct['Tên SP (ghi nhanh)']||ct['Mã SP'])
+  // ✅ Chỉ hiện SP chưa bị hủy trong mẫu in
+  const dsSP       = chiTiet.filter(ct=>(ct['Tên SP (ghi nhanh)']||ct['Mã SP']) && ct['Trạng thái SP']!=='Huỷ')
 
   const logoSz = Number(ST.logoSize)||56
   const cTen   = Number(ST.coChuTenCH)||20
