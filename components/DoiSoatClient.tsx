@@ -217,13 +217,14 @@ export default function DoiSoatClient({
                 <th className="col-sp" style={{textAlign:'left',fontWeight:700}}>Sản phẩm</th>
                 <th className="col-nguoi" style={{textAlign:'left',fontWeight:700}}>Người giao</th>
                 <th className="col-vt" style={{textAlign:'left',fontWeight:700}}>Vai trò</th>
+                <th style={{textAlign:'center',fontWeight:700}}>Trạng thái</th>
                 <th style={{textAlign:'center',fontWeight:700}}>Đối soát</th>
                 <th style={{width:'52px'}}></th>
               </tr>
             </thead>
             <tbody>
               {danhSachTrang.length===0?(
-                <tr><td colSpan={9} style={{textAlign:'center',padding:'48px',color:'var(--text-muted)'}}>Không có chuyến nào</td></tr>
+                <tr><td colSpan={10} style={{textAlign:'center',padding:'48px',color:'var(--text-muted)'}}>Không có chuyến nào</td></tr>
               ):danhSachTrang.map((g:any,i:number)=>{
                 const maDon  = g['Mã đơn hàng']||''
                 const don    = donHangMap[maDon]
@@ -257,6 +258,14 @@ export default function DoiSoatClient({
                       {laDTRow&&<span style={{fontSize:'10px',padding:'1px 6px',borderRadius:'10px',background:'#FEF3C7',color:'#92400E',fontWeight:700}}>Đối tác</span>}
                     </td>
                     <td className="col-vt" style={{fontSize:'12px',color:'var(--text-secondary)'}}>{g['Vai trò chuyến']||'—'}</td>
+                    {/* Cột TRẠNG THÁI: Đang giao / Giao nhưng hủy */}
+                    <td style={{textAlign:'center'}}>
+                      {don?.['Trạng thái']==='Huỷ' ? (
+                        <span style={{padding:'3px 9px',borderRadius:'20px',fontSize:'11px',fontWeight:700,background:'#FEE2E2',color:'#991B1B',whiteSpace:'nowrap'}}>🚫 Giao nhưng hủy</span>
+                      ) : (
+                        <span style={{padding:'3px 9px',borderRadius:'20px',fontSize:'11px',fontWeight:700,background:'#DBEAFE',color:'#1E40AF',whiteSpace:'nowrap'}}>🚚 Đang giao</span>
+                      )}
+                    </td>
                     <td style={{textAlign:'center'}}>
                       <span style={{padding:'3px 9px',borderRadius:'20px',fontSize:'11px',fontWeight:700,
                         background:chuaDsRow?'#FEF3C7':'#D1FAE5',

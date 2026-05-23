@@ -1,53 +1,46 @@
-// app/dashboard/don-hang/[maDon]/page.tsx
+// app/dashboard/don-hang/[maDon]/page.tsx — v2.0
+export const dynamic = 'force-dynamic'
+
 import { getRecords, TABLES } from '@/lib/nocodb'
 import { getSession } from '@/lib/auth'
 import { notFound } from 'next/navigation'
 import ChiTietDonHangClient from '@/components/ChiTietDonHangClient'
 
-export default async function ChiTietDonHangPage({
-  params,
-}: {
-  params: { maDon: string }
-}) {
+export default async function ChiTietDonHangPage({ params }: { params: { maDon: string } }) {
   const session = await getSession()
   const { maDon } = params
 
-  // Lấy đơn hàng
-  const donHangResult = await getRecords(TABLES.DON_HANG, {
-    where: `(Mã đơn hàng,eq,${maDon})`,
-    limit: 1,
-  })
+  const [donHangResult, chiTietResult, giaoHangResult, danhSachSPResult] = await Promise.all([
+    getRecords(TABLES.DON_HANG, { where:`(Mã đơn hàng,eq,${maDon})`, limit:1 }),
+    getRecords(TABLES.CHI_TIET_DON, { where:`(Mã đơn hàng,eq,${maDon})`, limit:50 }),
+    getRecords(TABLES.GIAO_HANG, { where:`(Mã đơn hàng,eq,${maDon})`, limit:10 }),
+    getRecords(TABLES.SAN_PHAM, {
+      limit:200,
+      fields:'Mã SP,Tên sản phẩm,Giá bán lẻ,Tồn kho,Đơn vị tính',
+    }),
+  ])
+
   const donHang = donHangResult.list?.[0]
   if (!donHang) notFound()
 
-  // Lấy chi tiết sản phẩm
-  const chiTietResult = await getRecords(TABLES.CHI_TIET_DON, {
-    where: `(Mã đơn hàng,eq,${maDon})`,
-    limit: 50,
-  })
-
-  // Lấy khách hàng
   let khachHang = null
   if (donHang['Mã KH']) {
     const khResult = await getRecords(TABLES.KHACH_HANG, {
-      where: `(Mã KH,eq,${donHang['Mã KH']})`,
-      limit: 1,
+      where:`(Mã KH,eq,${donHang['Mã KH']})`, limit:1,
     })
     khachHang = khResult.list?.[0] || null
   }
 
-  // Lấy giao hàng liên quan
-  const giaoHangResult = await getRecords(TABLES.GIAO_HANG, {
-    where: `(Mã đơn hàng,eq,${maDon})`,
-    limit: 10,
-  })
+  // Lọc chi tiết bỏ dòng null
+  const chiTiet = (chiTietResult.list||[]).filter((ct:any)=>ct['Tên SP (ghi nhanh)']||ct['Mã SP'])
 
   return (
     <ChiTietDonHangClient
       donHang={donHang}
-      chiTiet={chiTietResult.list || []}
+      chiTiet={chiTiet}
       khachHang={khachHang}
-      giaoHang={giaoHangResult.list || []}
+      giaoHang={giaoHangResult.list||[]}
+      danhSachSP={danhSachSPResult.list||[]}
       user={session!}
     />
   )

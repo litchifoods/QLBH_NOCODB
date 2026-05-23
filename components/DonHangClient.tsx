@@ -147,6 +147,9 @@ export default function DonHangClient({
         .btn-tao:hover{opacity:.9;}
         .dh-t th,.dh-t td{padding:8px 10px;}
         .dh-t tbody tr:hover td{background:#F0F4FF!important;}
+        .tt-wrap .tt-label{display:none;position:absolute;bottom:calc(100% + 4px);left:50%;transform:translateX(-50%);background:#1F2937;color:white;font-size:11px;padding:3px 8px;border-radius:4px;white-space:nowrap;pointer-events:none;z-index:20;}
+        .tt-wrap:hover .tt-label{display:block;}
+        .tt-wrap:hover::after{content:'';position:absolute;bottom:calc(100% + 1px);left:50%;transform:translateX(-50%);border:4px solid transparent;border-top-color:#1F2937;pointer-events:none;z-index:20;}
         @media(max-width:1100px){.col-dia{display:none;}}
         @media(max-width:800px){.col-ngay,.col-coc{display:none;}}
       `}</style>
@@ -272,10 +275,16 @@ export default function DonHangClient({
                     </td>
                     <td>
                       <div style={{ display:'flex', gap:'2px' }}>
-                        <Link href={`/dashboard/don-hang/${don['Mã đơn hàng']}`}
-                          className="btn btn-ghost btn-sm" style={{ padding:'4px 6px' }}>👁️</Link>
-                        <Link href={`/dashboard/don-hang/${don['Mã đơn hàng']}/in`}
-                          className="btn btn-ghost btn-sm" style={{ padding:'4px 6px' }}>🖨️</Link>
+                        <span style={{position:'relative',display:'inline-block'}} className="tt-wrap">
+                          <Link href={`/dashboard/don-hang/${don['Mã đơn hàng']}`}
+                            className="btn btn-ghost btn-sm" style={{ padding:'4px 8px' }} title="Chỉnh sửa">👁️</Link>
+                          <span className="tt-label">Chỉnh sửa</span>
+                        </span>
+                        <span style={{position:'relative',display:'inline-block'}} className="tt-wrap">
+                          <Link href={`/dashboard/don-hang/${don['Mã đơn hàng']}/in`}
+                            className="btn btn-ghost btn-sm" style={{ padding:'4px 8px' }} title="In hóa đơn">🖨️</Link>
+                          <span className="tt-label">In hóa đơn</span>
+                        </span>
                       </div>
                     </td>
                   </tr>

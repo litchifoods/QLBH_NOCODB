@@ -75,10 +75,12 @@ export default function GiaoHangClient({
     return { tenSP:tenDau, tongSP:tongSL, coNhieu:hl.length>1 }
   }
 
+  // ✅ Chỉ hiện đơn "Chờ giao" — bỏ "Đang giao" và "Huỷ"
+  const donHienThi    = donCanGiao.filter((d:any) => d['Trạng thái'] === 'Chờ giao')
   // Phân trang cho donCanGiao
-  const tongTrang     = Math.max(1,Math.ceil(donCanGiao.length/SO_DONG))
+  const tongTrang     = Math.max(1,Math.ceil(donHienThi.length/SO_DONG))
   const trangHT       = Math.min(trang,tongTrang)
-  const danhSachTrang = donCanGiao.slice((trangHT-1)*SO_DONG, trangHT*SO_DONG)
+  const danhSachTrang = donHienThi.slice((trangHT-1)*SO_DONG, trangHT*SO_DONG)
 
   // Dropdown tìm đơn
   const donLoc = useMemo(()=>{
@@ -168,7 +170,7 @@ export default function GiaoHangClient({
     else ht=[1,-1,trangHT-1,trangHT,trangHT+1,-2,tongTrang]
     return (
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'10px 14px',borderTop:'1px solid #F0F0F0',flexWrap:'wrap',gap:'8px'}}>
-        <span style={{fontSize:'12px',color:'var(--text-secondary)'}}>{(trangHT-1)*SO_DONG+1}–{Math.min(trangHT*SO_DONG,donCanGiao.length)} / {donCanGiao.length} đơn</span>
+        <span style={{fontSize:'12px',color:'var(--text-secondary)'}}>{(trangHT-1)*SO_DONG+1}–{Math.min(trangHT*SO_DONG,donHienThi.length)} / {donHienThi.length} đơn</span>
         <div style={{display:'flex',gap:'4px'}}>
           <BtnPage disabled={trangHT===1} onClick={()=>setTrang(t=>t-1)}>‹</BtnPage>
           {ht.map((p,i)=>p<0?<span key={`d${i}`} style={{padding:'4px 2px',color:'#9CA3AF',fontSize:'13px'}}>…</span>:<BtnPage key={p} active={p===trangHT} onClick={()=>setTrang(p)}>{p}</BtnPage>)}
