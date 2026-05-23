@@ -21,10 +21,9 @@ export default async function TaoDonHangPage({
       fields: 'Mã SP,Tên sản phẩm,Đơn vị tính,Giá bán lẻ,Tồn kho',
     }),
     getRecords(TABLES.DON_HANG, { limit: 1, sort: '-Id', fields: 'Mã đơn hàng' }),
-    // ✅ Dùng đúng tên cột NocoDB: "Họ và Tên"
+    // Bỏ fields filter — lấy tất cả cột để tránh lỗi tên cột tiếng Việt
     getRecords(TABLES.NHAN_VIEN, {
       limit: 200, sort: '-Tháng',
-      fields: 'Mã NV,Họ và Tên,Vai trò,Tháng',
     }),
   ])
 
@@ -36,19 +35,28 @@ export default async function TaoDonHangPage({
     nextMaDon   = `DH-${new Date().getFullYear()}-${String(num).padStart(3,'0')}`
   }
 
-  // Lọc NV — dùng đúng tên cột "Họ và Tên"
+  // DEBUG: xem NocoDB trả về fields gì
+  if (nhanVien.list?.length > 0) {
+    console.log('[DEBUG NV] keys:', Object.keys(nhanVien.list[0]))
+    console.log('[DEBUG NV] row0:', JSON.stringify(nhanVien.list[0]))
+  }
+
+  // Lấy tên NV từ bất kỳ cột nào NocoDB trả về
+  function layTenNV(nv: any): string {
+    return nv['Họ và Tên'] || nv['Họ tên'] || nv['Ho va Ten'] || nv['Ho ten'] || nv['Tên'] || nv['Ten'] || ''
+  }
+
   const nvMap: Record<string,any> = {}
   for (const nv of (nhanVien.list || [])) {
     const ma  = nv['Mã NV']
-    const ten = nv['Họ và Tên']?.trim()
+    const ten = layTenNV(nv).trim()
     if (!ma || !ten) continue
     if (!nvMap[ma] || (nv['Tháng']||'') > (nvMap[ma]['Tháng']||'')) nvMap[ma] = nv
   }
-  // Chuẩn hoá sang field "Họ tên" để component dùng thống nhất
   const danhSachNV = Object.values(nvMap)
     .map((nv:any) => ({
-      'Mã NV':  nv['Mã NV'],
-      'Họ tên': nv['Họ và Tên'] || nv['Họ tên'] || '',
+      'Mã NV':   nv['Mã NV'],
+      'Họ tên':  layTenNV(nv),
       'Vai trò': nv['Vai trò'] || '',
     }))
     .sort((a,b) => a['Họ tên'].localeCompare(b['Họ tên'], 'vi'))

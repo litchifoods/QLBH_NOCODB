@@ -16,10 +16,9 @@ export default async function GiaoHangPage() {
       limit: 500, sort: 'Id',
       fields: 'Mã chi tiết,Mã đơn hàng,Mã SP,Tên SP (ghi nhanh),Số lượng,Ghi chú SP',
     }),
+    // Bỏ fields filter — lấy tất cả cột
     getRecords(TABLES.NHAN_VIEN, {
       limit: 200, sort: 'Mã NV',
-      // ✅ Đúng tên cột NocoDB: "Họ và Tên"
-      fields: 'Mã NV,Họ và Tên,Vai trò,Số điện thoại,Tháng',
     }),
     getRecords(TABLES.KHACH_HANG, {
       limit: 500,
@@ -57,16 +56,17 @@ export default async function GiaoHangPage() {
 
   const nvMapTemp: Record<string, any> = {}
   for (const nv of (nhanVien.list || [])) {
-    const ma = nv['Mã NV']
-    if (!ma) continue
+    const ma  = nv['Mã NV']
+    const ten = nv['Họ và Tên'] || nv['Họ tên'] || nv['Tên'] || ''
+    if (!ma || !ten.trim()) continue
     if (!nvMapTemp[ma] || (nv['Tháng']||'') > (nvMapTemp[ma]['Tháng']||'')) {
       nvMapTemp[ma] = nv
     }
   }
-  // Chuẩn hoá "Họ và Tên" → "Họ tên" để component dùng thống nhất
+  // Lấy tên từ bất kỳ cột nào NocoDB trả về
   const danhSachNV = Object.values(nvMapTemp).map((nv:any) => ({
     ...nv,
-    'Họ tên': nv['Họ và Tên'] || nv['Họ tên'] || '',
+    'Họ tên': nv['Họ và Tên'] || nv['Họ tên'] || nv['Tên'] || '',
   }))
   const danhSachNVCuaHang = danhSachNV.filter((nv:any) => (nv['Mã NV']||'').startsWith('NV-'))
   const danhSachDoiTac    = danhSachNV.filter((nv:any) => (nv['Mã NV']||'').startsWith('DT-'))
