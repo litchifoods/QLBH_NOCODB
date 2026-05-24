@@ -425,7 +425,7 @@ export default function GiaoHangClient({
                             )}
                             {dsTK.length===0
                               ?<div style={{padding:'12px',fontSize:'12px',color:'#6B7280',textAlign:'center'}}>
-                                Không tìm thấy ({hinhThuc==='Đối tác'?danhSachDoiTac.length:danhSachNVCuaHang.length} người)
+                                Không tìm thấy ({nguoi.hinhThuc==='Đối tác'?danhSachDoiTac.length:danhSachNVCuaHang.length} người)
                               </div>
                               :dsTK.map((nv:any,idx:number)=>(
                                 <div key={`${nv['Mã NV']}-${idx}`} className="di" onMouseDown={e=>{e.preventDefault();chonNguoi(nguoi.id,nv)}}>
