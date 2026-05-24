@@ -12,7 +12,7 @@ export default async function DoiSoatPage({
 }) {
   const session = await getSession()
 
-  const [giaoHang, doiSoat, donHang, chiTietDon, khachHang] = await Promise.all([
+  const [giaoHang, doiSoat, donHang, chiTietDon, khachHang, chiTietGiao] = await Promise.all([
     getRecords(TABLES.GIAO_HANG, { limit: 500, sort: '-Id' }),
     getRecords(TABLES.DOI_SOAT,  { limit: 500 }),
     getRecords(TABLES.DON_HANG,  { limit: 500, sort: '-Id' }),
@@ -24,6 +24,7 @@ export default async function DoiSoatPage({
       limit: 500,
       fields: 'Mã KH,Tên khách hàng,Số điện thoại,Địa chỉ',
     }),
+    getRecords(TABLES.CHI_TIET_GIAO, { limit: 1000 }),
   ])
 
   const khachHangMap: Record<string, any> = {}
@@ -50,6 +51,15 @@ export default async function DoiSoatPage({
     if (ds['Mã giao hàng']) doiSoatMap[ds['Mã giao hàng']] = ds
   }
 
+  // Map SP giao theo Mã giao hàng (bảng 8)
+  const chiTietGiaoMap: Record<string, any[]> = {}
+  for (const ct of (chiTietGiao.list || [])) {
+    const maGH = ct['Mã giao hàng']
+    if (!maGH) continue
+    if (!chiTietGiaoMap[maGH]) chiTietGiaoMap[maGH] = []
+    chiTietGiaoMap[maGH].push(ct)
+  }
+
   // Lọc dòng trống trong bảng giao hàng
   const giaoHangHopLe = (giaoHang.list || []).filter(
     (g: any) => g['Mã giao hàng']?.toString().trim() && g['Mã đơn hàng']?.toString().trim()
@@ -62,6 +72,7 @@ export default async function DoiSoatPage({
       donHangMap={donHangMap}
       khachHangMap={khachHangMap}
       chiTietDonMap={chiTietDonMap}
+      chiTietGiaoMap={chiTietGiaoMap}
       filterParam={searchParams.maGH}
       user={session!}
     />

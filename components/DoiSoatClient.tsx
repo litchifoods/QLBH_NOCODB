@@ -25,13 +25,14 @@ const SO_DONG = 10
 
 export default function DoiSoatClient({
   giaoHangList, doiSoatMap, donHangMap, khachHangMap,
-  chiTietDonMap, filterParam, user,
+  chiTietDonMap, chiTietGiaoMap, filterParam, user,
 }: {
   giaoHangList: any[]
   doiSoatMap: Record<string, any>
   donHangMap: Record<string, any>
   khachHangMap: Record<string, any>
   chiTietDonMap: Record<string, any[]>
+  chiTietGiaoMap: Record<string, any[]>  // key = Mã giao hàng
   filterParam?: string
   user: UserSession
 }) {
@@ -311,16 +312,25 @@ export default function DoiSoatClient({
               {Number(donModal?.['Còn phải thu']||0)>0&&<div style={{color:'#DC2626',fontWeight:600,fontSize:'12px',marginTop:'3px'}}>📌 KH còn nợ: {fVND(donModal?.['Còn phải thu'])}</div>}
             </div>
             <div style={{display:'flex',flexDirection:'column',gap:'12px'}}>
+              {/* Danh sách SP giao của chuyến này */}
               <div>
-                <label style={{fontSize:'12px',fontWeight:700,display:'block',marginBottom:'8px'}}>📌 Kết quả chuyến giao</label>
-                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'6px'}}>
-                  {KET_QUA_LIST.map(kq=>(
-                    <button key={kq.value} onClick={()=>setKetQua(kq.value)} className="kq-btn"
-                      style={{borderColor:ketQua===kq.value?kq.color:'#E5E7EB',background:ketQua===kq.value?kq.bg:'white',color:ketQua===kq.value?kq.color:'#6B7280'}}>
-                      {kq.label}
-                    </button>
-                  ))}
-                </div>
+                <label style={{fontSize:'12px',fontWeight:700,display:'block',marginBottom:'8px'}}>🪑 Các sản phẩm giao lần này</label>
+                {(()=>{
+                  const spChuyen = chiTietGiaoMap[modalGH?.['Mã giao hàng']||''] || []
+                  if (spChuyen.length===0) return <div style={{fontSize:'12px',color:'#9CA3AF',fontStyle:'italic',padding:'8px 12px',background:'#F9FAFB',borderRadius:'6px'}}>Chưa có thông tin sản phẩm</div>
+                  return (
+                    <div style={{background:'#F8FAFC',borderRadius:'8px',border:'1px solid #E5E7EB',overflow:'hidden'}}>
+                      {spChuyen.map((sp:any,i:number)=>(
+                        <div key={i} style={{padding:'8px 12px',borderBottom:i<spChuyen.length-1?'1px solid #F0F0F0':'none',display:'flex',justifyContent:'space-between',alignItems:'center',fontSize:'13px'}}>
+                          <div style={{fontWeight:600,flex:1}}>{sp['Tên SP (ghi nhanh)']||sp['Mã SP']||'—'}</div>
+                          <div style={{fontSize:'12px',color:'#6B7280',marginLeft:'12px'}}>
+                            SL: <strong style={{color:'var(--primary)'}}>{sp['Số lượng giao đợt này']||sp['Số lượng']||1}</strong>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )
+                })()}
               </div>
               <div style={{background:'#F0FDF4',borderRadius:'8px',padding:'12px 14px',border:'1px solid #BBF7D0'}}>
                 <div style={{fontWeight:700,fontSize:'13px',marginBottom:'8px',color:'#15803D'}}>💵 Tiền thu từ khách hàng</div>

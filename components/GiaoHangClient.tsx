@@ -75,26 +75,27 @@ export default function GiaoHangClient({
     return { tenSP:tenDau, tongSP:tongSL, coNhieu:hl.length>1 }
   }
 
-  // ✅ Chỉ hiện đơn "Chờ giao" — bỏ "Đang giao" và "Huỷ"
-  const donHienThi    = donCanGiao.filter((d:any) => d['Trạng thái'] === 'Chờ giao')
-  // Phân trang cho donCanGiao
+  // Hiện cả "Chờ giao" và "Đang giao" còn SP chưa giao hết (đã lọc từ page.tsx)
+  const donHienThi    = donCanGiao
   const tongTrang     = Math.max(1,Math.ceil(donHienThi.length/SO_DONG))
   const trangHT       = Math.min(trang,tongTrang)
   const danhSachTrang = donHienThi.slice((trangHT-1)*SO_DONG, trangHT*SO_DONG)
 
   // Dropdown tìm đơn
   const donLoc = useMemo(()=>{
-    if (!searchDon.trim()) return donChuaGiao.slice(0,12)
+    // donCanGiao đã gồm cả "Chờ giao" và "Đang giao" còn SP
+    const src = donCanGiao
+    if (!searchDon.trim()) return src.slice(0,12)
     const q = boDau(searchDon)
     const qRaw = searchDon.toLowerCase()
-    return donChuaGiao.filter((d:any)=>{
+    return src.filter((d:any)=>{
       const tenKH  = boDau(d['_tenKH']||d['Tên khách hàng']||'')
       const maDon  = boDau(d['Mã đơn hàng']||'')
       const sdt    = (d['_sdtKH']||'').replace(/\D/g,'')
       const diaChi = boDau(d['_diaChiKH']||'')
       return maDon.includes(q)||tenKH.includes(q)||sdt.includes(qRaw.replace(/\D/g,''))||diaChi.includes(q)
     }).slice(0,12)
-  },[searchDon,donChuaGiao])
+  },[searchDon,donCanGiao])
 
   function chonDon(don:any) {
     setDonChon(don); setSearchDon(don['Mã đơn hàng']); setShowDon(false)
@@ -387,11 +388,22 @@ export default function GiaoHangClient({
                 {danhSachSP.map((sp,idx)=>{
                   const het=sp.soLuongDon<=sp.daGiao
                   return (
-                    <div key={idx} className="sp-row" style={{opacity:het?0.5:1}}>
-                      <input type="checkbox" checked={sp.checked&&!het} disabled={het} onChange={e=>updSP(idx,'checked',e.target.checked)} style={{width:'16px',height:'16px',accentColor:'var(--primary)'}}/>
+                    <div key={idx} className="sp-row" style={{
+                      opacity: het?0.45:1,
+                      background: het?'#F3F4F6':'white',
+                      border: het?'1px solid #E5E7EB':'1px solid #E5E7EB',
+                    }}>
+                      <input type="checkbox" checked={sp.checked&&!het} disabled={het}
+                        onChange={e=>updSP(idx,'checked',e.target.checked)}
+                        style={{width:'16px',height:'16px',accentColor:'var(--primary)',cursor:het?'not-allowed':'pointer'}}/>
                       <div style={{flex:1,minWidth:0}}>
-                        <div style={{fontWeight:sp.checked?600:400,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{sp.tenSP}</div>
-                        <div style={{fontSize:'11px',color:'#6B7280'}}>ĐH:{sp.soLuongDon} · Đã:{sp.daGiao} · Còn:{sp.soLuongDon-sp.daGiao}{het&&<span style={{marginLeft:'6px',color:'#16A34A',fontWeight:600}}>✅ Đủ</span>}</div>
+                        <div style={{fontWeight:sp.checked&&!het?600:400,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',color:het?'#9CA3AF':'inherit'}}>
+                          {sp.tenSP}
+                          {het&&<span style={{marginLeft:'8px',fontSize:'10px',background:'#D1FAE5',color:'#065F46',padding:'1px 6px',borderRadius:'10px',fontWeight:700}}>✅ Đã giao đủ</span>}
+                        </div>
+                        <div style={{fontSize:'11px',color:'#6B7280'}}>
+                          ĐH: {sp.soLuongDon} · Đã giao: {sp.daGiao}{!het&&<span style={{color:'#DC2626',fontWeight:600}}> · Còn: {sp.soLuongDon-sp.daGiao}</span>}
+                        </div>
                       </div>
                       {sp.checked&&!het&&(
                         <div style={{display:'flex',alignItems:'center',gap:'5px'}}>
