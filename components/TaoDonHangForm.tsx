@@ -36,8 +36,8 @@ export default function TaoDonHangForm({
   const [xuatHoaDon,  setXuatHoaDon]  = useState('Không')
   const [ghiChu,      setGhiChu]      = useState('')
 
-  const [searchNV, setSearchNV] = useState(user.hoTen || user.tenDangNhap || '')
-  const [maNV,     setMaNV]     = useState(user.maNV  || '')
+  const [searchNV, setSearchNV] = useState('')
+  const [maNV,     setMaNV]     = useState('')
   const [showNV,   setShowNV]   = useState(false)
   const nvLoc = useMemo(() => {
     if (!searchNV.trim()) return danhSachNV.slice(0,10)

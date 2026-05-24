@@ -120,9 +120,12 @@ export default function GiaoHangClient({
 
   function getDSTK(hinhThuc:string, txt:string) {
     const list=hinhThuc==='Đối tác'?danhSachDoiTac:danhSachNVCuaHang
-    if (!txt.trim()) return list.slice(0,8)
+    if (!txt.trim()) return list.slice(0,10)
     const q=boDau(txt)
-    return list.filter((nv:any)=>boDau(nv['Họ tên']||'').includes(q)||boDau(nv['Mã NV']||'').includes(q)).slice(0,8)
+    return list.filter((nv:any)=>
+      boDau(nv['Họ tên']||'').includes(q) ||
+      boDau(nv['Mã NV']||'').includes(q)
+    ).slice(0,10)
   }
   function themNguoi() { setDanhSachNguoi(prev=>[...prev,{id:Date.now().toString(),hinhThuc:'NV cửa hàng',maNV:'',tenNV:'',vaiTroNocoDB:'',vaiTroChuyen:'Vận chuyển',ghiChu:'',showSearch:false,searchText:''}]) }
   function xoaNguoi(id:string) { setDanhSachNguoi(prev=>prev.filter(n=>n.id!==id)) }
@@ -421,9 +424,11 @@ export default function GiaoHangClient({
                               <div className="di" onMouseDown={e=>{e.preventDefault();updN(nguoi.id,'showSearch',false)}} style={{background:'#FEF9C3',color:'#92400E',fontSize:'12px'}}>✏️ Dùng tên: <strong>"{nguoi.tenNV}"</strong></div>
                             )}
                             {dsTK.length===0
-                              ?<div style={{padding:'12px',fontSize:'12px',color:'#6B7280',textAlign:'center'}}>Không tìm thấy</div>
-                              :dsTK.map((nv:any)=>(
-                                <div key={nv['Mã NV']} className="di" onMouseDown={e=>{e.preventDefault();chonNguoi(nguoi.id,nv)}}>
+                              ?<div style={{padding:'12px',fontSize:'12px',color:'#6B7280',textAlign:'center'}}>
+                                Không tìm thấy ({hinhThuc==='Đối tác'?danhSachDoiTac.length:danhSachNVCuaHang.length} người)
+                              </div>
+                              :dsTK.map((nv:any,idx:number)=>(
+                                <div key={`${nv['Mã NV']}-${idx}`} className="di" onMouseDown={e=>{e.preventDefault();chonNguoi(nguoi.id,nv)}}>
                                   <div style={{fontWeight:600}}>{nv['Họ tên']} <span style={{fontSize:'11px',padding:'1px 6px',borderRadius:'10px',background:nv['Mã NV']?.startsWith('DT-')?'#FEF3C7':'#DBEAFE',color:nv['Mã NV']?.startsWith('DT-')?'#92400E':'#1E40AF',fontWeight:700}}>{nv['Mã NV']}</span></div>
                                   <div style={{fontSize:'11px',color:'#6B7280'}}>Vai trò: {nv['Vai trò']||'—'}</div>
                                 </div>
