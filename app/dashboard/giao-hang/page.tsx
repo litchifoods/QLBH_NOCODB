@@ -16,10 +16,7 @@ export default async function GiaoHangPage() {
       limit: 500, sort: 'Id',
       fields: 'Mã chi tiết,Mã đơn hàng,Mã SP,Tên SP (ghi nhanh),Số lượng,Ghi chú SP',
     }),
-    // Bỏ fields filter — lấy tất cả cột
-    getRecords(TABLES.NHAN_VIEN, {
-      limit: 200, sort: 'Mã NV',
-    }),
+    getRecords(TABLES.NHAN_VIEN, { limit: 200 }),
     getRecords(TABLES.KHACH_HANG, {
       limit: 500,
       fields: 'Mã KH,Tên khách hàng,Số điện thoại,Địa chỉ',

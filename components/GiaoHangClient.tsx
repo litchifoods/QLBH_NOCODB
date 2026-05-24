@@ -356,7 +356,15 @@ export default function GiaoHangClient({
               <div style={{marginBottom:'14px',padding:'14px',background:'#F8FAFC',borderRadius:'10px',border:'1px solid #E5E7EB'}}>
                 <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'8px'}}>
                   <div className="sec-title" style={{margin:0}}>② Sản phẩm giao lần này</div>
-                  <span style={{fontSize:'12px',color:'var(--primary)',fontWeight:600}}>{spDaChon}/{danhSachSP.length} SP</span>
+                  <div style={{display:'flex',gap:'8px',alignItems:'center'}}>
+                    <button onMouseDown={e=>{e.preventDefault();
+                      const tatCaDaChon = danhSachSP.filter(sp=>!sp.checked&&sp.soLuongDon>sp.daGiao).length===0
+                      setDanhSachSP(prev=>prev.map(sp=>({...sp,checked:!tatCaDaChon&&sp.soLuongDon>sp.daGiao})))
+                    }} style={{padding:'3px 10px',borderRadius:'5px',border:'1px solid var(--primary)',background:'white',color:'var(--primary)',fontSize:'11px',fontWeight:600,cursor:'pointer'}}>
+                      {danhSachSP.filter(sp=>!sp.checked&&sp.soLuongDon>sp.daGiao).length===0?'Bỏ chọn tất cả':'Chọn tất cả'}
+                    </button>
+                    <span style={{fontSize:'12px',color:'var(--primary)',fontWeight:600}}>{spDaChon}/{danhSachSP.length} SP</span>
+                  </div>
                 </div>
                 {danhSachSP.map((sp,idx)=>{
                   const het=sp.soLuongDon<=sp.daGiao
