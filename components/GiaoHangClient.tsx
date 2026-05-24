@@ -100,9 +100,18 @@ export default function GiaoHangClient({
     setDonChon(don); setSearchDon(don['Mã đơn hàng']); setShowDon(false)
     const ct     = chiTietDonMap[don['Mã đơn hàng']] || []
     const daGiao = daGiaoMap[don['Mã đơn hàng']] || {}
+    // Tính tổng đã giao cho đơn này (daGiaoMap key = 'Mã chi tiết đơn' từ bảng chi tiết giao)
+    const tongDaGiao = Object.values(daGiao).reduce((s:number,v:any)=>s+Number(v||0),0)
+    const tongSPDon  = (ct||[]).reduce((s:number,c:any)=>s+Number(c['Số lượng']||1),0)
+    // Phân bổ số lượng đã giao theo tỉ lệ nếu không map được chính xác
     setDanhSachSP(ct.filter((c:any)=>c['Tên SP (ghi nhanh)']||c['Mã SP']).map((c:any)=>{
-      const key=c['Mã chi tiết']||c['Tên SP (ghi nhanh)']||c['Mã SP']
-      const sl=Number(c['Số lượng']||1); const daDG=daGiao[key]||0; const con=Math.max(0,sl-daDG)
+      const sl=Number(c['Số lượng']||1)
+      // Thử các key khác nhau để tìm trong daGiaoMap
+      const key1=c['Mã chi tiết']||''
+      const key2=c['Tên SP (ghi nhanh)']||''
+      const key3=c['Mã SP']||''
+      const daDG=daGiao[key1]||daGiao[key2]||daGiao[key3]||0
+      const con=Math.max(0,sl-daDG)
       return { maChiTiet:c['Mã chi tiết']||'', tenSP:c['Tên SP (ghi nhanh)']||c['Mã SP']||'—', soLuongDon:sl, daGiao:daDG, soLuongGiao:con, checked:con>0, ghiChu:'' }
     }))
   }
@@ -271,7 +280,10 @@ export default function GiaoHangClient({
                       {coNhieu&&<div style={{fontSize:'11px',color:'#6B7280'}}>tổng {tongSP} SP</div>}
                     </td>
                     <td className="col-tt" style={{textAlign:'center'}}>
-                      <span style={{padding:'3px 9px',borderRadius:'20px',fontSize:'11px',fontWeight:700,background:ttC.bg,color:ttC.c,whiteSpace:'nowrap'}}>{don['Trạng thái']}</span>
+                      <div style={{display:'flex',flexDirection:'column',gap:'2px',alignItems:'center'}}>
+                        <span style={{padding:'3px 9px',borderRadius:'20px',fontSize:'11px',fontWeight:700,background:ttC.bg,color:ttC.c,whiteSpace:'nowrap'}}>{don['Trạng thái']}</span>
+                        {don['_daGiao1Phan']&&<span style={{fontSize:'10px',color:'#1E40AF',fontWeight:600}}>Giao {don['_tongDaGiao']}/{don['_tongSP']} SP</span>}
+                      </div>
                     </td>
                     <td style={{textAlign:'center'}}>
                       <span className="btn-tao-chuyen">
@@ -317,11 +329,17 @@ export default function GiaoHangClient({
                             const tenKHDon=don['_tenKH']||getTenKH(don['Mã KH'],don['Tên khách hàng'])
                             const sdtDon=don['_sdtKH']||''
                             const diaChiDon=don['_diaChiKH']||getDiaChi(don)
+                            const daGiao1Phan=don['_daGiao1Phan']||false
                             return (
-                              <div key={don['Mã đơn hàng']} className="di" onMouseDown={e=>{e.preventDefault();chonDon(don)}}>
-                                <div style={{display:'flex',justifyContent:'space-between'}}>
+                              <div key={don['Mã đơn hàng']} className="di"
+                                style={{opacity:daGiao1Phan?0.75:1,background:daGiao1Phan?'#F0F9FF':'white'}}
+                                onMouseDown={e=>{e.preventDefault();chonDon(don)}}>
+                                <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
                                   <span style={{fontWeight:700,color:'var(--primary)'}}>{don['Mã đơn hàng']}</span>
-                                  <span style={{fontSize:'11px',background:'#FEF3C7',color:'#92400E',padding:'1px 6px',borderRadius:'10px',fontWeight:600}}>{don['Trạng thái']}</span>
+                                  <div style={{display:'flex',gap:'4px'}}>
+                                    {daGiao1Phan&&<span style={{fontSize:'10px',background:'#DBEAFE',color:'#1E40AF',padding:'1px 6px',borderRadius:'10px',fontWeight:700}}>Đã giao {don['_tongDaGiao']}/{don['_tongSP']} SP</span>}
+                                    <span style={{fontSize:'11px',background:daGiao1Phan?'#DBEAFE':'#FEF3C7',color:daGiao1Phan?'#1E40AF':'#92400E',padding:'1px 6px',borderRadius:'10px',fontWeight:600}}>{don['Trạng thái']}</span>
+                                  </div>
                                 </div>
                                 <div style={{fontSize:'12px',fontWeight:600,marginTop:'2px'}}>{tenKHDon}{sdtDon&&<span style={{fontWeight:400,color:'#6B7280'}}> · {sdtDon}</span>}</div>
                                 <div style={{fontSize:'11px',color:'#6B7280',marginTop:'1px'}}>📍 {diaChiDon}</div>

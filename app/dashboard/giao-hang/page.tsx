@@ -86,28 +86,52 @@ export default async function GiaoHangPage() {
       }
     })
 
-  // ✅ donCanGiao — đơn hình thức "Giao hàng cho khách", chưa Hoàn thành/Huỷ
-  // Sort: không có ngày hẹn giao lên đầu, sau đó sort tăng dần theo ngày hẹn
+  // ✅ donCanGiao — đơn "Giao hàng cho khách", chưa Hoàn thành/Huỷ
+  // Bao gồm cả "Đang giao" nếu còn SP chưa giao hết
   const donCanGiao = (donHang.list || [])
-    .filter((d: any) =>
-      d['Mã đơn hàng']?.trim() &&
-      d['Hình thức giao hàng'] === 'Giao hàng cho khách' &&
-      d['Trạng thái'] !== 'Hoàn thành' &&
-      d['Trạng thái'] !== 'Huỷ'
-    )
+    .filter((d: any) => {
+      if (!d['Mã đơn hàng']?.trim()) return false
+      if (d['Hình thức giao hàng'] !== 'Giao hàng cho khách') return false
+      if (d['Trạng thái'] === 'Hoàn thành' || d['Trạng thái'] === 'Huỷ') return false
+
+      // Nếu "Đang giao" — kiểm tra xem còn SP chưa giao không
+      if (d['Trạng thái'] === 'Đang giao') {
+        const maDon    = d['Mã đơn hàng']
+        const chiTiet  = chiTietDonMap[maDon] || []
+        const daGiao   = daGiaoMap[maDon] || {}
+        // Tính tổng SL đơn vs SL đã giao
+        const tongSLDon  = chiTiet.reduce((s:number, ct:any) => s + Number(ct['Số lượng']||1), 0)
+        const tongSLGiao = Object.values(daGiao).reduce((s:number, v:any) => s + Number(v||0), 0)
+        return tongSLGiao < tongSLDon // Còn SP chưa giao hết
+      }
+      return true // "Chờ giao" luôn hiện
+    })
     .map((d: any) => {
       const kh = khachHangMap[d['Mã KH']] || {}
+      const maDon   = d['Mã đơn hàng']
+      const chiTiet = chiTietDonMap[maDon] || []
+      const daGiao  = daGiaoMap[maDon] || {}
+      // Đánh dấu đã giao 1 phần để hiển thị khác ở dropdown
+      const tongSP  = chiTiet.reduce((s:number,ct:any)=>s+Number(ct['Số lượng']||1),0)
+      const tongDaGiao = Object.values(daGiao).reduce((s:number,v:any)=>s+Number(v||0),0)
       return {
         ...d,
-        '_tenKH':    kh['Tên khách hàng'] || d['Tên khách hàng'] || '',
-        '_sdtKH':    kh['Số điện thoại'] || '',
-        '_diaChiKH': d['Địa chỉ giao'] || kh['Địa chỉ'] || '',
+        '_tenKH':      kh['Tên khách hàng'] || d['Tên khách hàng'] || '',
+        '_sdtKH':      kh['Số điện thoại'] || '',
+        '_diaChiKH':   d['Địa chỉ giao'] || kh['Địa chỉ'] || '',
+        '_daGiao1Phan': d['Trạng thái'] === 'Đang giao' && tongDaGiao > 0,
+        '_tongSP':     tongSP,
+        '_tongDaGiao': tongDaGiao,
       }
     })
     .sort((a: any, b: any) => {
+      // "Chờ giao" lên trước "Đang giao"
+      if (a['Trạng thái'] !== b['Trạng thái']) {
+        if (a['Trạng thái'] === 'Chờ giao') return -1
+        if (b['Trạng thái'] === 'Chờ giao') return 1
+      }
       const ngayA = a['Ngày hẹn giao']
       const ngayB = b['Ngày hẹn giao']
-      // Không có ngày hẹn → lên đầu
       if (!ngayA && !ngayB) return 0
       if (!ngayA) return -1
       if (!ngayB) return 1
