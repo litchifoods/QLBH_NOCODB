@@ -307,7 +307,21 @@ export default function KhachHangClient({ khachHang, user }: { khachHang: any[];
                     <td style={{fontWeight:700,color:'var(--primary)',whiteSpace:'nowrap'}}>
                       {kh['Mã KH'] || <span style={{color:'#9CA3AF',fontWeight:400,fontSize:'11px'}}>—</span>}
                     </td>
-                    <td style={{fontWeight:600}}>{kh['Tên khách hàng']}</td>
+                    <td style={{fontWeight:600}}>
+                      <div style={{display:'flex',alignItems:'center',gap:'6px',flexWrap:'wrap'}}>
+                        {kh['Tên khách hàng']}
+                        {donHuyCanHoan[kh['Mã KH']] && (
+                          <span style={{
+                            fontSize:'10px',fontWeight:700,padding:'2px 7px',borderRadius:'10px',
+                            background:donHuyCanHoan[kh['Mã KH']].tinhTrang==='Đã hoàn'?'#D1FAE5':'#FEF3C7',
+                            color:donHuyCanHoan[kh['Mã KH']].tinhTrang==='Đã hoàn'?'#065F46':'#D97706',
+                            whiteSpace:'nowrap',
+                          }}>
+                            {donHuyCanHoan[kh['Mã KH']].tinhTrang==='Đã hoàn'?'✅':'⚠️'} Hoàn cọc {Number(donHuyCanHoan[kh['Mã KH']].tienHoan).toLocaleString('vi-VN')}đ
+                          </span>
+                        )}
+                      </div>
+                    </td>
                     <td style={{whiteSpace:'nowrap'}}>
                       {kh['Số điện thoại']
                         ? <a href={`tel:${kh['Số điện thoại']}`} style={{color:'var(--primary)',textDecoration:'none'}}>📞 {kh['Số điện thoại']}</a>

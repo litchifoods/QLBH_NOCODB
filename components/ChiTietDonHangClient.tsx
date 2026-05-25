@@ -77,8 +77,10 @@ export default function ChiTietDonHangClient({
     ? new Date(donHang['Ngày hẹn giao']).toISOString().slice(0,16) : '')
 
   // Sửa thanh toán
-  const [datCocEdit,  setDatCocEdit]  = useState(Number(donHang['Đặt cọc']||0))
-  const [cpDoiTra,    setCpDoiTra]    = useState(0)
+  const [datCocEdit,      setDatCocEdit]      = useState(Number(donHang['Đặt cọc']||0))
+  const [cpDoiTra,        setCpDoiTra]        = useState(0)
+  const [tienHoanCoc,     setTienHoanCoc]     = useState(Number(donHang['Tiền hoàn cọc']||0))
+  const [tinhTrangHoanCoc,setTinhTrangHoanCoc]= useState(donHang['Tình trạng hoàn cọc']||'')
 
   // Danh sách SP — kết hợp từ server + thêm mới local
   const [spList, setSpList] = useState<SPItem[]>(() =>
@@ -324,6 +326,23 @@ export default function ChiTietDonHangClient({
 
       if (tatCaHuy) setTrangThai('Huỷ')
 
+      // Tính tiền hoàn cọc nếu tất cả SP bị hủy
+      if (tatCaHuy) {
+        const tienHoanCoc = Math.max(0, datCocEdit - cpDoiTraFinal)
+        const tinhTrangHoan = tienHoanCoc > 0 ? 'Chờ hoàn' : 'Không hoàn'
+        await fetch('/api/don-hang', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id: donHang['Id']||donHang['id'],
+            'Tiền hoàn cọc': tienHoanCoc,
+            'Tình trạng hoàn cọc': tinhTrangHoan,
+          }),
+        })
+        setTienHoanCoc(tienHoanCoc)
+        setTinhTrangHoanCoc(tinhTrangHoan)
+      }
+
       // Đánh dấu SP mới là không còn la_moi
       setSpList(prev => prev.map(sp => ({...sp, la_moi:false})))
       setDangSua(false)
@@ -516,6 +535,40 @@ export default function ChiTietDonHangClient({
                 <span>Còn phải thu:</span>
                 <span style={{color:conLai>0?'#DC2626':'#16A34A'}}>{fVND(Math.max(0,conLai))}</span>
               </div>
+
+              {/* Hoàn cọc — hiện khi đơn hủy có tiền cọc */}
+              {(trangThai==='Huỷ'||tinhTrangHoanCoc) && (tienHoanCoc>0||tinhTrangHoanCoc==='Không hoàn') && (
+                <div style={{marginTop:'8px',padding:'10px 12px',borderRadius:'8px',border:'2px solid',borderColor:tinhTrangHoanCoc==='Đã hoàn'?'#16A34A':tinhTrangHoanCoc==='Chờ hoàn'?'#F59E0B':'#E5E7EB',background:tinhTrangHoanCoc==='Đã hoàn'?'#F0FDF4':tinhTrangHoanCoc==='Chờ hoàn'?'#FFFBEB':'#F9FAFB'}}>
+                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'6px'}}>
+                    <span style={{fontSize:'13px',fontWeight:700,color:tinhTrangHoanCoc==='Đã hoàn'?'#16A34A':tinhTrangHoanCoc==='Chờ hoàn'?'#D97706':'#6B7280'}}>
+                      {tinhTrangHoanCoc==='Đã hoàn'?'✅':'⚠️'} Hoàn cọc cho KH
+                    </span>
+                    <span style={{fontSize:'15px',fontWeight:800,color:tinhTrangHoanCoc==='Đã hoàn'?'#16A34A':'#D97706'}}>
+                      {fVND(tienHoanCoc)}
+                    </span>
+                  </div>
+                  <div style={{fontSize:'11px',color:'#6B7280',marginBottom:'8px'}}>
+                    = Cọc {fVND(Number(donHang['Đặt cọc']||0))} − CP đổi trả {fVND(Number(donHang['CP đổi trả']||0))}
+                  </div>
+                  {/* Nút đánh dấu đã hoàn — chỉ chủ cửa hàng */}
+                  {user.vaiTro==='Chủ cửa hàng' && tinhTrangHoanCoc!=='Đã hoàn' && tienHoanCoc>0 && (
+                    <button onClick={async()=>{
+                      setLoading(true)
+                      await fetch('/api/don-hang',{method:'PATCH',headers:{'Content-Type':'application/json'},
+                        body:JSON.stringify({id:donHang['Id']||donHang['id'],'Tình trạng hoàn cọc':'Đã hoàn'})})
+                      setTinhTrangHoanCoc('Đã hoàn')
+                      setLoading(false)
+                      showMsg('✅ Đã đánh dấu hoàn cọc')
+                    }} disabled={loading}
+                      style={{width:'100%',padding:'7px',borderRadius:'6px',border:'none',background:'#16A34A',color:'white',fontWeight:700,fontSize:'12px',cursor:'pointer'}}>
+                      ✅ Đánh dấu đã hoàn cọc cho khách
+                    </button>
+                  )}
+                  {tinhTrangHoanCoc==='Đã hoàn' && (
+                    <div style={{fontSize:'12px',color:'#16A34A',fontWeight:600,textAlign:'center'}}>✅ Đã hoàn cọc cho khách</div>
+                  )}
+                </div>
+              )}
               {donHang['Xuất hóa đơn']==='Có' && (
                 <div style={{background:'#FEF3C7',color:'#92400E',padding:'6px 10px',borderRadius:'6px',fontSize:'12px',fontWeight:600}}>🧾 Xuất hoá đơn VAT</div>
               )}

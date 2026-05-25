@@ -270,8 +270,21 @@ export default function DonHangClient({
                     <td className="col-coc" style={{ color:'var(--success)', fontWeight:600, textAlign:'right', whiteSpace:'nowrap' }}>
                       {formatVND(Number(don['Đặt cọc']))}đ
                     </td>
-                    <td style={{ textAlign:'right', fontWeight:700, whiteSpace:'nowrap', color:conLai > 0 ? '#DC2626' : '#16A34A' }}>
-                      {formatVND(conLai)}đ
+                    <td style={{ textAlign:'right', fontWeight:700, whiteSpace:'nowrap' }}>
+                      {tt==='Huỷ' && Number(don['Tiền hoàn cọc']||0)>0 ? (
+                        <div style={{display:'flex',flexDirection:'column',alignItems:'flex-end',gap:'2px'}}>
+                          <span style={{color:'#6B7280',textDecoration:'line-through',fontSize:'11px'}}>{formatVND(conLai)}đ</span>
+                          <span style={{
+                            fontSize:'11px',fontWeight:700,padding:'2px 7px',borderRadius:'10px',
+                            background:don['Tình trạng hoàn cọc']==='Đã hoàn'?'#D1FAE5':'#FEF3C7',
+                            color:don['Tình trạng hoàn cọc']==='Đã hoàn'?'#065F46':'#D97706',
+                          }}>
+                            {don['Tình trạng hoàn cọc']==='Đã hoàn'?'✅':'⚠️'} Hoàn {formatVND(Number(don['Tiền hoàn cọc']))}đ
+                          </span>
+                        </div>
+                      ) : (
+                        <span style={{color:conLai > 0 ? '#DC2626' : '#16A34A'}}>{formatVND(conLai)}đ</span>
+                      )}
                     </td>
                     <td style={{ textAlign:'center' }}>
                       <span style={{ padding:'3px 9px', borderRadius:'20px', fontSize:'11px', fontWeight:700, background:c.bg, color:c.color, whiteSpace:'nowrap' }}>
