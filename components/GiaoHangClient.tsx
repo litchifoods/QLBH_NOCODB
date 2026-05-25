@@ -281,10 +281,19 @@ export default function GiaoHangClient({
                       {coNhieu&&<div style={{fontSize:'11px',color:'#6B7280'}}>tổng {tongSP} SP</div>}
                     </td>
                     <td className="col-tt" style={{textAlign:'center'}}>
-                      <div style={{display:'flex',flexDirection:'column',gap:'2px',alignItems:'center'}}>
-                        <span style={{padding:'3px 9px',borderRadius:'20px',fontSize:'11px',fontWeight:700,background:ttC.bg,color:ttC.c,whiteSpace:'nowrap'}}>{don['Trạng thái']}</span>
-                        {don['_daGiao1Phan']&&<span style={{fontSize:'10px',color:'#1E40AF',fontWeight:600}}>Giao {don['_tongDaGiao']}/{don['_tongSP']} SP</span>}
-                      </div>
+                      {(()=>{
+                        const ttHienThi = don['_trangThaiTinh'] || don['Trạng thái'] || 'Chờ giao'
+                        const ttColors: Record<string,{bg:string,c:string}> = {
+                          'Chờ giao':         {bg:'#FEF3C7',c:'#92400E'},
+                          'Đang giao 1 phần': {bg:'#E0F2FE',c:'#0369A1'},
+                          'Đang giao':        {bg:'#DBEAFE',c:'#1E40AF'},
+                          'Đã giao 1 phần':   {bg:'#ECFDF5',c:'#059669'},
+                          'Đã giao':          {bg:'#D1FAE5',c:'#065F46'},
+                          'Huỷ':              {bg:'#FEE2E2',c:'#991B1B'},
+                        }
+                        const c2 = ttColors[ttHienThi]||{bg:'#F3F4F6',c:'#374151'}
+                        return <span style={{padding:'3px 9px',borderRadius:'20px',fontSize:'11px',fontWeight:700,background:c2.bg,color:c2.c,whiteSpace:'nowrap'}}>{ttHienThi}</span>
+                      })()}
                     </td>
                     <td style={{textAlign:'center'}}>
                       <span className="btn-tao-chuyen">

@@ -116,12 +116,13 @@ export default async function GiaoHangPage() {
       const tongDaGiao = Object.values(daGiao).reduce((s:number,v:any)=>s+Number(v||0),0)
       return {
         ...d,
-        '_tenKH':      kh['Tên khách hàng'] || d['Tên khách hàng'] || '',
-        '_sdtKH':      kh['Số điện thoại'] || '',
-        '_diaChiKH':   d['Địa chỉ giao'] || kh['Địa chỉ'] || '',
+        '_tenKH':       kh['Tên khách hàng'] || d['Tên khách hàng'] || '',
+        '_sdtKH':       kh['Số điện thoại'] || '',
+        '_diaChiKH':    d['Địa chỉ giao'] || kh['Địa chỉ'] || '',
         '_daGiao1Phan': d['Trạng thái'] === 'Đang giao' && tongDaGiao > 0,
-        '_tongSP':     tongSP,
-        '_tongDaGiao': tongDaGiao,
+        '_tongSP':      tongSP,
+        '_tongDaGiao':  tongDaGiao,
+        '_trangThaiTinh': tinhTrangThaiDon(maDon),
       }
     })
     .sort((a: any, b: any) => {

@@ -23,10 +23,13 @@ function boDau(s: string) {
 }
 
 const TT_COLOR: Record<string,{bg:string;color:string}> = {
-  'Chờ giao':   {bg:'#FEF3C7',color:'#92400E'},
-  'Đang giao':  {bg:'#DBEAFE',color:'#1E40AF'},
-  'Hoàn thành': {bg:'#D1FAE5',color:'#065F46'},
-  'Huỷ':        {bg:'#FEE2E2',color:'#991B1B'},
+  'Chờ giao':         {bg:'#FEF3C7',color:'#92400E'},
+  'Đang giao':        {bg:'#DBEAFE',color:'#1E40AF'},
+  'Đang giao 1 phần': {bg:'#E0F2FE',color:'#0369A1'},
+  'Đã giao':          {bg:'#D1FAE5',color:'#065F46'},
+  'Đã giao 1 phần':   {bg:'#ECFDF5',color:'#059669'},
+  'Hoàn thành':       {bg:'#D1FAE5',color:'#065F46'},
+  'Huỷ':              {bg:'#FEE2E2',color:'#991B1B'},
 }
 
 interface SPItem {
@@ -46,19 +49,21 @@ interface SPItem {
 }
 
 export default function ChiTietDonHangClient({
-  donHang, chiTiet, khachHang, giaoHang, danhSachSP, user,
+  donHang, chiTiet, khachHang, giaoHang, danhSachSP, trangThaiTinh, user,
 }: {
   donHang: any
   chiTiet: any[]
   khachHang: any
   giaoHang: any[]
-  danhSachSP: any[]   // danh sách SP từ bảng 2_Sản phẩm để thêm mới
+  danhSachSP: any[]
+  trangThaiTinh?: string  // trạng thái tính toán chi tiết
   user: UserSession
 }) {
   const router = useRouter()
   const maDon  = donHang['Mã đơn hàng']
 
-  const [trangThai, setTrangThai] = useState(donHang['Trạng thái']||'Chờ giao')
+  // Dùng trangThaiTinh (tính từ data thực) nếu có, fallback về NocoDB
+  const [trangThai, setTrangThai] = useState(trangThaiTinh || donHang['Trạng thái']||'Chờ giao')
   const [loading,   setLoading]   = useState(false)
   const [msg,       setMsg]       = useState('')
   const [msgOk,     setMsgOk]     = useState(true)
@@ -373,7 +378,7 @@ export default function ChiTietDonHangClient({
         <div>
           <div style={{display:'flex',alignItems:'center',gap:'12px',marginBottom:'4px'}}>
             <h1 style={{fontFamily:'Playfair Display,serif',fontSize:'22px',fontWeight:700}}>📋 {maDon}</h1>
-            <span style={{padding:'4px 12px',borderRadius:'20px',fontSize:'12px',fontWeight:700,background:tt.bg,color:tt.color}}>{trangThai}</span>
+            <span style={{padding:'4px 12px',borderRadius:'20px',fontSize:'12px',fontWeight:700,background:tt.bg,color:tt.color}}>{trangThaiTinh||trangThai}</span>
             {soSPHuy>0 && <span style={{padding:'3px 10px',borderRadius:'20px',fontSize:'11px',background:'#FEE2E2',color:'#991B1B',fontWeight:600}}>🚫 Đã hủy {soSPHuy} SP</span>}
             {soSPMoi>0 && <span style={{padding:'3px 10px',borderRadius:'20px',fontSize:'11px',background:'#D1FAE5',color:'#065F46',fontWeight:600}}>➕ Thêm {soSPMoi} SP mới</span>}
             {soSPSuaGia>0 && <span style={{padding:'3px 10px',borderRadius:'20px',fontSize:'11px',background:'#DBEAFE',color:'#1E40AF',fontWeight:600}}>💲 Đã sửa giá {soSPSuaGia} SP</span>}
@@ -525,20 +530,30 @@ export default function ChiTietDonHangClient({
             </div>
           )}
 
-          {/* Trạng thái đơn — chỉ xem, không cho sửa */}
+          {/* Trạng thái đơn — chỉ xem */}
           <div className="card" style={{padding:'16px 20px'}}>
             <h3 style={{fontSize:'13px',fontWeight:700,color:'var(--primary)',marginBottom:'10px'}}>📌 Trạng thái đơn hàng</h3>
-            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'8px'}}>
-              {['Chờ giao','Đang giao','Hoàn thành','Huỷ'].map(t=>{
-                const c=TT_COLOR[t]; const isA=trangThai===t
+            <div style={{display:'flex',flexDirection:'column',gap:'6px'}}>
+              {['Chờ giao','Đang giao 1 phần','Đang giao','Đã giao 1 phần','Đã giao','Huỷ'].map(t=>{
+                const c = TT_COLOR[t]||{bg:'#F3F4F6',color:'#9CA3AF'}
+                const ttHienTai = trangThaiTinh||trangThai
+                const isA = ttHienTai===t
                 return (
-                  <div key={t} style={{padding:'10px',borderRadius:'8px',border:'2px solid',borderColor:isA?c.color:'#F0F0F0',background:isA?c.bg:'#FAFAFA',color:isA?c.color:'#C0C0C0',fontWeight:isA?700:400,fontSize:'13px',textAlign:'center'}}>
-                    {isA && '● '}{t}
+                  <div key={t} style={{
+                    padding:'8px 12px',borderRadius:'8px',border:'2px solid',
+                    borderColor:isA?c.color:'#F0F0F0',
+                    background:isA?c.bg:'#FAFAFA',
+                    color:isA?c.color:'#C0C0C0',
+                    fontWeight:isA?700:400,fontSize:'13px',
+                    display:'flex',alignItems:'center',gap:'8px',
+                  }}>
+                    <span style={{fontSize:'16px'}}>{isA?'●':'○'}</span>
+                    {t}
                   </div>
                 )
               })}
             </div>
-            <p style={{fontSize:'11px',color:'#9CA3AF',margin:'8px 0 0',fontStyle:'italic'}}>Trạng thái tự động cập nhật theo quá trình xử lý đơn</p>
+            <p style={{fontSize:'11px',color:'#9CA3AF',margin:'8px 0 0',fontStyle:'italic'}}>Trạng thái tự động tính theo giao hàng & đối soát</p>
           </div>
         </div>
 
