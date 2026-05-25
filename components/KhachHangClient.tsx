@@ -22,7 +22,11 @@ function validateSdt(sdt: string): string {
 const LOAI    = ['Tất cả','Cá nhân','Cơ quan','Công ty','Đại lý']
 const SO_DONG = 10
 
-export default function KhachHangClient({ khachHang, user }: { khachHang: any[]; user: UserSession }) {
+export default function KhachHangClient({ khachHang, donHuyCanHoan, user }: {
+  khachHang: any[]
+  donHuyCanHoan: Record<string, {tienHoan:number; tinhTrang:string}>
+  user: UserSession
+}) {
   const router  = useRouter()
   const seqRef  = useRef(0)
   const nextKey = () => `k${++seqRef.current}`
