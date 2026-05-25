@@ -17,6 +17,7 @@ export async function POST(request: NextRequest) {
       chiPhiVC, chiPhiLap, thuongChuyen,
       ketQua, ghiChu,
     } = body
+    console.log('[DOI-SOAT] maGiaoHang:', maGiaoHang, 'maDon:', maDon, 'tienThuKH:', tienThuKH)
 
     // 1. Tạo bản ghi đối soát vào bảng 9
     const maDS = `DS-${maGiaoHang}-${Date.now().toString().slice(-4)}`
@@ -61,25 +62,36 @@ export async function POST(request: NextRequest) {
       })
       const don = donResult.list?.[0]
       if (don) {
-        const rowId      = don['Id'] || don['id']
-        const conPhaiThu = Number(don['Còn phải thu'] || 0)
+        const rowId    = don['Id'] || don['id']
+        const datCoc   = Number(don['Đặt cọc'] || 0)
+        const tongTien = Number(don['Tổng tiền đơn'] || 0)
 
-        // Tính tổng tiền đã thu từ tất cả chuyến đối soát của đơn này
-        const doiSoatCuaDon = await getRecords(TABLES.DOI_SOAT, {
+        // Lấy tất cả Mã giao hàng của đơn này
+        const ghCuaDon = await getRecords(TABLES.GIAO_HANG, {
           where: `(Mã đơn hàng,eq,${maDon})`,
-          limit: 100,
-          fields: 'Đã thu được,Hình thức thu',
+          limit: 50,
+          fields: 'Mã giao hàng',
         })
-        const tongDaThu = (doiSoatCuaDon.list || [])
-          .filter((ds: any) => ds['Hình thức thu'] !== 'KH nợ — chưa thu')
-          .reduce((s: number, ds: any) => s + Number(ds['Đã thu được'] || 0), 0)
+        const danhSachMaGH = (ghCuaDon.list || []).map((g: any) => g['Mã giao hàng']).filter(Boolean)
 
-        const datCoc    = Number(don['Đặt cọc'] || 0)
-        const tongTien  = Number(don['Tổng tiền đơn'] || 0)
+        // Tính tổng tiền đã thu qua đối soát — tìm theo Mã giao hàng
+        let tongDaThu = 0
+        for (const maGH of danhSachMaGH) {
+          const dsResult = await getRecords(TABLES.DOI_SOAT, {
+            where: `(Mã giao hàng,eq,${maGH})`,
+            limit: 10,
+            fields: 'Đã thu được,Hình thức thu,Tình trạng đối soát',
+          })
+          for (const ds of (dsResult.list || [])) {
+            if (ds['Tình trạng đối soát'] === 'Đã đối soát' &&
+                ds['Hình thức thu'] !== 'KH nợ — chưa thu') {
+              tongDaThu += Number(ds['Đã thu được'] || 0)
+            }
+          }
+        }
 
-        // Tổng đã thanh toán = cọc + thu qua đối soát
-        const tongDaThanhToan = datCoc + tongDaThu
-        const conLaiMoi = Math.max(0, tongTien - tongDaThanhToan)
+        // Còn phải thu = Tổng tiền - Cọc - Đã thu qua đối soát
+        const conLaiMoi = Math.max(0, tongTien - datCoc - tongDaThu)
 
         if (rowId) {
           await updateRecord(TABLES.DON_HANG, Number(rowId), {
