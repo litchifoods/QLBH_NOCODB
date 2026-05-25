@@ -1,4 +1,5 @@
-// app/api/doi-soat/route.ts -- v3.0
+// app/api/doi-soat/route.ts -- v4.0
+// Tự động cập nhật Còn phải thu sau đối soát, không cần checkbox thủ công
 import { NextRequest, NextResponse } from 'next/server'
 import { createRecord, getRecords, updateRecord, TABLES } from '@/lib/nocodb'
 import { getSession } from '@/lib/auth'
@@ -14,7 +15,7 @@ export async function POST(request: NextRequest) {
       maNVDoiTac, tenNVDoiTac, hinhThucGiao,
       tienThuKH, hinhThucThu,
       chiPhiVC, chiPhiLap, thuongChuyen,
-      ketQua, ghiChu, hoanThanhDon,
+      ketQua, ghiChu,
     } = body
 
     // 1. Tạo bản ghi đối soát vào bảng 9
@@ -35,7 +36,7 @@ export async function POST(request: NextRequest) {
       'Ghi chú':                  ghiChu || '',
     })
 
-    // 2. Cập nhật bảng 7 — tình trạng đối soát + trạng thái chuyến
+    // 2. Cập nhật bảng 7 — tình trạng đối soát
     const ghResult = await getRecords(TABLES.GIAO_HANG, {
       where: `(Mã giao hàng,eq,${maGiaoHang})`, limit: 1,
     })
@@ -43,11 +44,9 @@ export async function POST(request: NextRequest) {
     if (gh) {
       const rowId = gh['Id'] || gh['id']
       if (rowId) {
-        // Trạng thái chuyến phụ thuộc kết quả
         let trangThaiChuyen = 'Đã giao'
-        if (ketQua.includes('Huỷ'))    trangThaiChuyen = 'Hoàn trả'
-        if (ketQua.includes('Đổi'))    trangThaiChuyen = 'Đổi hàng'
-
+        if (ketQua.includes('Huỷ')) trangThaiChuyen = 'Hoàn trả'
+        if (ketQua.includes('Đổi')) trangThaiChuyen = 'Đổi hàng'
         await updateRecord(TABLES.GIAO_HANG, Number(rowId), {
           'Tình trạng đối soát': 'Đã đối soát',
           'Trạng thái':          trangThaiChuyen,
@@ -55,17 +54,37 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // 3. Nếu hoàn thành đơn → cập nhật bảng 5
-    if (hoanThanhDon && maDon) {
+    // 3. Tự động cập nhật đơn hàng sau đối soát
+    if (maDon) {
       const donResult = await getRecords(TABLES.DON_HANG, {
         where: `(Mã đơn hàng,eq,${maDon})`, limit: 1,
       })
       const don = donResult.list?.[0]
       if (don) {
-        const rowId = don['Id'] || don['id']
+        const rowId      = don['Id'] || don['id']
+        const conPhaiThu = Number(don['Còn phải thu'] || 0)
+
+        // Tính tổng tiền đã thu từ tất cả chuyến đối soát của đơn này
+        const doiSoatCuaDon = await getRecords(TABLES.DOI_SOAT, {
+          where: `(Mã đơn hàng,eq,${maDon})`,
+          limit: 100,
+          fields: 'Đã thu được,Hình thức thu',
+        })
+        const tongDaThu = (doiSoatCuaDon.list || [])
+          .filter((ds: any) => ds['Hình thức thu'] !== 'KH nợ — chưa thu')
+          .reduce((s: number, ds: any) => s + Number(ds['Đã thu được'] || 0), 0)
+
+        const datCoc    = Number(don['Đặt cọc'] || 0)
+        const tongTien  = Number(don['Tổng tiền đơn'] || 0)
+
+        // Tổng đã thanh toán = cọc + thu qua đối soát
+        const tongDaThanhToan = datCoc + tongDaThu
+        const conLaiMoi = Math.max(0, tongTien - tongDaThanhToan)
+
         if (rowId) {
-          const trangThaiDon = ketQua.includes('Huỷ') ? 'Huỷ' : 'Hoàn thành'
-          await updateRecord(TABLES.DON_HANG, Number(rowId), { 'Trạng thái': trangThaiDon })
+          await updateRecord(TABLES.DON_HANG, Number(rowId), {
+            'Còn phải thu': conLaiMoi,
+          })
         }
       }
     }
