@@ -1,4 +1,5 @@
-// app/api/giao-hang/route.ts -- v3.1
+// app/api/giao-hang/route.ts -- v3.2
+// Fix: bảng 8 lưu Mã giao hàng = GH-xxx (giống bảng 7), không phải maChuyen
 import { NextRequest, NextResponse } from 'next/server'
 import { createRecord, getRecords, updateRecord, TABLES } from '@/lib/nocodb'
 import { getSession } from '@/lib/auth'
@@ -31,11 +32,16 @@ export async function POST(request: NextRequest) {
     const maChuyen = `CH-${maDon}-${ts}`
 
     // 1. Tạo từng GH-xxx cho mỗi người (bảng 7)
-    // Chi phí/thưởng để 0 — sẽ cập nhật lúc đối soát
+    // Lưu lại danh sách maGH để dùng cho bảng 8
+    const danhSachMaGH: string[] = []
+
     for (let i = 0; i < danhSachNguoi.length; i++) {
-      const nguoi = danhSachNguoi[i]
+      const nguoi  = danhSachNguoi[i]
+      const maGH   = `GH-${maChuyen}-${i + 1}`
+      danhSachMaGH.push(maGH)
+
       await createRecord(TABLES.GIAO_HANG, {
-        'Mã giao hàng':        `GH-${maChuyen}-${i + 1}`,
+        'Mã giao hàng':        maGH,
         'Mã chuyến':           maChuyen,
         'Mã đơn hàng':         maDon,
         'Ngày giao':           ngayGiao,
@@ -43,7 +49,6 @@ export async function POST(request: NextRequest) {
         'Mã NV/đối tác':       nguoi.maNV || '',
         'Tên NV/đối tác':      nguoi.tenNV,
         'Vai trò chuyến':      nguoi.vaiTroChuyen,
-        // Chi phí bắt đầu bằng 0 — nhập lúc đối soát
         'Chi phí VC':          0,
         'Chi phí lắp đặt':     0,
         'Thưởng chuyến':       0,
@@ -54,11 +59,17 @@ export async function POST(request: NextRequest) {
     }
 
     // 2. Tạo chi tiết SP giao (bảng 8)
+    // Mỗi SP giao được gắn với TẤT CẢ người trong chuyến
+    // (vì SP giao 1 lần, nhiều người cùng thực hiện)
+    // Dùng maGH của người đầu tiên làm đại diện
+    const maGHDaiDien = danhSachMaGH[0] || `GH-${maChuyen}-1`
+
     for (let i = 0; i < danhSachSP.length; i++) {
       const sp = danhSachSP[i]
       await createRecord(TABLES.CHI_TIET_GIAO, {
         'Mã CT giao hàng':       `CTGH-${maChuyen}-${i + 1}`,
-        'Mã giao hàng':          maChuyen,
+        'Mã giao hàng':          maGHDaiDien,  // ✅ dùng GH-xxx thay vì maChuyen
+        'Mã chuyến':             maChuyen,
         'Mã đơn hàng':           maDon,
         'Mã chi tiết đơn':       sp.maChiTiet,
         'Tên SP (ghi nhanh)':    sp.tenSP,
@@ -74,7 +85,7 @@ export async function POST(request: NextRequest) {
     })
     const don = donResult.list?.[0]
     if (don) {
-      const rowId = don['Id'] || don['id']
+      const rowId     = don['Id'] || don['id']
       const ttHienTai = don['Trạng thái'] || ''
       if (rowId && (ttHienTai === 'Chờ giao' || !ttHienTai)) {
         await updateRecord(TABLES.DON_HANG, Number(rowId), { 'Trạng thái': 'Đang giao' })
@@ -84,7 +95,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true, maChuyen,
       soNguoi: danhSachNguoi.length,
-      soSP: danhSachSP.length,
+      soSP:    danhSachSP.length,
     })
   } catch (error: any) {
     return NextResponse.json({ message: error.message }, { status: 500 })

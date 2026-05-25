@@ -107,7 +107,7 @@ export default function DoiSoatClient({
           maNVDoiTac:   modalGH['Mã NV/đối tác']||'',
           tenNVDoiTac:  modalGH['Tên NV/đối tác']||'',
           hinhThucGiao: modalGH['Hình thức giao']||'',
-          tienThuKH, hinhThucThu, chiPhiVC, chiPhiLap, thuongChuyen, ketQua, ghiChu, hoanThanhDon,
+          tienThuKH, hinhThucThu, chiPhiVC, chiPhiLap, thuongChuyen, ketQua, ghiChu,
         }),
       })
       if (!res.ok) throw new Error((await res.json()).message||'Lỗi')
@@ -369,13 +369,10 @@ export default function DoiSoatClient({
                 <label style={{fontSize:'11px',fontWeight:600,display:'block',marginBottom:'3px'}}>Ghi chú</label>
                 <input className="input" placeholder="Ghi chú thêm..." value={ghiChu} onChange={e=>setGhiChu(e.target.value)}/>
               </div>
-              <label style={{display:'flex',alignItems:'center',gap:'10px',cursor:'pointer',padding:'10px 12px',background:'#F0FDF4',borderRadius:'8px',border:'1px solid #BBF7D0'}}>
-                <input type="checkbox" checked={hoanThanhDon} onChange={e=>setHoanThanhDon(e.target.checked)} style={{width:'16px',height:'16px',accentColor:'#16A34A'}}/>
-                <div>
-                  <div style={{fontSize:'13px',fontWeight:600,color:'#15803D'}}>Đánh dấu đơn hàng "Hoàn thành"</div>
-                  <div style={{fontSize:'11px',color:'#6B7280'}}>Chỉ tick khi đã giao đủ toàn bộ SP</div>
-                </div>
-              </label>
+              {/* Trạng thái tự động tính — không cần tick thủ công */}
+              <div style={{padding:'8px 12px',background:'#F0F9FF',borderRadius:'8px',border:'1px solid #BAE6FD',fontSize:'12px',color:'#0369A1'}}>
+                💡 Trạng thái đơn hàng tự động cập nhật dựa trên SP đã giao và thanh toán
+              </div>
               <div style={{display:'flex',gap:'10px'}}>
                 <button onClick={luuDoiSoat} disabled={loading} style={{flex:1,padding:'11px',borderRadius:'8px',border:'none',background:loading?'#9CA3AF':'var(--primary)',color:'white',fontWeight:700,fontSize:'14px',cursor:loading?'not-allowed':'pointer'}}>
                   {loading?'⏳ Đang lưu...':'✅ Xác nhận đối soát'}
