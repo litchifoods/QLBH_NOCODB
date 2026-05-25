@@ -305,8 +305,10 @@ export default function ChiTietDonHangClient({
       const tatCaHuy = spSauHuy.length > 0 && spSauHuy.every(sp => sp.da_huy)
       const ttDon    = tatCaHuy ? 'Huỷ' : trangThai
 
-      const cpDoiTraFinal = cpDoiTra || 0
-      const conPhaiThuFinal = Math.max(0, ttMoi + cpDoiTraFinal - datCocEdit)
+      const cpDoiTraFinal   = cpDoiTra || 0
+      // Khi hủy toàn bộ đơn: Còn phải thu = 0 (không còn gì để thu nữa)
+      // Tiền cọc sẽ được tính vào "Tiền hoàn cọc" riêng
+      const conPhaiThuFinal = tatCaHuy ? 0 : Math.max(0, ttMoi + cpDoiTraFinal - datCocEdit)
 
       const resDon = await fetch('/api/don-hang', {
         method:'PATCH',
