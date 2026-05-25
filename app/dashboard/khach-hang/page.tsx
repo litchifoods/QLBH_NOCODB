@@ -31,10 +31,14 @@ export default async function KhachHangPage() {
     const maKH = don['Mã KH']
     if (!maKH) continue
 
-    // Gom đơn theo KH (chỉ đơn còn nợ)
-    const conLai = Number(don['Còn phải thu'] || 0)
     const tt     = don['Trạng thái'] || ''
-    if (tt !== 'Huỷ' && tt !== 'Hoàn thành' && conLai > 0) {
+    const conLai = Number(don['Còn phải thu'] || 0)
+
+    // ✅ Đơn Huỷ hoặc Hoàn thành → KHÔNG tính vào công nợ
+    // ✅ Đơn có Tiền hoàn cọc > 0 → đã hủy, không tính công nợ
+    const daHuy = tt === 'Huỷ' || Number(don['Tiền hoàn cọc'] || 0) > 0
+    const tinh_cong_no = !daHuy && tt !== 'Hoàn thành' && conLai > 0
+    if (tinh_cong_no) {
       if (!donHangTheoKH[maKH]) donHangTheoKH[maKH] = []
       donHangTheoKH[maKH].push(don)
       congNoMap[maKH] = (congNoMap[maKH] || 0) + conLai
