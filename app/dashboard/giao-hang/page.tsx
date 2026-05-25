@@ -69,6 +69,31 @@ export default async function GiaoHangPage() {
   const danhSachNVCuaHang = danhSachNV.filter((nv:any) => (nv['Mã NV']||'').startsWith('NV-'))
   const danhSachDoiTac    = danhSachNV.filter((nv:any) => (nv['Mã NV']||'').startsWith('DT-'))
 
+  // Tính trạng thái chi tiết cho từng đơn
+  function tinhTrangThaiDon(maDon: string): string {
+    const ctDon  = chiTietDonMap[maDon] || []
+    const spTong = ctDon.length
+    const spHuy  = ctDon.filter((ct:any) => ct['Trạng thái SP'] === 'Huỷ').length
+    if (spTong > 0 && spHuy === spTong) return 'Huỷ'
+    const slDon = ctDon
+      .filter((ct:any) => ct['Trạng thái SP'] !== 'Huỷ')
+      .reduce((s:number, ct:any) => s + Number(ct['Số lượng']||1), 0)
+    const ctGiao   = (chiTietGiao.list||[]).filter((ct:any) => ct['Mã đơn hàng'] === maDon)
+    const slGiao   = ctGiao.reduce((s:number, ct:any) => s + Number(ct['Số lượng giao đợt này']||0), 0)
+    if (slGiao === 0) return 'Chờ giao'
+    const ghDon    = (giaoHang.list||[]).filter((gh:any) => gh['Mã đơn hàng'] === maDon)
+    const maGHSoat = new Set(ghDon.filter((gh:any) => gh['Tình trạng đối soát']==='Đã đối soát').map((gh:any)=>gh['Mã giao hàng']))
+    const slSoat   = ctGiao.filter((ct:any) => maGHSoat.has(ct['Mã giao hàng'])).reduce((s:number,ct:any)=>s+Number(ct['Số lượng giao đợt này']||0),0)
+    const canGiao  = Math.max(0, slDon - slGiao)
+    if (canGiao === 0) {
+      if (slSoat >= slDon) return 'Đã giao'
+      if (slSoat > 0)      return 'Đã giao 1 phần'
+      return 'Đang giao'
+    }
+    if (slSoat > 0) return 'Đã giao 1 phần'
+    return 'Đang giao 1 phần'
+  }
+
   // donChuaGiao — cho dropdown tạo chuyến
   const donChuaGiao = (donHang.list || [])
     .filter((d: any) =>
