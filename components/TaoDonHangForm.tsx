@@ -2,7 +2,7 @@
 // components/TaoDonHangForm.tsx — v2.4
 // Sửa lỗi 404: đọc maDon từ json.maDon (API đã query lại sau khi tạo)
 
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { UserSession } from '@/lib/auth'
 
@@ -28,6 +28,7 @@ export default function TaoDonHangForm({
 }) {
   const router = useRouter()
   const today  = new Date().toISOString().split('T')[0]
+  const dangLuu = useRef(false) // Ngăn double submit
 
   const [ngayDat,     setNgayDat]     = useState(today)
   const [kenhBan,     setKenhBan]     = useState('Trực tiếp')
@@ -201,7 +202,7 @@ export default function TaoDonHangForm({
       }
 
       // Tạo chi tiết SP
-      for (const d of dongSP.filter(x=>x.maSP||x.tenSP)) {
+      for (const d of dongSP.filter(x=>(x.maSP||x.tenSP?.trim()))) {
         await fetch('/api/chi-tiet-don',{
           method:'POST', headers:{'Content-Type':'application/json'},
           body: JSON.stringify({
@@ -221,17 +222,23 @@ export default function TaoDonHangForm({
 
   async function luuDon() {
     if (!validate()) return
+    if (dangLuu.current) return // Ngăn double submit
+    dangLuu.current = true
     setLoadingLuu(true)
     const ma = await taoDon()
     setLoadingLuu(false)
+    dangLuu.current = false
     if (ma) { router.push('/dashboard/don-hang'); router.refresh() }
   }
 
   async function luuVaIn() {
     if (!validate()) return
+    if (dangLuu.current) return // Ngăn double submit
+    dangLuu.current = true
     setLoadingIn(true)
     const ma = await taoDon()
     setLoadingIn(false)
+    dangLuu.current = false
     if (ma) router.push(`/dashboard/don-hang/${encodeURIComponent(ma)}/in`)
   }
 
