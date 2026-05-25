@@ -16,23 +16,27 @@ function formatDate(s: string) {
 }
 function badgeColor(tt: string) {
   const map: Record<string,{bg:string;color:string}> = {
-    'Chờ giao':   { bg:'#FEF3C7', color:'#92400E' },
-    'Đang giao':  { bg:'#DBEAFE', color:'#1E40AF' },
-    'Hoàn thành': { bg:'#D1FAE5', color:'#065F46' },
-    'Huỷ':        { bg:'#FEE2E2', color:'#991B1B' },
+    'Chờ giao':        { bg:'#FEF3C7', color:'#92400E' },
+    'Đang giao':       { bg:'#DBEAFE', color:'#1E40AF' },
+    'Đang giao 1 phần':{ bg:'#E0F2FE', color:'#0369A1' },
+    'Đã giao':         { bg:'#D1FAE5', color:'#065F46' },
+    'Đã giao 1 phần':  { bg:'#ECFDF5', color:'#059669' },
+    'Hoàn thành':      { bg:'#D1FAE5', color:'#065F46' },
+    'Huỷ':             { bg:'#FEE2E2', color:'#991B1B' },
   }
   return map[tt] || { bg:'#F3F4F6', color:'#374151' }
 }
 
-const TRANG_THAI = ['Tất cả','Chờ giao','Đang giao','Hoàn thành','Huỷ']
+const TRANG_THAI = ['Tất cả','Chờ giao','Đang giao','Đang giao 1 phần','Đã giao','Đã giao 1 phần','Huỷ']
 const KENH       = ['Tất cả','Trực tiếp','Zalo','Facebook','Điện thoại','Online']
 const SO_TRANG   = 10
 
 export default function DonHangClient({
-  donHang, khachHangMap, user, searchParams,
+  donHang, khachHangMap, trangThaiMap, user, searchParams,
 }: {
   donHang: any[]
   khachHangMap: Record<string, any>
+  trangThaiMap: Record<string, string>  // maDon → trạng thái tính toán
   user: UserSession
   searchParams: any
 }) {
@@ -64,7 +68,8 @@ export default function DonHangClient({
   const filtered = useMemo(() => {
     setTrang(1)
     return donHopLe.filter(d => {
-      if (trangThai !== 'Tất cả' && d['Trạng thái'] !== trangThai) return false
+      const ttTinh = trangThaiMap[d['Mã đơn hàng']] || d['Trạng thái'] || ''
+      if (trangThai !== 'Tất cả' && ttTinh !== trangThai) return false
       if (kenh      !== 'Tất cả' && d['Kênh bán']   !== kenh)      return false
       if (search) {
         const q      = search.toLowerCase().trim()
@@ -228,7 +233,7 @@ export default function DonHangClient({
                   </td>
                 </tr>
               ) : danhSachTrang.map((don: any, i: number) => {
-                const tt     = don['Trạng thái'] || 'Mới'
+                const tt     = trangThaiMap[don['Mã đơn hàng']] || don['Trạng thái'] || 'Mới'
                 const c      = badgeColor(tt)
                 const conLai = Number(don['Còn phải thu'] || 0)
                 const tenKH  = getTenKH(don)
@@ -277,8 +282,8 @@ export default function DonHangClient({
                       <div style={{ display:'flex', gap:'2px' }}>
                         <span style={{position:'relative',display:'inline-block'}} className="tt-wrap">
                           <Link href={`/dashboard/don-hang/${don['Mã đơn hàng']}`}
-                            className="btn btn-ghost btn-sm" style={{ padding:'4px 8px' }} title="Chỉnh sửa">👁️</Link>
-                          <span className="tt-label">Chỉnh sửa</span>
+                            className="btn btn-ghost btn-sm" style={{ padding:'4px 8px' }} title="Xem chi tiết">👁️</Link>
+                          <span className="tt-label">Xem chi tiết</span>
                         </span>
                         <span style={{position:'relative',display:'inline-block'}} className="tt-wrap">
                           <Link href={`/dashboard/don-hang/${don['Mã đơn hàng']}/in`}
