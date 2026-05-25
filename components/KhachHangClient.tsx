@@ -22,9 +22,10 @@ function validateSdt(sdt: string): string {
 const LOAI    = ['Tất cả','Cá nhân','Cơ quan','Công ty','Đại lý']
 const SO_DONG = 10
 
-export default function KhachHangClient({ khachHang, donHuyCanHoan, user }: {
+export default function KhachHangClient({ khachHang, donHuyCanHoan, congNoMap, user }: {
   khachHang: any[]
   donHuyCanHoan: Record<string, {tienHoan:number; tinhTrang:string}>
+  congNoMap: Record<string, number>  // maKH → tổng còn phải thu
   user: UserSession
 }) {
   const router  = useRouter()
@@ -296,12 +297,14 @@ export default function KhachHangClient({ khachHang, donHuyCanHoan, user }: {
                 <th style={{textAlign:'left',fontWeight:700,whiteSpace:'nowrap'}}>Số điện thoại</th>
                 <th className="col-dia" style={{textAlign:'left',fontWeight:700}}>Địa chỉ</th>
                 <th style={{textAlign:'center',fontWeight:700}}>Loại</th>
+                <th style={{textAlign:'right',fontWeight:700,whiteSpace:'nowrap'}}>Còn nợ</th>
+                <th style={{textAlign:'center',fontWeight:700,whiteSpace:'nowrap'}}>Hoàn cọc</th>
                 <th style={{textAlign:'center',fontWeight:700,width:'200px'}}>Thao tác</th>
               </tr>
             </thead>
             <tbody>
               {danhSachTrang.length===0 ? (
-                <tr><td colSpan={6} style={{textAlign:'center',padding:'48px',color:'var(--text-muted)'}}>
+                <tr><td colSpan={8} style={{textAlign:'center',padding:'48px',color:'var(--text-muted)'}}>
                   {search||filterLoai!=='Tất cả'?'Không tìm thấy':'Chưa có khách hàng'}
                 </td></tr>
               ) : danhSachTrang.map((kh:any,i:number) => {
@@ -311,21 +314,7 @@ export default function KhachHangClient({ khachHang, donHuyCanHoan, user }: {
                     <td style={{fontWeight:700,color:'var(--primary)',whiteSpace:'nowrap'}}>
                       {kh['Mã KH'] || <span style={{color:'#9CA3AF',fontWeight:400,fontSize:'11px'}}>—</span>}
                     </td>
-                    <td style={{fontWeight:600}}>
-                      <div style={{display:'flex',alignItems:'center',gap:'6px',flexWrap:'wrap'}}>
-                        {kh['Tên khách hàng']}
-                        {donHuyCanHoan[kh['Mã KH']] && (
-                          <span style={{
-                            fontSize:'10px',fontWeight:700,padding:'2px 7px',borderRadius:'10px',
-                            background:donHuyCanHoan[kh['Mã KH']].tinhTrang==='Đã hoàn'?'#D1FAE5':'#FEF3C7',
-                            color:donHuyCanHoan[kh['Mã KH']].tinhTrang==='Đã hoàn'?'#065F46':'#D97706',
-                            whiteSpace:'nowrap',
-                          }}>
-                            {donHuyCanHoan[kh['Mã KH']].tinhTrang==='Đã hoàn'?'✅':'⚠️'} Hoàn cọc {Number(donHuyCanHoan[kh['Mã KH']].tienHoan).toLocaleString('vi-VN')}đ
-                          </span>
-                        )}
-                      </div>
-                    </td>
+                    <td style={{fontWeight:600}}>{kh['Tên khách hàng']}</td>
                     <td style={{whiteSpace:'nowrap'}}>
                       {kh['Số điện thoại']
                         ? <a href={`tel:${kh['Số điện thoại']}`} style={{color:'var(--primary)',textDecoration:'none'}}>📞 {kh['Số điện thoại']}</a>
@@ -338,6 +327,35 @@ export default function KhachHangClient({ khachHang, donHuyCanHoan, user }: {
                       <span style={{padding:'3px 10px',borderRadius:'20px',fontSize:'11px',fontWeight:700,background:c.bg,color:c.c,whiteSpace:'nowrap'}}>
                         {kh['Đối tượng khách hàng']||'—'}
                       </span>
+                    </td>
+                    {/* Cột Còn nợ */}
+                    <td style={{textAlign:'right',whiteSpace:'nowrap'}}>
+                      {(congNoMap[kh['Mã KH']]||0) > 0 ? (
+                        <span style={{color:'#DC2626',fontWeight:700,fontSize:'12px'}}>
+                          {(congNoMap[kh['Mã KH']]||0).toLocaleString('vi-VN')}đ
+                        </span>
+                      ) : (
+                        <span style={{color:'#9CA3AF',fontSize:'12px'}}>—</span>
+                      )}
+                    </td>
+                    {/* Cột Hoàn cọc */}
+                    <td style={{textAlign:'center'}}>
+                      {donHuyCanHoan[kh['Mã KH']] && donHuyCanHoan[kh['Mã KH']].tienHoan > 0 ? (
+                        <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:'2px'}}>
+                          <span style={{
+                            fontSize:'11px',fontWeight:700,padding:'2px 8px',borderRadius:'10px',
+                            background:donHuyCanHoan[kh['Mã KH']].tinhTrang==='Đã hoàn'?'#D1FAE5':'#FEF3C7',
+                            color:donHuyCanHoan[kh['Mã KH']].tinhTrang==='Đã hoàn'?'#065F46':'#D97706',
+                          }}>
+                            {donHuyCanHoan[kh['Mã KH']].tinhTrang==='Đã hoàn'?'✅ Đã hoàn':'⚠️ Chờ hoàn'}
+                          </span>
+                          <span style={{fontSize:'11px',color:'#6B7280'}}>
+                            {donHuyCanHoan[kh['Mã KH']].tienHoan.toLocaleString('vi-VN')}đ
+                          </span>
+                        </div>
+                      ) : (
+                        <span style={{color:'#9CA3AF',fontSize:'12px'}}>—</span>
+                      )}
                     </td>
                     <td style={{textAlign:'center'}}>
                       <div style={{display:'flex',gap:'4px',justifyContent:'center'}}>
