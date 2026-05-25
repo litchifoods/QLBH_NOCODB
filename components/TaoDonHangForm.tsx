@@ -139,8 +139,22 @@ export default function TaoDonHangForm({
   }
   function chonSP(id:string,sp:SP) {
     const dg=sp['Giá bán lẻ']||0
-    setDongSP(prev=>prev.map(d=>d.id!==id?d:{...d,maSP:sp['Mã SP'],tenSP:sp['Tên sản phẩm'],donGia:dg,thanhTien:d.soLuong*dg}))
-    setSearchSP(prev=>({...prev,[id]:sp['Tên sản phẩm']}))
+    const tenMoi=sp['Tên sản phẩm']||''
+    const maMoi=sp['Mã SP']||''
+    // Kiểm tra đã có dòng SP này chưa (trừ dòng hiện tại)
+    const trung = dongSP.find(d=>d.id!==id&&(
+      (maMoi&&d.maSP===maMoi)||(tenMoi&&d.tenSP===tenMoi)
+    ))
+    if (trung) {
+      // Tăng SL dòng đã có, xóa dòng hiện tại
+      setDongSP(prev=>prev
+        .map(d=>d.id===trung.id?{...d,soLuong:d.soLuong+1,thanhTien:(d.soLuong+1)*d.donGia}:d)
+        .filter(d=>d.id!==id)
+      )
+    } else {
+      setDongSP(prev=>prev.map(d=>d.id!==id?d:{...d,maSP:maMoi,tenSP:tenMoi,donGia:dg,thanhTien:d.soLuong*dg}))
+    }
+    setSearchSP(prev=>({...prev,[id]:tenMoi}))
     setShowSP(prev=>({...prev,[id]:false}))
   }
   function updDong(id:string,field:'soLuong'|'donGia'|'ghiChu'|'tenSP',val:any) {
