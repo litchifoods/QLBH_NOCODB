@@ -1,4 +1,4 @@
-// app/dashboard/khach-hang/page.tsx — v2.0
+// app/dashboard/khach-hang/page.tsx — v3.0
 export const dynamic = 'force-dynamic'
 
 import { getRecords, TABLES } from '@/lib/nocodb'
@@ -15,7 +15,7 @@ export default async function KhachHangPage() {
     }),
     getRecords(TABLES.DON_HANG, {
       limit: 500, sort: '-Id',
-      fields: 'Mã KH,Trạng thái,Còn phải thu,Tiền hoàn cọc,Tình trạng hoàn cọc',
+      // Lấy đủ fields để thu nợ và hoàn cọc
     }),
   ])
 
@@ -23,29 +23,34 @@ export default async function KhachHangPage() {
     (kh: any) => kh['Tên khách hàng']?.toString().trim()
   )
 
-  // Build map công nợ: maKH → tổng "Còn phải thu" từ các đơn chưa hoàn thành
-  const congNoMap: Record<string, number> = {}
-  // Build map hoàn cọc: maKH → đơn hủy cần hoàn gần nhất
-  const donHuyCanHoan: Record<string, {tienHoan: number; tinhTrang: string}> = {}
+  const congNoMap:     Record<string, number>                              = {}
+  const donHuyCanHoan: Record<string, {tienHoan:number; tinhTrang:string}> = {}
+  const donHangTheoKH: Record<string, any[]>                               = {}
 
   for (const don of (donHangResult.list || [])) {
     const maKH = don['Mã KH']
     if (!maKH) continue
 
-    // Tính công nợ — đơn chưa hoàn thành và chưa hủy còn tiền phải thu
-    const tt       = don['Trạng thái'] || ''
-    const conLai   = Number(don['Còn phải thu'] || 0)
+    // Gom đơn theo KH (chỉ đơn còn nợ)
+    const conLai = Number(don['Còn phải thu'] || 0)
+    const tt     = don['Trạng thái'] || ''
     if (tt !== 'Huỷ' && tt !== 'Hoàn thành' && conLai > 0) {
+      if (!donHangTheoKH[maKH]) donHangTheoKH[maKH] = []
+      donHangTheoKH[maKH].push(don)
       congNoMap[maKH] = (congNoMap[maKH] || 0) + conLai
     }
 
-    // Tính hoàn cọc — đơn hủy có tiền cần hoàn
+    // Hoàn cọc
     const tienHoan  = Number(don['Tiền hoàn cọc'] || 0)
     const tinhTrang = don['Tình trạng hoàn cọc'] || ''
     if (tienHoan > 0) {
-      // Ưu tiên "Chờ hoàn" — hiện trước "Đã hoàn"
       if (!donHuyCanHoan[maKH] || tinhTrang === 'Chờ hoàn') {
         donHuyCanHoan[maKH] = { tienHoan, tinhTrang }
+      }
+      // Thêm đơn hủy vào donHangTheoKH để popup hoàn cọc dùng
+      if (!donHangTheoKH[maKH]) donHangTheoKH[maKH] = []
+      if (!donHangTheoKH[maKH].find((d:any) => d['Mã đơn hàng'] === don['Mã đơn hàng'])) {
+        donHangTheoKH[maKH].push(don)
       }
     }
   }
@@ -55,6 +60,7 @@ export default async function KhachHangPage() {
       khachHang={danhSach}
       donHuyCanHoan={donHuyCanHoan}
       congNoMap={congNoMap}
+      donHangTheoKH={donHangTheoKH}
       user={session!}
     />
   )

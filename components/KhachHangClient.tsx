@@ -22,10 +22,11 @@ function validateSdt(sdt: string): string {
 const LOAI    = ['Tất cả','Cá nhân','Cơ quan','Công ty','Đại lý']
 const SO_DONG = 10
 
-export default function KhachHangClient({ khachHang, donHuyCanHoan, congNoMap, user }: {
+export default function KhachHangClient({ khachHang, donHuyCanHoan, congNoMap, donHangTheoKH, user }: {
   khachHang: any[]
   donHuyCanHoan: Record<string, {tienHoan:number; tinhTrang:string}>
-  congNoMap: Record<string, number>  // maKH → tổng còn phải thu
+  congNoMap: Record<string, number>
+  donHangTheoKH: Record<string, any[]>  // maKH → danh sách đơn còn nợ
   user: UserSession
 }) {
   const router  = useRouter()
@@ -57,6 +58,17 @@ export default function KhachHangClient({ khachHang, donHuyCanHoan, congNoMap, u
   const [ghiChuKH,   setGhiChuKH]   = useState('')
   const [xoaKH,      setXoaKH]      = useState<any>(null)
   const [dangXoa,    setDangXoa]    = useState(false)
+
+  // Popup thu nợ
+  const [popupNoKH,   setPopupNoKH]   = useState<any>(null) // KH đang xử lý thu nợ
+  const [donNoChon,   setDonNoChon]   = useState<any>(null) // đơn được chọn
+  const [soTienThu,   setSoTienThu]   = useState(0)
+  const [htThu,       setHtThu]       = useState('Tiền mặt')
+  const [dangThuNo,   setDangThuNo]   = useState(false)
+
+  // Popup hoàn cọc
+  const [popupHoanKH, setPopupHoanKH] = useState<any>(null) // KH đang xử lý hoàn cọc
+  const [dangHoan,    setDangHoan]    = useState(false)
 
   // Lọc
   const filtered = useMemo(() => localKH.filter((kh:any) => {
@@ -204,6 +216,46 @@ export default function KhachHangClient({ khachHang, donHuyCanHoan, congNoMap, u
     } finally { setDangXoa(false) }
   }
 
+  // ── Thu nợ ──
+  async function luuThuNo() {
+    if (!donNoChon || soTienThu <= 0) return
+    setDangThuNo(true)
+    try {
+      const conMoi = Math.max(0, Number(donNoChon['Còn phải thu']||0) - soTienThu)
+      await fetch('/api/don-hang', {
+        method: 'PATCH', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ id: donNoChon['Id']||donNoChon['id'], 'Còn phải thu': conMoi }),
+      })
+      showMsg(`✅ Đã thu ${soTienThu.toLocaleString('vi-VN')}đ từ ${popupNoKH['Tên khách hàng']}`, true)
+      setPopupNoKH(null); setDonNoChon(null); setSoTienThu(0)
+      // Refresh để cập nhật số liệu
+      window.location.reload()
+    } catch(e:any) { showMsg('❌ '+(e.message||'Lỗi'), false) }
+    finally { setDangThuNo(false) }
+  }
+
+  // ── Hoàn cọc ──
+  async function luuHoanCoc() {
+    if (!popupHoanKH) return
+    setDangHoan(true)
+    const hoan = donHuyCanHoan[popupHoanKH['Mã KH']]
+    // Tìm đơn hủy của KH này để lấy Id
+    const donHuy = (donHangTheoKH[popupHoanKH['Mã KH']]||[])
+      .find((d:any) => d['Tiền hoàn cọc']>0 && d['Tình trạng hoàn cọc']!=='Đã hoàn')
+    try {
+      if (donHuy) {
+        await fetch('/api/don-hang', {
+          method:'PATCH', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ id: donHuy['Id']||donHuy['id'], 'Tình trạng hoàn cọc':'Đã hoàn' }),
+        })
+      }
+      showMsg(`✅ Đã hoàn ${hoan?.tienHoan.toLocaleString('vi-VN')}đ cho ${popupHoanKH['Tên khách hàng']}`, true)
+      setPopupHoanKH(null)
+      window.location.reload()
+    } catch(e:any) { showMsg('❌ '+(e.message||'Lỗi'), false) }
+    finally { setDangHoan(false) }
+  }
+
   async function handleNhap(rows: Record<string,string>[]) {
     const res = await fetch('/api/import/khach-hang', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -328,31 +380,32 @@ export default function KhachHangClient({ khachHang, donHuyCanHoan, congNoMap, u
                         {kh['Đối tượng khách hàng']||'—'}
                       </span>
                     </td>
-                    {/* Cột Còn nợ */}
+                    {/* Cột Còn nợ — click để thu */}
                     <td style={{textAlign:'right',whiteSpace:'nowrap'}}>
                       {(congNoMap[kh['Mã KH']]||0) > 0 ? (
-                        <span style={{color:'#DC2626',fontWeight:700,fontSize:'12px'}}>
+                        <button onClick={()=>{setPopupNoKH(kh);setDonNoChon(null);setSoTienThu(0)}}
+                          style={{background:'none',border:'none',cursor:'pointer',color:'#DC2626',fontWeight:700,fontSize:'12px',textDecoration:'underline dotted',padding:0}}>
                           {(congNoMap[kh['Mã KH']]||0).toLocaleString('vi-VN')}đ
-                        </span>
+                        </button>
                       ) : (
                         <span style={{color:'#9CA3AF',fontSize:'12px'}}>—</span>
                       )}
                     </td>
-                    {/* Cột Hoàn cọc */}
+                    {/* Cột Hoàn cọc — click để đánh dấu đã hoàn */}
                     <td style={{textAlign:'center'}}>
                       {donHuyCanHoan[kh['Mã KH']] && donHuyCanHoan[kh['Mã KH']].tienHoan > 0 ? (
-                        <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:'2px'}}>
-                          <span style={{
-                            fontSize:'11px',fontWeight:700,padding:'2px 8px',borderRadius:'10px',
-                            background:donHuyCanHoan[kh['Mã KH']].tinhTrang==='Đã hoàn'?'#D1FAE5':'#FEF3C7',
-                            color:donHuyCanHoan[kh['Mã KH']].tinhTrang==='Đã hoàn'?'#065F46':'#D97706',
-                          }}>
-                            {donHuyCanHoan[kh['Mã KH']].tinhTrang==='Đã hoàn'?'✅ Đã hoàn':'⚠️ Chờ hoàn'}
-                          </span>
-                          <span style={{fontSize:'11px',color:'#6B7280'}}>
-                            {donHuyCanHoan[kh['Mã KH']].tienHoan.toLocaleString('vi-VN')}đ
-                          </span>
-                        </div>
+                        donHuyCanHoan[kh['Mã KH']].tinhTrang==='Đã hoàn' ? (
+                          <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:'1px'}}>
+                            <span style={{fontSize:'11px',fontWeight:700,color:'#065F46'}}>✅ Đã hoàn</span>
+                            <span style={{fontSize:'10px',color:'#9CA3AF'}}>{donHuyCanHoan[kh['Mã KH']].tienHoan.toLocaleString('vi-VN')}đ</span>
+                          </div>
+                        ) : (
+                          <button onClick={()=>setPopupHoanKH(kh)}
+                            style={{background:'#FFFBEB',border:'1px solid #FCD34D',borderRadius:'6px',cursor:'pointer',padding:'3px 8px',display:'flex',flexDirection:'column',alignItems:'center',gap:'1px'}}>
+                            <span style={{fontSize:'11px',fontWeight:700,color:'#D97706'}}>⚠️ Chờ hoàn</span>
+                            <span style={{fontSize:'10px',color:'#92400E'}}>{donHuyCanHoan[kh['Mã KH']].tienHoan.toLocaleString('vi-VN')}đ</span>
+                          </button>
+                        )
                       ) : (
                         <span style={{color:'#9CA3AF',fontSize:'12px'}}>—</span>
                       )}
@@ -421,6 +474,106 @@ export default function KhachHangClient({ khachHang, donHuyCanHoan, congNoMap, u
                 </button>
                 <button onClick={()=>{setShowModal(false);resetForm()}} style={{padding:'11px 16px',borderRadius:'8px',border:'1px solid var(--border)',background:'white',cursor:'pointer',fontSize:'14px'}}>Huỷ</button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── POPUP THU NỢ ── */}
+      {popupNoKH&&(
+        <div className="ov" onClick={()=>setPopupNoKH(null)}>
+          <div className="mk" style={{maxWidth:'480px'}} onClick={e=>e.stopPropagation()}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'14px'}}>
+              <h2 style={{fontSize:'16px',fontWeight:700,margin:0}}>💵 Thu nợ khách hàng</h2>
+              <button onClick={()=>setPopupNoKH(null)} style={{background:'none',border:'none',cursor:'pointer',fontSize:'20px',color:'#6B7280'}}>✕</button>
+            </div>
+            <div style={{background:'#FEF2F2',borderRadius:'8px',padding:'10px 14px',marginBottom:'14px'}}>
+              <div style={{fontWeight:700,fontSize:'14px'}}>{popupNoKH['Tên khách hàng']}</div>
+              <div style={{fontSize:'12px',color:'#6B7280'}}>{popupNoKH['Số điện thoại']||''}</div>
+              <div style={{fontSize:'13px',fontWeight:700,color:'#DC2626',marginTop:'4px'}}>
+                Tổng còn nợ: {(congNoMap[popupNoKH['Mã KH']]||0).toLocaleString('vi-VN')}đ
+              </div>
+            </div>
+
+            {/* Danh sách đơn còn nợ */}
+            <div style={{marginBottom:'14px'}}>
+              <label style={{fontSize:'12px',fontWeight:700,display:'block',marginBottom:'6px'}}>Chọn đơn hàng cần thu:</label>
+              <div style={{display:'flex',flexDirection:'column',gap:'6px',maxHeight:'200px',overflowY:'auto'}}>
+                {(donHangTheoKH[popupNoKH['Mã KH']]||[]).map((don:any,i:number)=>(
+                  <div key={i} onClick={()=>{setDonNoChon(don);setSoTienThu(Number(don['Còn phải thu']||0))}}
+                    style={{padding:'10px 12px',borderRadius:'8px',border:'2px solid',cursor:'pointer',
+                      borderColor:donNoChon?.['Mã đơn hàng']===don['Mã đơn hàng']?'#DC2626':'#E5E7EB',
+                      background:donNoChon?.['Mã đơn hàng']===don['Mã đơn hàng']?'#FEF2F2':'white'}}>
+                    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                      <span style={{fontWeight:700,color:'var(--primary)',fontSize:'13px'}}>{don['Mã đơn hàng']}</span>
+                      <span style={{fontWeight:800,color:'#DC2626',fontSize:'14px'}}>{Number(don['Còn phải thu']||0).toLocaleString('vi-VN')}đ</span>
+                    </div>
+                    <div style={{fontSize:'11px',color:'#6B7280',marginTop:'2px'}}>
+                      {don['Trạng thái']||''} · {don['Kênh bán']||''}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {donNoChon&&(
+              <div style={{display:'flex',flexDirection:'column',gap:'10px'}}>
+                <div style={{background:'#EFF6FF',borderRadius:'8px',padding:'10px 14px',fontSize:'12px',color:'#1E40AF'}}>
+                  📋 Đơn <strong>{donNoChon['Mã đơn hàng']}</strong> — Còn nợ: <strong>{Number(donNoChon['Còn phải thu']||0).toLocaleString('vi-VN')}đ</strong>
+                </div>
+                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'10px'}}>
+                  <div>
+                    <label style={{fontSize:'11px',fontWeight:600,display:'block',marginBottom:'3px'}}>Số tiền thu (đ) *</label>
+                    <input className="input" type="number" min="0" max={Number(donNoChon['Còn phải thu']||0)}
+                      value={soTienThu||''} placeholder="0"
+                      onChange={e=>setSoTienThu(Math.min(Number(e.target.value),Number(donNoChon['Còn phải thu']||0)))}/>
+                    <button onClick={()=>setSoTienThu(Number(donNoChon['Còn phải thu']||0))}
+                      style={{marginTop:'3px',padding:'2px 8px',border:'1px solid #BFDBFE',borderRadius:'4px',background:'white',cursor:'pointer',fontSize:'11px',color:'#1D4ED8'}}>
+                      Thu đủ: {Number(donNoChon['Còn phải thu']||0).toLocaleString('vi-VN')}đ
+                    </button>
+                  </div>
+                  <div>
+                    <label style={{fontSize:'11px',fontWeight:600,display:'block',marginBottom:'3px'}}>Hình thức</label>
+                    <select className="input" value={htThu} onChange={e=>setHtThu(e.target.value)}>
+                      <option>Tiền mặt</option><option>Chuyển khoản</option><option>Tiền mặt + chuyển khoản</option>
+                    </select>
+                  </div>
+                </div>
+                <div style={{display:'flex',gap:'10px'}}>
+                  <button onClick={luuThuNo} disabled={dangThuNo||soTienThu<=0}
+                    style={{flex:1,padding:'11px',borderRadius:'8px',border:'none',background:(dangThuNo||soTienThu<=0)?'#9CA3AF':'#16A34A',color:'white',fontWeight:700,fontSize:'14px',cursor:(dangThuNo||soTienThu<=0)?'not-allowed':'pointer'}}>
+                    {dangThuNo?'⏳ Đang lưu...':'✅ Xác nhận thu tiền'}
+                  </button>
+                  <button onClick={()=>setPopupNoKH(null)} style={{padding:'11px 16px',borderRadius:'8px',border:'1px solid var(--border)',background:'white',cursor:'pointer',fontSize:'14px'}}>Huỷ</button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ── POPUP HOÀN CỌC ── */}
+      {popupHoanKH&&(
+        <div className="ov" onClick={()=>setPopupHoanKH(null)}>
+          <div style={{background:'white',borderRadius:'12px',padding:'24px',width:'100%',maxWidth:'380px'}} onClick={e=>e.stopPropagation()}>
+            <div style={{textAlign:'center',marginBottom:'16px'}}>
+              <div style={{fontSize:'36px',marginBottom:'8px'}}>💰</div>
+              <h2 style={{fontSize:'16px',fontWeight:700,margin:'0 0 6px'}}>Xác nhận hoàn cọc</h2>
+              <p style={{fontSize:'13px',color:'#6B7280',margin:'0 0 4px'}}>Khách hàng: <strong>{popupHoanKH['Tên khách hàng']}</strong></p>
+              <div style={{background:'#FFFBEB',borderRadius:'8px',padding:'10px',margin:'10px 0'}}>
+                <div style={{fontSize:'20px',fontWeight:800,color:'#D97706'}}>
+                  {(donHuyCanHoan[popupHoanKH['Mã KH']]?.tienHoan||0).toLocaleString('vi-VN')}đ
+                </div>
+                <div style={{fontSize:'12px',color:'#92400E',marginTop:'2px'}}>Số tiền cần hoàn trả cho khách</div>
+              </div>
+              <p style={{fontSize:'12px',color:'#6B7280',margin:0}}>Sau khi xác nhận, trạng thái sẽ đổi thành "Đã hoàn"</p>
+            </div>
+            <div style={{display:'flex',gap:'10px'}}>
+              <button onClick={luuHoanCoc} disabled={dangHoan}
+                style={{flex:1,padding:'11px',borderRadius:'8px',border:'none',background:dangHoan?'#9CA3AF':'#16A34A',color:'white',fontWeight:700,fontSize:'14px',cursor:dangHoan?'not-allowed':'pointer'}}>
+                {dangHoan?'⏳ Đang lưu...':'✅ Đã hoàn cọc'}
+              </button>
+              <button onClick={()=>setPopupHoanKH(null)} style={{padding:'11px 16px',borderRadius:'8px',border:'1px solid var(--border)',background:'white',cursor:'pointer',fontSize:'14px',fontWeight:600}}>Huỷ</button>
             </div>
           </div>
         </div>
