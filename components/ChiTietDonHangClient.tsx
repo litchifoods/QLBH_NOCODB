@@ -27,6 +27,7 @@ const TT_COLOR: Record<string,{bg:string;color:string}> = {
   'Đang giao':        {bg:'#DBEAFE',color:'#1E40AF'},
   'Đang giao 1 phần': {bg:'#E0F2FE',color:'#0369A1'},
   'Đã giao':          {bg:'#D1FAE5',color:'#065F46'},
+  'Hoàn thành':       {bg:'#059669',color:'white'},
   'Đã giao 1 phần':   {bg:'#ECFDF5',color:'#059669'},
   'Hoàn thành':       {bg:'#D1FAE5',color:'#065F46'},
   'Huỷ':              {bg:'#FEE2E2',color:'#991B1B'},
@@ -589,7 +590,7 @@ export default function ChiTietDonHangClient({
           <div className="card" style={{padding:'16px 20px'}}>
             <h3 style={{fontSize:'13px',fontWeight:700,color:'var(--primary)',marginBottom:'10px'}}>📌 Trạng thái đơn hàng</h3>
             <div style={{display:'flex',flexDirection:'column',gap:'6px'}}>
-              {['Chờ giao','Đang giao 1 phần','Đang giao','Đã giao 1 phần','Đã giao','Huỷ'].map(t=>{
+              {['Chờ giao','Đang giao 1 phần','Đang giao','Đã giao 1 phần','Đã giao','Hoàn thành','Huỷ'].map(t=>{
                 const c = TT_COLOR[t]||{bg:'#F3F4F6',color:'#9CA3AF'}
                 const ttHienTai = trangThaiTinh||trangThai
                 const isA = ttHienTai===t

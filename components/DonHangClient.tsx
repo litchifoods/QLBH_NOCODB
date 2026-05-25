@@ -27,7 +27,7 @@ function badgeColor(tt: string) {
   return map[tt] || { bg:'#F3F4F6', color:'#374151' }
 }
 
-const TRANG_THAI = ['Tất cả','Chờ giao','Đang giao','Đang giao 1 phần','Đã giao','Đã giao 1 phần','Huỷ']
+const TRANG_THAI = ['Tất cả','Chờ giao','Đang giao 1 phần','Đang giao','Đã giao 1 phần','Đã giao','Hoàn thành','Huỷ']
 const KENH       = ['Tất cả','Trực tiếp','Zalo','Facebook','Điện thoại','Online']
 const SO_TRANG   = 10
 

@@ -7,7 +7,7 @@ import { getSession } from '@/lib/auth'
 import { notFound } from 'next/navigation'
 import ChiTietDonHangClient from '@/components/ChiTietDonHangClient'
 
-function tinhTrangThai(chiTiet: any[], giaoHangList: any[], chiTietGiao: any[]): string {
+function tinhTrangThai(chiTiet: any[], giaoHangList: any[], chiTietGiao: any[], donHang?: any): string {
   const spTong = chiTiet.length
   const spHuy  = chiTiet.filter(ct => ct['Trạng thái SP'] === 'Huỷ').length
   if (spTong > 0 && spHuy === spTong) return 'Huỷ'
@@ -75,7 +75,7 @@ export default async function ChiTietDonHangPage({ params }: { params: { maDon: 
   const chiTietGiao = chiTietGiaoResult.list||[]
 
   // Tính trạng thái chi tiết
-  const trangThaiTinh = tinhTrangThai(chiTiet, giaoHang, chiTietGiao)
+  const trangThaiTinh = tinhTrangThai(chiTiet, giaoHang, chiTietGiao, donHang)
 
   return (
     <ChiTietDonHangClient

@@ -19,7 +19,7 @@ export default async function DonHangPage({
     getRecords(TABLES.CHI_TIET_DON, { limit: 1000, fields: 'Mã chi tiết,Mã đơn hàng,Số lượng,Trạng thái SP' }),
     getRecords(TABLES.GIAO_HANG,    { limit: 500,  fields: 'Mã giao hàng,Mã đơn hàng,Mã chuyến,Tình trạng đối soát' }),
     getRecords(TABLES.CHI_TIET_GIAO,{ limit: 1000, fields: 'Mã giao hàng,Mã đơn hàng,Số lượng giao đợt này' }),
-    getRecords(TABLES.DOI_SOAT,     { limit: 500,  fields: 'Mã giao hàng,Kết quả' }),
+    getRecords(TABLES.DOI_SOAT,     { limit: 500,  fields: 'Mã giao hàng,Mã đơn hàng,Kết quả,Đã thu được' }),
   ])
 
   const donHang = donHangResult.list || []
@@ -61,19 +61,27 @@ export default async function DonHangPage({
     if (ds['Mã giao hàng']) doiSoatMap[ds['Mã giao hàng']] = ds['Kết quả'] || ''
   }
 
-  // SL đã đối soát xong theo đơn
+  // SL đã đối soát xong theo đơn + tổng tiền đã thu qua đối soát
   const slDaSoatMap: Record<string, number> = {}   // maDon → SL đã đối soát
+  const thuKHMap:    Record<string, number> = {}   // maDon → tổng tiền đã thu từ KH
   for (const gh of (giaoHangResult.list || [])) {
-    const maDon = gh['Mã đơn hàng']
-    const maGH  = gh['Mã giao hàng']
+    const maDon  = gh['Mã đơn hàng']
+    const maGH   = gh['Mã giao hàng']
     if (!maDon || !maGH) continue
     const daSoat = gh['Tình trạng đối soát'] === 'Đã đối soát'
     if (daSoat) {
-      // Tính SL giao trong chuyến này đã được đối soát
       const slChuyen = (chiTietGiaoResult.list || [])
         .filter((ct: any) => ct['Mã giao hàng'] === maGH)
         .reduce((s: number, ct: any) => s + Number(ct['Số lượng giao đợt này'] || 0), 0)
       slDaSoatMap[maDon] = (slDaSoatMap[maDon] || 0) + slChuyen
+    }
+  }
+  // Tổng tiền đã thu từ KH qua đối soát
+  for (const ds of (doiSoatResult.list || [])) {
+    const maDon   = ds['Mã đơn hàng']
+    const thuDuoc = Number(ds['Đã thu được'] || 0)
+    if (maDon && thuDuoc > 0) {
+      thuKHMap[maDon] = (thuKHMap[maDon] || 0) + thuDuoc
     }
   }
 
@@ -102,15 +110,24 @@ export default async function DonHangPage({
     }
 
     // Đã giao hết (SL cần giao = 0)
-    const canGiao = Math.max(0, slDon - slGiao)
+    const canGiao   = Math.max(0, slDon - slGiao)
+    const conPhaiThu = Number(don['Còn phải thu'] || 0)
+    const datCoc     = Number(don['Đặt cọc'] || 0)
+    const tongTien   = Number(don['Tổng tiền đơn'] || 0)
+    const thuQuaDS   = thuKHMap[maDon] || 0
+
+    // Tổng tiền KH đã trả = cọc + thu qua đối soát + cập nhật thủ công
+    const daThanhToan = datCoc + thuQuaDS >= tongTien || conPhaiThu <= 0
+
     if (canGiao === 0) {
-      // Kiểm tra đối soát
-      if (slSoat >= slDon) {
+      if (slSoat >= slDon && daThanhToan) {
+        // Giao hết + đối soát xong + thanh toán đủ → Hoàn thành
+        trangThaiMap[maDon] = 'Hoàn thành'
+      } else if (slSoat >= slDon) {
         trangThaiMap[maDon] = 'Đã giao'
       } else if (slSoat > 0) {
         trangThaiMap[maDon] = 'Đã giao 1 phần'
       } else {
-        // Giao hết nhưng chưa đối soát → Đang giao
         trangThaiMap[maDon] = 'Đang giao'
       }
       continue
