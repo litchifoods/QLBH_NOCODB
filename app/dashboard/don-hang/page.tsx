@@ -111,20 +111,16 @@ export default async function DonHangPage({
 
     // Đã giao hết (SL cần giao = 0)
     const canGiao   = Math.max(0, slDon - slGiao)
-    const conPhaiThu = Number(don['Còn phải thu'] || 0)
-    const datCoc     = Number(don['Đặt cọc'] || 0)
-    const tongTien   = Number(don['Tổng tiền đơn'] || 0)
-    const thuQuaDS   = thuKHMap[maDon] || 0
-
-    // Tổng tiền KH đã trả = cọc + thu qua đối soát + cập nhật thủ công
-    const daThanhToan = datCoc + thuQuaDS >= tongTien || conPhaiThu <= 0
+    const conPhaiThu  = Number(don['Còn phải thu'] || 0)
+    // Thanh toán đủ khi Còn phải thu = 0
+    const daThanhToan = conPhaiThu <= 0
 
     if (canGiao === 0) {
       if (slSoat >= slDon && daThanhToan) {
-        // Giao hết + đối soát xong + thanh toán đủ → Hoàn thành
         trangThaiMap[maDon] = 'Hoàn thành'
       } else if (slSoat >= slDon) {
-        trangThaiMap[maDon] = 'Đã giao'
+        // Giao hết, đối soát xong nhưng chưa thu đủ tiền
+        trangThaiMap[maDon] = daThanhToan ? 'Hoàn thành' : 'Đã giao'
       } else if (slSoat > 0) {
         trangThaiMap[maDon] = 'Đã giao 1 phần'
       } else {
