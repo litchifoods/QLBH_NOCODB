@@ -17,7 +17,7 @@ export default async function DonHangPage({
     getRecords(TABLES.DON_HANG, { limit: 200, sort: '-Id' }),
     getRecords(TABLES.KHACH_HANG, { limit: 500, fields: 'Mã KH,Tên khách hàng,Số điện thoại,Địa chỉ' }),
     getRecords(TABLES.CHI_TIET_DON, { limit: 1000, fields: 'Mã chi tiết,Mã đơn hàng,Số lượng,Trạng thái SP' }),
-    getRecords(TABLES.GIAO_HANG,    { limit: 500,  fields: 'Mã giao hàng,Mã đơn hàng,Mã chuyến,Tình trạng đối soát' }),
+    getRecords(TABLES.GIAO_HANG,    { limit: 500,  fields: 'Mã giao hàng,Mã đơn hàng,Tình trạng đối soát' }),
     getRecords(TABLES.CHI_TIET_GIAO,{ limit: 1000, fields: 'Mã giao hàng,Mã đơn hàng,Số lượng giao đợt này' }),
     getRecords(TABLES.DOI_SOAT,     { limit: 500,  fields: 'Mã giao hàng,Mã đơn hàng,Kết quả,Đã thu được' }),
   ])
