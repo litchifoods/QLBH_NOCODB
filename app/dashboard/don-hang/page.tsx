@@ -116,11 +116,15 @@ export default async function DonHangPage({
     const daThanhToan = conPhaiThu <= 0
 
     if (canGiao === 0) {
-      if (slSoat >= slDon && daThanhToan) {
+      // Giao hết SP — kiểm tra đối soát và thanh toán
+      // Dùng Tình trạng đối soát từ bảng 7 (đáng tin hơn slSoat)
+      const ghCuaDon = (giaoHangResult.list || []).filter((g:any) => g['Mã đơn hàng'] === maDon)
+      const tatCaDaSoat = ghCuaDon.length > 0 && ghCuaDon.every((g:any) => g['Tình trạng đối soát'] === 'Đã đối soát')
+
+      if (tatCaDaSoat && daThanhToan) {
         trangThaiMap[maDon] = 'Hoàn thành'
-      } else if (slSoat >= slDon) {
-        // Giao hết, đối soát xong nhưng chưa thu đủ tiền
-        trangThaiMap[maDon] = daThanhToan ? 'Hoàn thành' : 'Đã giao'
+      } else if (tatCaDaSoat) {
+        trangThaiMap[maDon] = 'Đã giao'
       } else if (slSoat > 0) {
         trangThaiMap[maDon] = 'Đã giao 1 phần'
       } else {
