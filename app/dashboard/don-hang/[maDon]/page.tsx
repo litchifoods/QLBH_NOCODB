@@ -65,18 +65,21 @@ export default async function ChiTietDonHangPage({ params }: { params: { maDon: 
     }),
   ])
   
-  // Load đối soát để lấy chi phí + tiền đã thu
+  // Load đối soát — load tất cả rồi filter trong code (tránh lỗi where clause)
   const ghList = giaoHangResult.list || []
+  const maGHSet = ghList.map((gh:any) => gh['Mã giao hàng']).filter(Boolean)
   let doiSoatMap: Record<string, any> = {}
-  for (const gh of ghList) {
-    const maGH = gh['Mã giao hàng']
-    if (!maGH) continue
-    const dsResult = await getRecords(TABLES.DOI_SOAT, {
-      where: `(Mã giao hàng,eq,${maGH})`, limit: 1,
+  if (maGHSet.length > 0) {
+    const dsAll = await getRecords(TABLES.DOI_SOAT, {
+      limit: 50,
       fields: 'Mã giao hàng,Đã thu được,Chi phí VC,Chi phí lắp đặt,Thưởng chuyến,Hình thức thu,Kết quả',
     })
-    console.log('[DEBUG] maGH:', maGH, 'ds found:', dsResult.list?.length, dsResult.list?.[0])
-  if (dsResult.list?.[0]) doiSoatMap[maGH] = dsResult.list[0]
+    for (const ds of (dsAll.list || [])) {
+      const maGH = ds['Mã giao hàng']
+      if (maGH && maGHSet.includes(maGH)) {
+        doiSoatMap[maGH] = ds
+      }
+    }
   }
   
   // Tính tổng đã thu từ KH
