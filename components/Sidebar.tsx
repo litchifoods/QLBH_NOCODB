@@ -17,7 +17,7 @@ const MENU = [
     group: 'GIAO HÀNG',
     items: [
       { href: '/dashboard/giao-hang', icon: '🚚', label: 'Giao hàng' },
-      { href: '/dashboard/doi-soat',  icon: '💰', label: 'Đối soát' },
+      { href: '/dashboard/doi-soat',  icon: '💰', label: 'Đối soát giao hàng' },
     ],
   },
   {

@@ -68,8 +68,7 @@ export async function POST(request: NextRequest) {
       const sp = danhSachSP[i]
       await createRecord(TABLES.CHI_TIET_GIAO, {
         'Mã CT giao hàng':       `CTGH-${maChuyen}-${i + 1}`,
-        'Mã giao hàng':          maGHDaiDien,  // ✅ dùng GH-xxx thay vì maChuyen
-        'Mã chuyến':             maChuyen,
+        'Mã giao hàng':          maGHDaiDien,
         'Mã đơn hàng':           maDon,
         'Mã chi tiết đơn':       sp.maChiTiet,
         'Tên SP (ghi nhanh)':    sp.tenSP,
