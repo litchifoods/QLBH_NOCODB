@@ -279,6 +279,9 @@ export default function GiaoHangClient({
                     <td className="col-sp" style={{maxWidth:'160px'}}>
                       <div style={{fontSize:'12px',fontWeight:600,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}} title={tenSP}>{tenSP}</div>
                       {coNhieu&&<div style={{fontSize:'11px',color:'#6B7280'}}>tổng {tongSP} SP</div>}
+                      {don['_daGiao1Phan']&&don['_conLai']>0&&(
+                        <div style={{fontSize:'11px',color:'#DC2626',fontWeight:600}}>⏳ Còn {don['_conLai']} SP chưa giao</div>
+                      )}
                     </td>
                     <td className="col-tt" style={{textAlign:'center'}}>
                       {(()=>{

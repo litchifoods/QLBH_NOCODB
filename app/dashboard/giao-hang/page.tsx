@@ -121,13 +121,16 @@ export default async function GiaoHangPage() {
 
       // Nếu "Đang giao" — kiểm tra xem còn SP chưa giao không
       if (d['Trạng thái'] === 'Đang giao') {
-        const maDon    = d['Mã đơn hàng']
-        const chiTiet  = chiTietDonMap[maDon] || []
-        const daGiao   = daGiaoMap[maDon] || {}
-        // Tính tổng SL đơn vs SL đã giao
-        const tongSLDon  = chiTiet.reduce((s:number, ct:any) => s + Number(ct['Số lượng']||1), 0)
-        const tongSLGiao = Object.values(daGiao).reduce((s:number, v:any) => s + Number(v||0), 0)
-        return tongSLGiao < tongSLDon // Còn SP chưa giao hết
+        const maDon   = d['Mã đơn hàng']
+        const chiTiet = chiTietDonMap[maDon] || []
+        // Tổng SL cần giao (SP chưa hủy)
+        const tongSLDon = chiTiet
+          .filter((ct:any) => ct['Trạng thái SP'] !== 'Huỷ')
+          .reduce((s:number, ct:any) => s + Number(ct['Số lượng']||1), 0)
+        // Tổng SL đã giao từ bảng 8
+        const ctGiaoCuaDon = (chiTietGiao.list||[]).filter((ct:any) => ct['Mã đơn hàng'] === maDon)
+        const tongSLGiao   = ctGiaoCuaDon.reduce((s:number, ct:any) => s + Number(ct['Số lượng giao đợt này']||0), 0)
+        return tongSLGiao < tongSLDon // Còn SP chưa giao hết → vẫn hiện
       }
       return true // "Chờ giao" luôn hiện
     })
@@ -137,8 +140,9 @@ export default async function GiaoHangPage() {
       const chiTiet = chiTietDonMap[maDon] || []
       const daGiao  = daGiaoMap[maDon] || {}
       // Đánh dấu đã giao 1 phần để hiển thị khác ở dropdown
-      const tongSP  = chiTiet.reduce((s:number,ct:any)=>s+Number(ct['Số lượng']||1),0)
-      const tongDaGiao = Object.values(daGiao).reduce((s:number,v:any)=>s+Number(v||0),0)
+      const tongSP     = chiTiet.filter((ct:any)=>ct['Trạng thái SP']!=='Huỷ').reduce((s:number,ct:any)=>s+Number(ct['Số lượng']||1),0)
+      const ctGiaoD    = (chiTietGiao.list||[]).filter((ct:any)=>ct['Mã đơn hàng']===maDon)
+      const tongDaGiao = ctGiaoD.reduce((s:number,ct:any)=>s+Number(ct['Số lượng giao đợt này']||0),0)
       return {
         ...d,
         '_tenKH':       kh['Tên khách hàng'] || d['Tên khách hàng'] || '',
@@ -147,6 +151,7 @@ export default async function GiaoHangPage() {
         '_daGiao1Phan': d['Trạng thái'] === 'Đang giao' && tongDaGiao > 0,
         '_tongSP':      tongSP,
         '_tongDaGiao':  tongDaGiao,
+        '_conLai':      Math.max(0, tongSP - tongDaGiao),
         '_trangThaiTinh': tinhTrangThaiDon(maDon),
       }
     })
