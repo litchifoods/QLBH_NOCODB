@@ -391,21 +391,16 @@ export default function KhachHangClient({ khachHang, donHuyCanHoan, congNoMap, d
                         <span style={{color:'#9CA3AF',fontSize:'12px'}}>—</span>
                       )}
                     </td>
-                    {/* Cột Hoàn cọc — click để đánh dấu đã hoàn */}
+                    {/* Cột Hoàn cọc — chỉ hiện khi Chờ hoàn */}
                     <td style={{textAlign:'center'}}>
-                      {donHuyCanHoan[kh['Mã KH']] && donHuyCanHoan[kh['Mã KH']].tienHoan > 0 ? (
-                        donHuyCanHoan[kh['Mã KH']].tinhTrang==='Đã hoàn' ? (
-                          <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:'1px'}}>
-                            <span style={{fontSize:'11px',fontWeight:700,color:'#065F46'}}>✅ Đã hoàn</span>
-                            <span style={{fontSize:'10px',color:'#9CA3AF'}}>{donHuyCanHoan[kh['Mã KH']].tienHoan.toLocaleString('vi-VN')}đ</span>
-                          </div>
-                        ) : (
-                          <button onClick={()=>setPopupHoanKH(kh)}
-                            style={{background:'#FFFBEB',border:'1px solid #FCD34D',borderRadius:'6px',cursor:'pointer',padding:'3px 8px',display:'flex',flexDirection:'column',alignItems:'center',gap:'1px'}}>
-                            <span style={{fontSize:'11px',fontWeight:700,color:'#D97706'}}>⚠️ Chờ hoàn</span>
-                            <span style={{fontSize:'10px',color:'#92400E'}}>{donHuyCanHoan[kh['Mã KH']].tienHoan.toLocaleString('vi-VN')}đ</span>
-                          </button>
-                        )
+                      {donHuyCanHoan[kh['Mã KH']] && 
+                       donHuyCanHoan[kh['Mã KH']].tienHoan > 0 &&
+                       donHuyCanHoan[kh['Mã KH']].tinhTrang !== 'Đã hoàn' ? (
+                        <button onClick={()=>setPopupHoanKH(kh)}
+                          style={{background:'#FFFBEB',border:'1px solid #FCD34D',borderRadius:'6px',cursor:'pointer',padding:'3px 8px',display:'flex',flexDirection:'column',alignItems:'center',gap:'1px'}}>
+                          <span style={{fontSize:'11px',fontWeight:700,color:'#D97706'}}>⚠️ Chờ hoàn</span>
+                          <span style={{fontSize:'10px',color:'#92400E'}}>{donHuyCanHoan[kh['Mã KH']].tienHoan.toLocaleString('vi-VN')}đ</span>
+                        </button>
                       ) : (
                         <span style={{color:'#9CA3AF',fontSize:'12px'}}>—</span>
                       )}
