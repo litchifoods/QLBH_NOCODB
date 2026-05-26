@@ -44,6 +44,9 @@ export default function GiaoHangClient({
   const router = useRouter()
   const [trang,    setTrang]    = useState(1)
   const [showForm, setShowForm] = useState(false)
+  const [editNgayDon, setEditNgayDon]   = useState<string|null>(null) // maDon đang sửa ngày
+  const [ngayGiaoMoi, setNgayGiaoMoi]  = useState('')
+  const [loadingNgay, setLoadingNgay]  = useState(false)
   const [loading,  setLoading]  = useState(false)
   const [msg,      setMsg]      = useState('')
   const [msgOk,    setMsgOk]    = useState(true)
@@ -126,6 +129,22 @@ export default function GiaoHangClient({
       return { maChiTiet:c['Mã chi tiết']||'', tenSP:c['Tên SP (ghi nhanh)']||c['Mã SP']||'—', soLuongDon:sl, daGiao:daDG, soLuongGiao:con, checked:con>0, ghiChu:'' }
     }))
     setShowForm(true)
+  }
+
+  async function luuNgayHenGiao(maDon: string) {
+    setLoadingNgay(true)
+    try {
+      const don = donHangMap[maDon]
+      const rowId = don?.['Id'] || don?.['id']
+      if (!rowId) throw new Error('Không tìm thấy ID đơn')
+      await fetch('/api/don-hang', {
+        method:'PATCH', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ id: rowId, 'Ngày hẹn giao': ngayGiaoMoi || null }),
+      })
+      setEditNgayDon(null)
+      router.refresh()
+    } catch(e:any) { alert('Lỗi: ' + e.message) }
+    finally { setLoadingNgay(false) }
   }
 
   function getDSTK(hinhThuc:string, txt:string) {
@@ -265,11 +284,30 @@ export default function GiaoHangClient({
                       <Link href={`/dashboard/don-hang/${don['Mã đơn hàng']}`} style={{color:'var(--primary)',textDecoration:'none'}}>{don['Mã đơn hàng']}</Link>
                     </td>
                     <td style={{whiteSpace:'nowrap'}}>
-                      {ngayHen?(
-                        <span style={{color:qua?'#DC2626':'#374151',fontWeight:qua?700:400,fontSize:'12px'}}>
-                          {qua&&'⚠️ '}{new Date(ngayHen).toLocaleDateString('vi-VN')}
-                        </span>
-                      ):<span style={{color:'#F59E0B',fontWeight:700,fontSize:'12px'}}>⏳ Chưa hẹn</span>}
+                      {editNgayDon===don['Mã đơn hàng'] ? (
+                        <div style={{display:'flex',gap:'4px',alignItems:'center'}}>
+                          <input type="date" value={ngayGiaoMoi}
+                            onChange={e=>setNgayGiaoMoi(e.target.value)}
+                            style={{padding:'2px 6px',border:'1px solid var(--primary)',borderRadius:'4px',fontSize:'11px',width:'110px'}}/>
+                          <button onClick={()=>luuNgayHenGiao(don['Mã đơn hàng'])} disabled={loadingNgay}
+                            style={{padding:'2px 6px',borderRadius:'4px',border:'none',background:'var(--primary)',color:'white',fontSize:'11px',cursor:'pointer'}}>✓</button>
+                          <button onClick={()=>setEditNgayDon(null)}
+                            style={{padding:'2px 6px',borderRadius:'4px',border:'1px solid #E5E7EB',background:'white',fontSize:'11px',cursor:'pointer'}}>✕</button>
+                        </div>
+                      ) : (
+                        <div style={{display:'flex',alignItems:'center',gap:'4px'}}>
+                          {ngayHen?(
+                            <span style={{color:qua?'#DC2626':'#374151',fontWeight:qua?700:400,fontSize:'12px'}}>
+                              {qua&&'⚠️ '}{new Date(ngayHen).toLocaleDateString('vi-VN')}
+                            </span>
+                          ):<span style={{color:'#F59E0B',fontWeight:700,fontSize:'12px'}}>⏳ Chưa hẹn</span>}
+                          <button onClick={()=>{
+                            setEditNgayDon(don['Mã đơn hàng'])
+                            setNgayGiaoMoi(ngayHen?new Date(ngayHen).toISOString().split('T')[0]:'')
+                          }} title="Sửa ngày hẹn giao"
+                            style={{background:'none',border:'none',cursor:'pointer',fontSize:'11px',color:'#9CA3AF',padding:'0 2px'}}>✏️</button>
+                        </div>
+                      )}
                     </td>
                     <td>
                       <div style={{fontWeight:600}}>{tenKH}</div>
@@ -285,7 +323,10 @@ export default function GiaoHangClient({
                     </td>
                     <td className="col-tt" style={{textAlign:'center'}}>
                       {(()=>{
-                        const ttHienThi = don['_trangThaiTinh'] || don['Trạng thái'] || 'Chờ giao'
+                        // Ưu tiên _trangThaiTinh, nếu không có dùng logic local
+                        const ttBase = don['_trangThaiTinh'] || don['Trạng thái'] || 'Chờ giao'
+                        // Nếu "Đang giao" nhưng đã giao 1 phần → đổi thành "Đang giao 1 phần"
+                        const ttHienThi = (ttBase === 'Đang giao' && don['_daGiao1Phan']) ? 'Đang giao 1 phần' : ttBase
                         const ttColors: Record<string,{bg:string,c:string}> = {
                           'Chờ giao':         {bg:'#FEF3C7',c:'#92400E'},
                           'Đang giao 1 phần': {bg:'#E0F2FE',c:'#0369A1'},
