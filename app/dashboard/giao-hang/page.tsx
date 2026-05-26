@@ -151,7 +151,7 @@ export default async function GiaoHangPage() {
         '_tenKH':       kh['Tên khách hàng'] || d['Tên khách hàng'] || '',
         '_sdtKH':       kh['Số điện thoại'] || '',
         '_diaChiKH':    d['Địa chỉ giao'] || kh['Địa chỉ'] || '',
-        '_daGiao1Phan': d['Trạng thái'] === 'Đang giao' && tongDaGiao > 0,
+        '_daGiao1Phan': tongDaGiao > 0 && Math.max(0, tongSP - tongDaGiao) > 0,
         '_tongSP':      tongSP,
         '_tongDaGiao':  tongDaGiao,
         '_conLai':      Math.max(0, tongSP - tongDaGiao),

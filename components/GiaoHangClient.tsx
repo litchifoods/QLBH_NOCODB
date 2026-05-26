@@ -317,7 +317,7 @@ export default function GiaoHangClient({
                     <td className="col-sp" style={{maxWidth:'160px'}}>
                       <div style={{fontSize:'12px',fontWeight:600,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}} title={tenSP}>{tenSP}</div>
                       {coNhieu&&<div style={{fontSize:'11px',color:'#6B7280'}}>tổng {tongSP} SP</div>}
-                      {don['_daGiao1Phan']&&don['_conLai']>0&&(
+                      {don['_conLai']>0&&(
                         <div style={{fontSize:'11px',color:'#DC2626',fontWeight:600}}>⏳ Còn {don['_conLai']} SP chưa giao</div>
                       )}
                     </td>
@@ -325,8 +325,8 @@ export default function GiaoHangClient({
                       {(()=>{
                         // Ưu tiên _trangThaiTinh, nếu không có dùng logic local
                         const ttBase = don['_trangThaiTinh'] || don['Trạng thái'] || 'Chờ giao'
-                        // Nếu "Đang giao" nhưng đã giao 1 phần → đổi thành "Đang giao 1 phần"
-                        const ttHienThi = (ttBase === 'Đang giao' && don['_daGiao1Phan']) ? 'Đang giao 1 phần' : ttBase
+                        // Nếu đã giao 1 phần → hiện "Đã giao 1 phần", nếu giao hết → hiện "Đang giao"
+                        const ttHienThi = (don['_daGiao1Phan'] && don['_conLai'] > 0) ? 'Đã giao 1 phần' : ttBase
                         const ttColors: Record<string,{bg:string,c:string}> = {
                           'Chờ giao':         {bg:'#FEF3C7',c:'#92400E'},
                           'Đang giao 1 phần': {bg:'#E0F2FE',c:'#0369A1'},
