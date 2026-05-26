@@ -125,15 +125,10 @@ export default async function GiaoHangPage() {
         const ghCuaDon = (giaoHang.list||[]).filter((gh:any) => gh['Mã đơn hàng'] === maDon)
         // Còn chuyến chưa đối soát → vẫn đang giao
         const conChuaSoat = ghCuaDon.some((gh:any) => gh['Tình trạng đối soát'] !== 'Đã đối soát')
+        // Còn chuyến chưa đối soát → hiện để giao tiếp
         if (conChuaSoat) return true
-        // Tất cả chuyến đã đối soát → kiểm tra số SP đã giao vs đơn
-        const chiTiet   = chiTietDonMap[maDon] || []
-        const tongSLDon = chiTiet
-          .filter((ct:any) => ct['Trạng thái SP'] !== 'Huỷ')
-          .reduce((s:number, ct:any) => s + Number(ct['Số lượng']||1), 0)
-        const ctGiao    = (chiTietGiao.list||[]).filter((ct:any) => ct['Mã đơn hàng'] === maDon)
-        const tongSLGiao = ctGiao.reduce((s:number, ct:any) => s + Number(ct['Số lượng giao đợt này']||0), 0)
-        return tongSLGiao < tongSLDon
+        // Tất cả chuyến đã đối soát → ẩn đi (đã xử lý xong)
+        return false
       }
       return true // "Chờ giao" luôn hiện
     })
