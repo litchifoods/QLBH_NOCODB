@@ -49,14 +49,16 @@ interface SPItem {
 }
 
 export default function ChiTietDonHangClient({
-  donHang, chiTiet, khachHang, giaoHang, danhSachSP, trangThaiTinh, user,
+  donHang, chiTiet, khachHang, giaoHang, danhSachSP, trangThaiTinh, doiSoatMap, tongDaThu, user,
 }: {
   donHang: any
   chiTiet: any[]
   khachHang: any
   giaoHang: any[]
   danhSachSP: any[]
-  trangThaiTinh?: string  // trạng thái tính toán chi tiết
+  trangThaiTinh?: string
+  doiSoatMap?: Record<string, any>   // maGH → đối soát
+  tongDaThu?: number                  // tổng tiền đã thu từ KH
   user: UserSession
 }) {
   const router = useRouter()
@@ -486,12 +488,31 @@ export default function ChiTietDonHangClient({
               {giaoHang.length>0 && (
                 <div style={{marginTop:'8px',borderTop:'1px solid var(--border)',paddingTop:'8px'}}>
                   <div style={{fontWeight:700,marginBottom:'6px',fontSize:'12px',color:'var(--text-secondary)'}}>CÁC CHUYẾN GIAO</div>
-                  {giaoHang.map((g:any,i:number)=>(
-                    <div key={i} style={{background:'#F8FAFC',borderRadius:'6px',padding:'8px 10px',marginBottom:'6px',fontSize:'12px'}}>
-                      <div style={{fontWeight:600}}>{g['Tên NV/đối tác']||'—'}</div>
-                      <div style={{color:'var(--text-secondary)'}}>{fDT(g['Ngày giao'])} · {g['Tình trạng đối soát']||'Chưa đối soát'}</div>
-                    </div>
-                  ))}
+                  {giaoHang.map((g:any,i:number)=>{
+                    const ds = doiSoatMap?.[g['Mã giao hàng']]
+                    const daSoat = g['Tình trạng đối soát'] === 'Đã đối soát'
+                    return (
+                      <div key={i} style={{background:daSoat?'#F0FDF4':'#F8FAFC',borderRadius:'6px',padding:'8px 10px',marginBottom:'6px',fontSize:'12px',border:`1px solid ${daSoat?'#BBF7D0':'#F0F0F0'}`}}>
+                        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                          <span style={{fontWeight:700}}>{g['Tên NV/đối tác']||'—'}</span>
+                          <span style={{fontSize:'11px',padding:'1px 8px',borderRadius:'10px',fontWeight:600,
+                            background:daSoat?'#D1FAE5':'#FEF3C7',
+                            color:daSoat?'#065F46':'#92400E'}}>
+                            {daSoat?'✅ Đã đối soát':'⏳ Chưa đối soát'}
+                          </span>
+                        </div>
+                        <div style={{color:'var(--text-secondary)',marginTop:'3px'}}>{fDT(g['Ngày giao'])}</div>
+                        {ds && (
+                          <div style={{marginTop:'5px',paddingTop:'5px',borderTop:'1px solid #E5E7EB',display:'flex',flexWrap:'wrap',gap:'8px',fontSize:'11px'}}>
+                            {Number(ds['Đã thu được']||0)>0 && <span style={{color:'#16A34A',fontWeight:600}}>💵 Thu: {fVND(Number(ds['Đã thu được']))}</span>}
+                            {Number(ds['Chi phí VC']||0)>0 && <span style={{color:'#6B7280'}}>🚚 VC: {fVND(Number(ds['Chi phí VC']))}</span>}
+                            {Number(ds['Chi phí lắp đặt']||0)>0 && <span style={{color:'#6B7280'}}>🔧 Lắp: {fVND(Number(ds['Chi phí lắp đặt']))}</span>}
+                            {Number(ds['Thưởng chuyến']||0)>0 && <span style={{color:'#F59E0B',fontWeight:600}}>⭐ Thưởng: {fVND(Number(ds['Thưởng chuyến']))}</span>}
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
                 </div>
               )}
             </div>
@@ -533,9 +554,18 @@ export default function ChiTietDonHangClient({
                   <span style={{fontWeight:600,color:'#DC2626'}}>+ {fVND(Number(donHang['CP đổi trả']||0))}</span>
                 </div>
               )}
+              {/* Đã thu từ KH qua đối soát */}
+              {!dangSua && (tongDaThu||0) > 0 && (
+                <div style={{display:'flex',justifyContent:'space-between',fontSize:'13px'}}>
+                  <span style={{color:'var(--text-secondary)'}}>Đã thu (qua giao hàng):</span>
+                  <span style={{fontWeight:700,color:'#16A34A'}}>- {fVND(tongDaThu||0)}</span>
+                </div>
+              )}
               <div style={{display:'flex',justifyContent:'space-between',fontSize:'15px',fontWeight:800,borderTop:'1px solid var(--border)',paddingTop:'8px',marginTop:'4px'}}>
                 <span>Còn phải thu:</span>
-                <span style={{color:conLai>0?'#DC2626':'#16A34A'}}>{fVND(Math.max(0,conLai))}</span>
+                <span style={{color:Number(donHang['Còn phải thu']||0)>0?'#DC2626':'#16A34A'}}>
+                  {fVND(Number(donHang['Còn phải thu']||0))}
+                </span>
               </div>
 
               {/* Hoàn cọc — hiện khi đơn hủy có tiền cọc */}

@@ -64,6 +64,23 @@ export default async function ChiTietDonHangPage({ params }: { params: { maDon: 
       fields:'Mã giao hàng,Mã đơn hàng,Tên SP (ghi nhanh),Số lượng giao đợt này',
     }),
   ])
+  
+  // Load đối soát để lấy chi phí + tiền đã thu
+  const ghList = giaoHangResult.list || []
+  let doiSoatMap: Record<string, any> = {}
+  for (const gh of ghList) {
+    const maGH = gh['Mã giao hàng']
+    if (!maGH) continue
+    const dsResult = await getRecords(TABLES.DOI_SOAT, {
+      where: `(Mã giao hàng,eq,${maGH})`, limit: 1,
+      fields: 'Mã giao hàng,Đã thu được,Chi phí VC,Chi phí lắp đặt,Thưởng chuyến,Hình thức thu,Kết quả',
+    })
+    if (dsResult.list?.[0]) doiSoatMap[maGH] = dsResult.list[0]
+  }
+  
+  // Tính tổng đã thu từ KH
+  const tongDaThu = Object.values(doiSoatMap)
+    .reduce((s: number, ds: any) => s + Number(ds['Đã thu được'] || 0), 0)
 
   const donHang = donHangResult.list?.[0]
   if (!donHang) notFound()
@@ -91,6 +108,8 @@ export default async function ChiTietDonHangPage({ params }: { params: { maDon: 
       giaoHang={giaoHang}
       danhSachSP={danhSachSPResult.list||[]}
       trangThaiTinh={trangThaiTinh}
+      doiSoatMap={doiSoatMap}
+      tongDaThu={tongDaThu}
       user={session!}
     />
   )
