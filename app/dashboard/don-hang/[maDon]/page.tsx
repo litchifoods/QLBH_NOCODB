@@ -75,7 +75,8 @@ export default async function ChiTietDonHangPage({ params }: { params: { maDon: 
       where: `(Mã giao hàng,eq,${maGH})`, limit: 1,
       fields: 'Mã giao hàng,Đã thu được,Chi phí VC,Chi phí lắp đặt,Thưởng chuyến,Hình thức thu,Kết quả',
     })
-    if (dsResult.list?.[0]) doiSoatMap[maGH] = dsResult.list[0]
+    console.log('[DEBUG] maGH:', maGH, 'ds found:', dsResult.list?.length, dsResult.list?.[0])
+  if (dsResult.list?.[0]) doiSoatMap[maGH] = dsResult.list[0]
   }
   
   // Tính tổng đã thu từ KH
