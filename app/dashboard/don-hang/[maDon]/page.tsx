@@ -27,10 +27,16 @@ function tinhTrangThai(chiTiet: any[], giaoHangList: any[], chiTietGiao: any[], 
     .filter(ct => maGHDaSoat.has(ct['Mã giao hàng']))
     .reduce((s, ct) => s + Number(ct['Số lượng giao đợt này'] || 0), 0)
 
-  const canGiao = Math.max(0, slDon - slGiao)
+  const canGiao    = Math.max(0, slDon - slGiao)
+  const conPhaiThu = Number(donHang?.['Còn phải thu'] ?? 0)
+  const daThanhToan = conPhaiThu <= 0
+
   if (canGiao === 0) {
-    if (slDaSoat >= slDon) return 'Đã giao'
-    if (slDaSoat > 0)      return 'Đã giao 1 phần'
+    const tatCaDaSoat = giaoHangList.length > 0 &&
+      giaoHangList.every((gh:any) => gh['Tình trạng đối soát'] === 'Đã đối soát')
+    if (tatCaDaSoat && daThanhToan) return 'Hoàn thành'
+    if (tatCaDaSoat) return 'Đã giao'
+    if (slDaSoat > 0) return 'Đã giao 1 phần'
     return 'Đang giao'
   } else {
     if (slDaSoat > 0) return 'Đã giao 1 phần'
