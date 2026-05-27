@@ -385,7 +385,7 @@ export default function ChiTietDonHangClient({
   const coBatKyHuy = spList.some(sp=>sp.da_huy)
 
   return (
-    <div style={{padding:'24px 32px',maxWidth:'1000px'}}>
+    <div style={{padding:'20px 28px',maxWidth:'1300px'}}>
       <style>{`
         .sp-huy{opacity:0.45;background:#FFF1F1!important;border-color:#FCA5A5!important;}
         .sp-huy .sp-ten{color:#DC2626;text-decoration:line-through;}
@@ -445,7 +445,7 @@ export default function ChiTietDonHangClient({
         </div>
       )}
 
-      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'20px'}}>
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1.2fr',gap:'20px'}}>
 
         {/* Cột trái */}
         <div style={{display:'flex',flexDirection:'column',gap:'16px'}}>

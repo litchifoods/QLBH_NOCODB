@@ -278,7 +278,7 @@ export default function TaoDonHangForm({
   )
 
   return (
-    <div style={{padding:'18px 24px',maxWidth:'1100px'}}>
+    <div style={{padding:'20px 28px',maxWidth:'1400px'}}>
       <style>{`
         .db{position:absolute;top:calc(100% + 3px);left:0;right:0;z-index:60;background:white;border:1px solid var(--border);border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.12);max-height:220px;overflow-y:auto;}
         .di{padding:9px 12px;cursor:pointer;border-bottom:1px solid #F3F4F6;font-size:13px;}
@@ -411,13 +411,13 @@ export default function TaoDonHangForm({
               <h3 style={{fontSize:'11px',fontWeight:700,color:'var(--primary)',textTransform:'uppercase',letterSpacing:'.05em',margin:0}}>🪑 Sản phẩm trong đơn</h3>
               <button onClick={themDong} className="btn btn-outline btn-sm" style={{fontSize:'12px'}}>+ Thêm SP</button>
             </div>
-            <div style={{display:'grid',gridTemplateColumns:'2fr 52px 84px 72px 20px',gap:'6px',padding:'4px 6px',fontSize:'11px',fontWeight:700,color:'var(--text-secondary)'}}>
+            <div style={{display:'grid',gridTemplateColumns:'3fr 60px 100px 80px 20px',gap:'6px',padding:'4px 6px',fontSize:'11px',fontWeight:700,color:'var(--text-secondary)'}}>
               <span>Sản phẩm</span><span style={{textAlign:'center'}}>SL</span><span style={{textAlign:'right'}}>Đơn giá</span><span style={{textAlign:'right'}}>T.Tiền</span><span></span>
             </div>
             <div style={{display:'flex',flexDirection:'column',gap:'6px'}}>
               {dongSP.map((dong,idx)=>(
                 <div key={dong.id} style={{border:'1px solid var(--border)',borderRadius:'8px',padding:'8px 10px',background:'#FAFBFD'}}>
-                  <div style={{display:'grid',gridTemplateColumns:'2fr 52px 84px 72px 20px',gap:'6px',alignItems:'center'}}>
+                  <div style={{display:'grid',gridTemplateColumns:'3fr 60px 100px 80px 20px',gap:'6px',alignItems:'center'}}>
                     <div style={{position:'relative'}}>
                       <input className="input" placeholder={`SP #${idx+1} — gõ tên...`}
                         value={searchSP[dong.id]!==undefined?searchSP[dong.id]:dong.tenSP}
