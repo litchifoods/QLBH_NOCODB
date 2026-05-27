@@ -64,7 +64,7 @@ export default function DoiSoatClient({
     const maKH = don['Mã KH'] || ''
     return don['Địa chỉ giao'] || khachHangMap[maKH]?.['Địa chỉ'] || '—'
   }
-  function getThongTinSP(maDon: string, maGH?: string) {
+  function getThongTinSP(maDon: string, maGH?: string, ghList?: any[]) {
     const ct = chiTietDonMap[maDon] || []
     // Chỉ lấy SP chưa hủy
     const hl = ct.filter((c:any) => (c['Tên SP (ghi nhanh)']||c['Mã SP']) && c['Trạng thái SP'] !== 'Huỷ')
@@ -74,12 +74,22 @@ export default function DoiSoatClient({
     const spGiaoLanNay = maGH ? (chiTietGiaoMap[maGH]||[]) : []
     const slGiaoLanNay = spGiaoLanNay.reduce((s:number,c:any)=>s+Number(c['Số lượng giao đợt này']||0),0)
     const tenSP = hl[0]['Tên SP (ghi nhanh)']||hl[0]['Mã SP']||'—'
-    // Tính tổng đã giao tất cả chuyến của đơn này
+    // Kiểm tra đã giao hết: dùng slGiaoLanNay nếu bảng 8 có data
+    // Nếu không có data bảng 8 → dùng Tình trạng đối soát từ maGH
     const tatCaSpGiao = Object.values(chiTietGiaoMap)
       .flat()
       .filter((c:any) => c['Mã đơn hàng'] === maDon)
       .reduce((s:number,c:any)=>s+Number(c['Số lượng giao đợt này']||0),0)
-    return { tenSP, tongSPDon, slGiaoLanNay, daGiaoHet: tatCaSpGiao >= tongSPDon && tongSPDon > 0 }
+    // Nếu bảng 8 có data → tính chính xác
+    // Nếu không → coi như đã giao hết nếu chuyến này đã đối soát
+    const daSoatRoi = maGH ? (ghList||giaoHangList).some((g:any) => 
+      g['Mã giao hàng'] === maGH && g['Tình trạng đối soát'] === 'Đã đối soát'
+    ) : false
+    const daGiaoHet = tongSPDon > 0 && (
+      tatCaSpGiao >= tongSPDon || 
+      (daSoatRoi && slGiaoLanNay === 0) // bảng 8 trống nhưng đã đối soát
+    )
+    return { tenSP, tongSPDon, slGiaoLanNay, daGiaoHet }
   }
 
   const filtered = useMemo(() => {
