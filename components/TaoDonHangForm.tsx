@@ -64,6 +64,7 @@ export default function TaoDonHangForm({
   const [localKH,    setLocalKH]    = useState<KH[]>(danhSachKH)
   const [newTen,     setNewTen]     = useState('')
   const [newSdt,     setNewSdt]     = useState('')
+  const [newSdtErr,  setNewSdtErr]  = useState('')
   const [newDiaChi,  setNewDiaChi]  = useState('')
   const [newLoai,    setNewLoai]    = useState('Cá nhân')
   const [errKH,      setErrKH]      = useState('')
@@ -92,6 +93,14 @@ export default function TaoDonHangForm({
     setMaKH(kh['Mã KH']); setTenKH(kh['Tên khách hàng'])
     setSdtKH(kh['Số điện thoại']||''); setDiaChiKH(kh['Địa chỉ']||'')
     setSearchKH(kh['Tên khách hàng']); setShowKH(false)
+  }
+
+  function validateSdtMoi(sdt: string): string {
+    if (!sdt.trim()) return ''
+    const digits = sdt.replace(/\D/g, '')
+    if (digits.length !== 10) return `SĐT phải đúng 10 số (đang có ${digits.length} số)`
+    if (!digits.startsWith('0')) return 'SĐT Việt Nam phải bắt đầu bằng số 0'
+    return ''
   }
 
   async function luuKHMoi() {
@@ -454,7 +463,11 @@ export default function TaoDonHangForm({
                 <input className="input" placeholder="Nguyễn Văn A / Công ty..." value={newTen} onChange={e=>setNewTen(e.target.value)} autoFocus/></div>
               <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'10px'}}>
                 <div><label style={{fontSize:'11px',fontWeight:600,display:'block',marginBottom:'3px'}}>Số điện thoại</label>
-                  <input className="input" placeholder="0901 234 567" value={newSdt} onChange={e=>setNewSdt(e.target.value)}/></div>
+                  <input className="input" placeholder="0901 234 567" value={newSdt}
+                    onChange={e=>{setNewSdt(e.target.value); setNewSdtErr(e.target.value.trim()?validateSdtMoi(e.target.value):''  )}}
+                    style={{borderColor:newSdtErr?'#EF4444':''}}/>
+                  {newSdtErr&&<div style={{fontSize:'11px',color:'#DC2626',marginTop:'3px'}}>⚠️ {newSdtErr}</div>}
+                </div>
                 <div><label style={{fontSize:'11px',fontWeight:600,display:'block',marginBottom:'3px'}}>Đối tượng</label>
                   <select className="input" value={newLoai} onChange={e=>setNewLoai(e.target.value)}>
                     <option>Cá nhân</option><option>Cơ quan</option><option>Công ty</option>
