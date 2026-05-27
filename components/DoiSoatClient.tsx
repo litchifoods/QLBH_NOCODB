@@ -174,7 +174,7 @@ export default function DoiSoatClient({
         .ds-t th,.ds-t td{padding:8px 10px;}
         .ds-t tbody tr:hover td{background:#F0F4FF!important;}
         .overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;display:flex;align-items:center;justify-content:center;padding:16px;overflow-y:auto;}
-        .modal-ds{background:white;border-radius:12px;padding:24px;width:100%;max-width:600px;max-height:93vh;overflow-y:auto;}
+        .modal-ds{background:white;border-radius:12px;padding:24px;width:100%;max-width:720px;max-height:95vh;overflow-y:auto;}
         .kq-btn{padding:8px 12px;border-radius:8px;border:2px solid;cursor:pointer;font-size:12px;font-weight:600;text-align:center;}
         .btn-doi-soat{position:relative;display:inline-block;}
         .btn-doi-soat:hover::after{content:'Đối soát';position:absolute;bottom:calc(100% + 4px);left:50%;transform:translateX(-50%);background:#1F2937;color:white;font-size:11px;padding:3px 8px;border-radius:4px;white-space:nowrap;pointer-events:none;z-index:10;}
