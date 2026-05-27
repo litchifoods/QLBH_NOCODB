@@ -139,9 +139,13 @@ export default function GiaoHangClient({
       if (!rowId) throw new Error('Không tìm thấy ID đơn')
       await fetch('/api/don-hang', {
         method:'PATCH', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ id: rowId, 'Ngày hẹn giao': ngayGiaoMoi || null }),
+        body: JSON.stringify({
+          id: rowId,
+          'Ngày hẹn giao': ngayGiaoMoi || null,
+          ...(ghiChuNgay.trim() ? {'Ghi chú': ghiChuNgay.trim()} : {}),
+        }),
       })
-      setEditNgayDon(null)
+      setEditNgayDon(null); setGhiChuNgay('')
       router.refresh()
     } catch(e:any) { alert('Lỗi: ' + e.message) }
     finally { setLoadingNgay(false) }
@@ -289,6 +293,9 @@ export default function GiaoHangClient({
                           <input type="date" value={ngayGiaoMoi}
                             onChange={e=>setNgayGiaoMoi(e.target.value)}
                             style={{padding:'2px 6px',border:'1px solid var(--primary)',borderRadius:'4px',fontSize:'11px',width:'110px'}}/>
+                          <input type="text" value={ghiChuNgay} onChange={e=>setGhiChuNgay(e.target.value)}
+                            placeholder="Ghi chú (vd: sáng 9-10h)..."
+                            style={{padding:'2px 6px',border:'1px solid #E5E7EB',borderRadius:'4px',fontSize:'11px',width:'130px'}}/>
                           <button onClick={()=>luuNgayHenGiao(don['Mã đơn hàng'])} disabled={loadingNgay}
                             style={{padding:'2px 6px',borderRadius:'4px',border:'none',background:'var(--primary)',color:'white',fontSize:'11px',cursor:'pointer'}}>✓</button>
                           <button onClick={()=>setEditNgayDon(null)}
@@ -304,8 +311,10 @@ export default function GiaoHangClient({
                           <button onClick={()=>{
                             setEditNgayDon(don['Mã đơn hàng'])
                             setNgayGiaoMoi(ngayHen?new Date(ngayHen).toISOString().split('T')[0]:'')
+                            setGhiChuNgay(don['Ghi chú']||'')
                           }} title="Sửa ngày hẹn giao"
                             style={{background:'none',border:'none',cursor:'pointer',fontSize:'11px',color:'#9CA3AF',padding:'0 2px'}}>✏️</button>
+                          {don['Ghi chú']&&<span style={{fontSize:'10px',color:'#6B7280',fontStyle:'italic',maxWidth:'100px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}} title={don['Ghi chú']}>{don['Ghi chú']}</span>}
                         </div>
                       )}
                     </td>
@@ -416,8 +425,7 @@ export default function GiaoHangClient({
                   <label style={{fontSize:'11px',fontWeight:600,display:'block',marginBottom:'3px'}}>Ngày giờ giao</label>
                   <input className="input" type="datetime-local" value={ngayGiao} onChange={e=>setNgayGiao(e.target.value)}/>
                   <div style={{marginTop:'8px'}}>
-                    <label style={{fontSize:'11px',fontWeight:600,display:'block',marginBottom:'3px'}}>Ghi chú chuyến</label>
-                    <input className="input" placeholder="Ghi chú..." value={ghiChuChuyen} onChange={e=>setGhiChuChuyen(e.target.value)} style={{fontSize:'12px'}}/>
+
                   </div>
                 </div>
               </div>
