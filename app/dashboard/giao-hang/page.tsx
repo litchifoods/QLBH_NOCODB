@@ -121,25 +121,27 @@ export default async function GiaoHangPage() {
 
       // Đơn "Đang giao"
       if (d['Trạng thái'] === 'Đang giao') {
-        const maDon     = d['Mã đơn hàng']
-        const chiTiet   = chiTietDonMap[maDon] || []
+        const maDon    = d['Mã đơn hàng']
+        const chiTiet  = chiTietDonMap[maDon] || []
         const tongSLDon = chiTiet
           .filter((ct:any) => ct['Trạng thái SP'] !== 'Huỷ')
           .reduce((s:number, ct:any) => s + Number(ct['Số lượng']||1), 0)
 
-        // Tính SL đã giao qua daGiaoMap (bảng 8 hoặc tính từ bảng 7)
+        const ghCuaDon    = (giaoHang.list||[]).filter((gh:any) => gh['Mã đơn hàng'] === maDon)
+        const conChuaSoat = ghCuaDon.some((gh:any) => gh['Tình trạng đối soát'] !== 'Đã đối soát')
+
+        // Còn chuyến chưa đối soát → hiện (đang trong quá trình giao)
+        if (conChuaSoat) return true
+
+        // Tất cả chuyến đã đối soát — kiểm tra còn SP chưa giao không
+        // Tính tổng SL đã giao qua tất cả chuyến
         const daGiao     = daGiaoMap[maDon] || {}
         const tongSLGiao = Object.values(daGiao).reduce((s:number, v:any) => s + Number(v||0), 0)
 
-        // Còn SP chưa giao → hiện để tạo chuyến giao tiếp
-        if (tongSLGiao < tongSLDon) {
-          // Kiểm tra thêm: có chuyến chưa đối soát không
-          const ghCuaDon    = (giaoHang.list||[]).filter((gh:any) => gh['Mã đơn hàng'] === maDon)
-          const conChuaSoat = ghCuaDon.some((gh:any) => gh['Tình trạng đối soát'] !== 'Đã đối soát')
-          return conChuaSoat // Hiện nếu còn chuyến chưa đối soát
-        }
+        // Còn SP chưa giao → hiện để tạo chuyến mới
+        if (tongSLGiao < tongSLDon) return true
 
-        // Giao hết SP → ẩn (chuyển sang Đối soát giao hàng)
+        // Giao hết + đối soát hết → ẩn
         return false
       }
       return true // "Chờ giao" luôn hiện

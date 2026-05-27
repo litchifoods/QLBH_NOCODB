@@ -278,10 +278,12 @@ export default function DoiSoatClient({
                       {laDTRow&&<span style={{fontSize:'10px',padding:'1px 6px',borderRadius:'10px',background:'#FEF3C7',color:'#92400E',fontWeight:700}}>Đối tác</span>}
                     </td>
                     <td className="col-vt" style={{fontSize:'12px',color:'var(--text-secondary)'}}>{g['Vai trò chuyến']||'—'}</td>
-                    {/* Cột TRẠNG THÁI: Đang giao / Giao nhưng hủy */}
+                    {/* Cột TRẠNG THÁI */}
                     <td style={{textAlign:'center'}}>
                       {don?.['Trạng thái']==='Huỷ' ? (
                         <span style={{padding:'3px 9px',borderRadius:'20px',fontSize:'11px',fontWeight:700,background:'#FEE2E2',color:'#991B1B',whiteSpace:'nowrap'}}>🚫 Giao nhưng hủy</span>
+                      ) : !chuaDsRow ? (
+                        <span style={{padding:'3px 9px',borderRadius:'20px',fontSize:'11px',fontWeight:700,background:'#D1FAE5',color:'#065F46',whiteSpace:'nowrap'}}>✅ Đã giao</span>
                       ) : (
                         <span style={{padding:'3px 9px',borderRadius:'20px',fontSize:'11px',fontWeight:700,background:'#DBEAFE',color:'#1E40AF',whiteSpace:'nowrap'}}>🚚 Đang giao</span>
                       )}
