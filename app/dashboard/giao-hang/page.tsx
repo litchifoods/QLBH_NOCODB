@@ -14,7 +14,7 @@ export default async function GiaoHangPage() {
     getRecords(TABLES.DON_HANG, { limit: 500, sort: '-Id' }),
     getRecords(TABLES.CHI_TIET_DON, {
       limit: 500, sort: 'Id',
-      fields: 'Mã chi tiết,Mã đơn hàng,Mã SP,Tên SP (ghi nhanh),Số lượng,Ghi chú SP',
+      fields: 'Mã chi tiết,Mã đơn hàng,Mã SP,Tên SP (ghi nhanh),Số lượng,Ghi chú SP,Trạng thái SP',
     }),
     getRecords(TABLES.NHAN_VIEN, { limit: 200 }),
     getRecords(TABLES.KHACH_HANG, {
@@ -194,3 +194,4 @@ export default async function GiaoHangPage() {
     />
   )
 }
+
