@@ -257,8 +257,9 @@ export default function DonHangClient({
                         : maKH ? <div style={{ fontSize:'11px', color:'var(--text-muted)' }}>{maKH}</div> : null
                       }
                     </td>
-                    <td className="col-ngay" style={{ fontSize:'12px', color:'var(--text-secondary)', whiteSpace:'nowrap' }}>
-                      {formatDate(don['Ngày hẹn giao'])}
+                    <td className="col-ngay" style={{ fontSize:'12px', color:'var(--text-secondary)' }}>
+                      <div style={{whiteSpace:'nowrap'}}>{formatDate(don['Ngày hẹn giao'])}</div>
+                      {don['Ghi chú']&&<div style={{fontSize:'10px',color:'#9CA3AF',fontStyle:'italic',maxWidth:'120px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',marginTop:'2px'}} title={don['Ghi chú']}>📝 {don['Ghi chú']}</div>}
                     </td>
                     <td className="col-dia" style={{
                       fontSize:'12px', color:'var(--text-secondary)',
