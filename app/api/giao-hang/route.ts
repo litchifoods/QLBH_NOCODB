@@ -1,7 +1,7 @@
 // app/api/giao-hang/route.ts -- v3.2
 // Fix: bảng 8 lưu Mã giao hàng = GH-xxx (giống bảng 7), không phải maChuyen
 import { NextRequest, NextResponse } from 'next/server'
-import { createRecord, getRecords, updateRecord, TABLES } from '@/lib/nocodb'
+import { createRecord, getRecords, updateRecord, deleteRecord, TABLES } from '@/lib/nocodb'
 import { getSession } from '@/lib/auth'
 
 export async function GET(request: NextRequest) {
@@ -96,6 +96,20 @@ export async function POST(request: NextRequest) {
       soNguoi: danhSachNguoi.length,
       soSP:    danhSachSP.length,
     })
+  } catch (error: any) {
+    return NextResponse.json({ message: error.message }, { status: 500 })
+  }
+}
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const session = await getSession()
+    if (!session) return NextResponse.json({ message: 'Chưa đăng nhập' }, { status: 401 })
+    const { searchParams } = new URL(request.url)
+    const id = searchParams.get('id')
+    if (!id) return NextResponse.json({ message: 'Thiếu id' }, { status: 400 })
+    await deleteRecord(TABLES.GIAO_HANG, Number(id))
+    return NextResponse.json({ success: true })
   } catch (error: any) {
     return NextResponse.json({ message: error.message }, { status: 500 })
   }

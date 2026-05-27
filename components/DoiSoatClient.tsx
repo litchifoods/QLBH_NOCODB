@@ -52,6 +52,9 @@ export default function DoiSoatClient({
   const [ketQua,       setKetQua]       = useState('Thành công')
   const [ghiChu,       setGhiChu]       = useState('')
   const [hoanThanhDon, setHoanThanhDon] = useState(false)
+  const [chiTietGH,    setChiTietGH]    = useState<any>(null)  // popup xem chi tiết
+  const [hoanVeGH,     setHoanVeGH]     = useState<any>(null)  // popup hoàn về
+  const [loadingHoan,  setLoadingHoan]  = useState(false)
 
   function getTenKH(maKH: string, tenTuDon?: string) {
     return khachHangMap[maKH]?.['Tên khách hàng'] || tenTuDon || maKH || '—'
@@ -222,7 +225,7 @@ export default function DoiSoatClient({
                 <th className="col-dia" style={{textAlign:'left',fontWeight:700}}>Địa chỉ</th>
                 <th className="col-sp" style={{textAlign:'left',fontWeight:700}}>Sản phẩm</th>
                 <th className="col-nguoi" style={{textAlign:'left',fontWeight:700}}>Người giao</th>
-                <th className="col-vt" style={{textAlign:'left',fontWeight:700}}>Vai trò</th>
+
                 <th style={{textAlign:'center',fontWeight:700}}>Trạng thái</th>
                 <th style={{textAlign:'center',fontWeight:700}}>Đối soát</th>
                 <th style={{width:'44px'}}></th>
@@ -277,7 +280,7 @@ export default function DoiSoatClient({
                       <div style={{fontSize:'11px',color:'#6B7280'}}>{g['Mã NV/đối tác']||''}</div>
                       {laDTRow&&<span style={{fontSize:'10px',padding:'1px 6px',borderRadius:'10px',background:'#FEF3C7',color:'#92400E',fontWeight:700}}>Đối tác</span>}
                     </td>
-                    <td className="col-vt" style={{fontSize:'12px',color:'var(--text-secondary)'}}>{g['Vai trò chuyến']||'—'}</td>
+
                     {/* Cột TRẠNG THÁI */}
                     <td style={{textAlign:'center'}}>
                       {don?.['Trạng thái']==='Huỷ' ? (
@@ -296,16 +299,30 @@ export default function DoiSoatClient({
                       </span>
                     </td>
                     <td style={{textAlign:'center'}}>
-                      {chuaDsRow?(
-                        <span className="btn-doi-soat">
-                          <button onClick={()=>moModal(g)} title="Đối soát"
-                            style={{padding:'5px 10px',borderRadius:'6px',border:'none',background:'var(--primary)',color:'white',fontWeight:700,fontSize:'13px',cursor:'pointer'}}>
-                            💰
-                          </button>
-                        </span>
-                      ):(
-                        <span style={{fontSize:'11px',color:'#16A34A',fontWeight:600}}>✅</span>
-                      )}
+                      <div style={{display:'flex',gap:'4px',justifyContent:'center'}}>
+                        {chuaDsRow ? (
+                          <>
+                            <span className="btn-doi-soat">
+                              <button onClick={()=>moModal(g)} title="Đối soát"
+                                style={{padding:'4px 8px',borderRadius:'6px',border:'none',background:'var(--primary)',color:'white',fontWeight:700,fontSize:'12px',cursor:'pointer'}}>
+                                💰
+                              </button>
+                            </span>
+                            <button onClick={()=>setHoanVeGH(g)} title="Hoàn về chờ giao"
+                              style={{padding:'4px 8px',borderRadius:'6px',border:'1px solid #F59E0B',background:'#FFFBEB',color:'#92400E',fontWeight:600,fontSize:'12px',cursor:'pointer'}}>
+                              ↩
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <span style={{fontSize:'11px',color:'#16A34A',fontWeight:600}}>✅</span>
+                            <button onClick={()=>setChiTietGH({gh:g,ds:doiSoatMap[g['Mã giao hàng']]})} title="Xem chi tiết"
+                              style={{padding:'4px 8px',borderRadius:'6px',border:'1px solid #E5E7EB',background:'white',color:'#374151',fontSize:'12px',cursor:'pointer'}}>
+                              👁
+                            </button>
+                          </>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 )
@@ -404,6 +421,87 @@ export default function DoiSoatClient({
           </div>
         </div>
       )}
+
+      {/* POPUP XEM CHI TIẾT ĐỐI SOÁT */}
+      {chiTietGH&&(
+        <div className="overlay" onClick={()=>setChiTietGH(null)}>
+          <div style={{background:'white',borderRadius:'12px',padding:'24px',width:'100%',maxWidth:'420px'}} onClick={e=>e.stopPropagation()}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'16px'}}>
+              <h2 style={{fontSize:'16px',fontWeight:700,margin:0}}>📋 Chi tiết đối soát</h2>
+              <button onClick={()=>setChiTietGH(null)} style={{background:'none',border:'none',cursor:'pointer',fontSize:'20px',color:'#6B7280'}}>✕</button>
+            </div>
+            <div style={{background:'var(--primary-pale)',borderRadius:'8px',padding:'10px 14px',marginBottom:'14px',fontSize:'13px'}}>
+              <div style={{fontWeight:700,color:'var(--primary)'}}>{chiTietGH.gh['Tên NV/đối tác']||'—'}</div>
+              <div style={{fontSize:'12px',color:'#555'}}>📋 {chiTietGH.gh['Mã đơn hàng']} · {fDT(chiTietGH.gh['Ngày giao'])}</div>
+            </div>
+            {chiTietGH.ds ? (
+              <div style={{display:'flex',flexDirection:'column',gap:'8px',fontSize:'13px'}}>
+                {[
+                  ['💵 Đã thu từ KH', chiTietGH.ds['Đã thu được'], '#16A34A'],
+                  ['🚚 CP vận chuyển', chiTietGH.ds['Chi phí VC'], '#DC2626'],
+                  ['🔧 CP lắp đặt', chiTietGH.ds['Chi phí lắp đặt'], '#DC2626'],
+                  ['⭐ Thưởng chuyến', chiTietGH.ds['Thưởng chuyến'], '#D97706'],
+                ].map(([lb,val,c]:any) => Number(val||0)>0&&(
+                  <div key={lb} style={{display:'flex',justifyContent:'space-between',padding:'6px 0',borderBottom:'1px solid #F0F0F0'}}>
+                    <span style={{color:'var(--text-secondary)'}}>{lb}</span>
+                    <span style={{fontWeight:700,color:c}}>{fVND(Number(val||0))}</span>
+                  </div>
+                ))}
+                <div style={{display:'flex',justifyContent:'space-between',padding:'8px 0',fontWeight:800,fontSize:'14px',borderTop:'2px solid var(--border)',marginTop:'4px'}}>
+                  <span>Tổng chi cho NV/ĐT:</span>
+                  <span style={{color:'#DC2626'}}>{fVND(Number(chiTietGH.ds['Chi phí VC']||0)+Number(chiTietGH.ds['Chi phí lắp đặt']||0)+Number(chiTietGH.ds['Thưởng chuyến']||0))}</span>
+                </div>
+                {chiTietGH.ds['Ghi chú']&&<div style={{fontSize:'12px',color:'#6B7280',fontStyle:'italic'}}>Ghi chú: {chiTietGH.ds['Ghi chú']}</div>}
+                <div style={{padding:'6px 10px',background:'#D1FAE5',borderRadius:'6px',fontSize:'12px',fontWeight:600,color:'#065F46',textAlign:'center'}}>
+                  {KET_QUA_LIST.find(k=>k.value===chiTietGH.ds['Kết quả'])?.label||chiTietGH.ds['Kết quả']||'—'}
+                </div>
+              </div>
+            ) : <div style={{color:'#9CA3AF',fontSize:'13px',textAlign:'center'}}>Chưa có dữ liệu đối soát</div>}
+            <button onClick={()=>setChiTietGH(null)} style={{width:'100%',marginTop:'16px',padding:'10px',borderRadius:'8px',border:'1px solid var(--border)',background:'white',cursor:'pointer',fontSize:'14px',fontWeight:600}}>Đóng</button>
+          </div>
+        </div>
+      )}
+
+      {/* POPUP HOÀN VỀ CHỜ GIAO */}
+      {hoanVeGH&&(
+        <div className="overlay" onClick={()=>setHoanVeGH(null)}>
+          <div style={{background:'white',borderRadius:'12px',padding:'24px',width:'100%',maxWidth:'380px',textAlign:'center'}} onClick={e=>e.stopPropagation()}>
+            <div style={{fontSize:'36px',marginBottom:'8px'}}>↩</div>
+            <h2 style={{fontSize:'16px',fontWeight:700,margin:'0 0 8px'}}>Hoàn về chờ giao</h2>
+            <p style={{fontSize:'13px',color:'#6B7280',margin:'0 0 6px'}}>
+              Chuyến giao <strong>{hoanVeGH['Mã đơn hàng']}</strong>
+            </p>
+            <p style={{fontSize:'13px',color:'#6B7280',margin:'0 0 14px'}}>
+              NV: <strong>{hoanVeGH['Tên NV/đối tác']||'—'}</strong>
+            </p>
+            <div style={{background:'#FFFBEB',borderRadius:'8px',padding:'10px',marginBottom:'16px',fontSize:'12px',color:'#92400E',border:'1px solid #FCD34D'}}>
+              ⚠️ Chuyến giao này sẽ bị xóa. Đơn hàng trở về trạng thái "Chờ giao" để tạo chuyến mới.
+            </div>
+            <div style={{display:'flex',gap:'10px'}}>
+              <button onClick={async()=>{
+                setLoadingHoan(true)
+                try {
+                  // Xóa chuyến giao khỏi bảng 7
+                  await fetch(`/api/giao-hang?id=${hoanVeGH['Id']||hoanVeGH['id']}`, {method:'DELETE'})
+                  // Cập nhật đơn hàng về Chờ giao
+                  const don = donHangMap[hoanVeGH['Mã đơn hàng']]
+                  if (don) {
+                    await fetch('/api/don-hang', {method:'PATCH', headers:{'Content-Type':'application/json'},
+                      body: JSON.stringify({id:don['Id']||don['id'], 'Trạng thái':'Chờ giao'})})
+                  }
+                  setHoanVeGH(null); router.refresh()
+                } catch(e:any) { alert('Lỗi: '+e.message) }
+                finally { setLoadingHoan(false) }
+              }} disabled={loadingHoan}
+                style={{flex:1,padding:'11px',borderRadius:'8px',border:'none',background:loadingHoan?'#9CA3AF':'#F59E0B',color:'white',fontWeight:700,fontSize:'14px',cursor:loadingHoan?'not-allowed':'pointer'}}>
+                {loadingHoan?'⏳ Đang xử lý...':'↩ Xác nhận hoàn về'}
+              </button>
+              <button onClick={()=>setHoanVeGH(null)} style={{padding:'11px 16px',borderRadius:'8px',border:'1px solid var(--border)',background:'white',cursor:'pointer',fontSize:'14px',fontWeight:600}}>Huỷ</button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   )
 }
