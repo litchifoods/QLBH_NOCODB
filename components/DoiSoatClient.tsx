@@ -238,7 +238,7 @@ export default function DoiSoatClient({
                 const tenKH  = getTenKH(maKH,don?.['Tên khách hàng'])
                 const sdt    = khachHangMap[maKH]?.['Số điện thoại']||''
                 const diaChi = getDiaChi(don)
-                const {tenSP,tongSP,coNhieu} = getThongTinSP(maDon)
+                const {tenSP} = getThongTinSP(maDon)
                 const chuaDsRow = g['Tình trạng đối soát']!=='Đã đối soát'
                 const laDTRow   = g['Hình thức giao']==='Đối tác'
                 const ds        = doiSoatMap[g['Mã giao hàng']]
