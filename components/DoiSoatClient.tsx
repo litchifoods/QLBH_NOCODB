@@ -292,8 +292,10 @@ export default function DoiSoatClient({
                     </td>
                     <td className="col-nguoi">
                       <div style={{fontWeight:600}}>{g['Tên NV/đối tác']||'—'}</div>
-                      <div style={{fontSize:'11px',color:'#6B7280'}}>{g['Mã NV/đối tác']||''}</div>
-                      {laDTRow&&<span style={{fontSize:'10px',padding:'1px 6px',borderRadius:'10px',background:'#FEF3C7',color:'#92400E',fontWeight:700}}>Đối tác</span>}
+                      <div style={{fontSize:'11px',color:'#6B7280',display:'flex',alignItems:'center',gap:'5px'}}>
+                        <span>{g['Mã NV/đối tác']||''}</span>
+                        {laDTRow&&<span style={{fontSize:'10px',padding:'1px 6px',borderRadius:'10px',background:'#FEF3C7',color:'#92400E',fontWeight:700}}>Đối tác</span>}
+                      </div>
                     </td>
 
                     {/* Cột TRẠNG THÁI */}
