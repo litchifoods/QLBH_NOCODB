@@ -425,9 +425,7 @@ export default function GiaoHangClient({
                 <div>
                   <label style={{fontSize:'11px',fontWeight:600,display:'block',marginBottom:'3px'}}>Ngày giờ giao</label>
                   <input className="input" type="datetime-local" value={ngayGiao} onChange={e=>setNgayGiao(e.target.value)}/>
-                  <div style={{marginTop:'8px'}}>
 
-                  </div>
                 </div>
               </div>
             </div>
