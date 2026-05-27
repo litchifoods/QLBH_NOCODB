@@ -37,7 +37,7 @@ export default function DoiSoatClient({
   user: UserSession
 }) {
   const router = useRouter()
-  const [filterTT,  setFilterTT] = useState('Chưa đối soát')
+  const [filterTT,  setFilterTT] = useState('Tất cả')
   const [trang,     setTrang]    = useState(1)
   const [modalGH,   setModalGH]  = useState<any>(null)
   const [loading,   setLoading]  = useState(false)
@@ -61,12 +61,17 @@ export default function DoiSoatClient({
     const maKH = don['Mã KH'] || ''
     return don['Địa chỉ giao'] || khachHangMap[maKH]?.['Địa chỉ'] || '—'
   }
-  function getThongTinSP(maDon: string) {
+  function getThongTinSP(maDon: string, maGH?: string) {
     const ct = chiTietDonMap[maDon] || []
     const hl = ct.filter((c:any) => c['Tên SP (ghi nhanh)']||c['Mã SP'])
-    if (!hl.length) return { tenSP:'—', tongSP:0, coNhieu:false }
-    const tongSL = hl.reduce((s:number,c:any)=>s+Number(c['Số lượng']||1),0)
-    return { tenSP:hl[0]['Tên SP (ghi nhanh)']||hl[0]['Mã SP']||'—', tongSP:tongSL, coNhieu:hl.length>1 }
+    if (!hl.length) return { tenSP:'—', tongSPDon:0, slGiaoLanNay:0, daGiaoHet:false }
+    const tongSPDon = hl.reduce((s:number,c:any)=>s+Number(c['Số lượng']||1),0)
+    // SL giao lần này từ bảng 8
+    const spGiaoLanNay = maGH ? (chiTietGiaoMap[maGH]||[]) : []
+    const slGiaoLanNay = spGiaoLanNay.reduce((s:number,c:any)=>s+Number(c['Số lượng giao đợt này']||0),0)
+    // Tính tổng đã giao tất cả chuyến
+    const tenSP = hl[0]['Tên SP (ghi nhanh)']||hl[0]['Mã SP']||'—'
+    return { tenSP, tongSPDon, slGiaoLanNay, daGiaoHet: slGiaoLanNay >= tongSPDon }
   }
 
   const filtered = useMemo(() => {
@@ -192,7 +197,7 @@ export default function DoiSoatClient({
       {/* Filter */}
       <div className="card" style={{padding:'12px 14px',marginBottom:'14px'}}>
         <div style={{display:'flex',gap:'8px',flexWrap:'wrap',alignItems:'center'}}>
-          {['Chưa đối soát','Tất cả','Đã đối soát'].map(tt=>(
+          {['Tất cả','Chưa đối soát','Đã đối soát'].map(tt=>(
             <button key={tt} onClick={()=>setFilterTT(tt)} style={{
               padding:'5px 14px',borderRadius:'20px',border:'1px solid',
               borderColor:filterTT===tt?'var(--primary)':'var(--border)',
@@ -250,8 +255,22 @@ export default function DoiSoatClient({
                     </td>
                     <td className="col-dia" style={{fontSize:'12px',color:'var(--text-secondary)',maxWidth:'140px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{diaChi}</td>
                     <td className="col-sp" style={{maxWidth:'150px'}}>
-                      <div style={{fontSize:'12px',fontWeight:600,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}} title={tenSP}>{tenSP}</div>
-                      {coNhieu&&<div style={{fontSize:'11px',color:'#6B7280'}}>tổng {tongSP} SP</div>}
+                      {(()=>{
+                        const {tenSP:tsp,tongSPDon,slGiaoLanNay,daGiaoHet} = getThongTinSP(maDon, g['Mã giao hàng'])
+                        return <>
+                          <div style={{fontSize:'12px',fontWeight:600,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}} title={tsp}>{tsp}</div>
+                          {tongSPDon>0&&(
+                            <div style={{fontSize:'11px',fontWeight:600,marginTop:'2px',
+                              color:daGiaoHet?'#065F46':'#0369A1'}}>
+                              {daGiaoHet
+                                ? `✅ Đã giao hết ${tongSPDon}/${tongSPDon} SP`
+                                : slGiaoLanNay>0
+                                  ? `Giao ${slGiaoLanNay} SP`
+                                  : `tổng ${tongSPDon} SP`}
+                            </div>
+                          )}
+                        </>
+                      })()}
                     </td>
                     <td className="col-nguoi">
                       <div style={{fontWeight:600}}>{g['Tên NV/đối tác']||'—'}</div>
