@@ -302,19 +302,25 @@ export default function GiaoHangClient({
                             style={{padding:'2px 6px',borderRadius:'4px',border:'1px solid #E5E7EB',background:'white',fontSize:'11px',cursor:'pointer'}}>✕</button>
                         </div>
                       ) : (
-                        <div style={{display:'flex',alignItems:'center',gap:'4px'}}>
-                          {ngayHen?(
-                            <span style={{color:qua?'#DC2626':'#374151',fontWeight:qua?700:400,fontSize:'12px'}}>
-                              {qua&&'⚠️ '}{new Date(ngayHen).toLocaleDateString('vi-VN')}
-                            </span>
-                          ):<span style={{color:'#F59E0B',fontWeight:700,fontSize:'12px'}}>⏳ Chưa hẹn</span>}
-                          <button onClick={()=>{
-                            setEditNgayDon(don['Mã đơn hàng'])
-                            setNgayGiaoMoi(ngayHen?new Date(ngayHen).toISOString().split('T')[0]:'')
-                            setGhiChuNgay(don['Ghi chú']||'')
-                          }} title="Sửa ngày hẹn giao"
-                            style={{background:'none',border:'none',cursor:'pointer',fontSize:'11px',color:'#9CA3AF',padding:'0 2px'}}>✏️</button>
-                          {don['Ghi chú']&&<span style={{fontSize:'10px',color:'#6B7280',fontStyle:'italic',maxWidth:'100px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}} title={don['Ghi chú']}>{don['Ghi chú']}</span>}
+                        <div style={{display:'flex',flexDirection:'column',gap:'2px'}}>
+                          <div style={{display:'flex',alignItems:'center',gap:'4px'}}>
+                            {ngayHen?(
+                              <span style={{color:qua?'#DC2626':'#374151',fontWeight:qua?700:400,fontSize:'12px',whiteSpace:'nowrap'}}>
+                                {qua&&'⚠️ '}{new Date(ngayHen).toLocaleDateString('vi-VN')}
+                              </span>
+                            ):<span style={{color:'#F59E0B',fontWeight:700,fontSize:'12px'}}>⏳ Chưa hẹn</span>}
+                            <button onClick={()=>{
+                              setEditNgayDon(don['Mã đơn hàng'])
+                              setNgayGiaoMoi(ngayHen?new Date(ngayHen).toISOString().split('T')[0]:'')
+                              setGhiChuNgay(don['Ghi chú']||'')
+                            }} title="Sửa ngày hẹn giao"
+                              style={{background:'none',border:'none',cursor:'pointer',fontSize:'11px',color:'#9CA3AF',padding:'0 2px'}}>✏️</button>
+                          </div>
+                          {don['Ghi chú']&&(
+                            <div style={{fontSize:'11px',color:'#6B7280',fontStyle:'italic',maxWidth:'130px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}} title={don['Ghi chú']}>
+                              {don['Ghi chú']}
+                            </div>
+                          )}
                         </div>
                       )}
                     </td>
