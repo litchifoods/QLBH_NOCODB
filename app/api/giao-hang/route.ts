@@ -110,8 +110,22 @@ export async function DELETE(request: NextRequest) {
     const maDon = searchParams.get('maDon')
     if (!id) return NextResponse.json({ message: 'Thiếu id' }, { status: 400 })
 
-    // Xóa chuyến giao
+    // Xóa chuyến giao (bảng 7)
     await deleteRecord(TABLES.GIAO_HANG, Number(id))
+
+    // Xóa chi tiết SP giao (bảng 8) của chuyến này
+    // Lấy Mã giao hàng từ query param
+    const maGH = searchParams.get('maGH')
+    if (maGH) {
+      const ctGiao = await getRecords(TABLES.CHI_TIET_GIAO, {
+        where: `(Mã giao hàng,eq,${maGH})`, limit: 20,
+        fields: 'Id',
+      })
+      for (const ct of (ctGiao.list || [])) {
+        const ctId = ct['Id'] || ct['id']
+        if (ctId) await deleteRecord(TABLES.CHI_TIET_GIAO, Number(ctId))
+      }
+    }
 
     // Cập nhật trạng thái đơn hàng
     if (maDon) {
