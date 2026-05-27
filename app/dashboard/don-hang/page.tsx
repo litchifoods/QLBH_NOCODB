@@ -103,6 +103,14 @@ export default async function DonHangPage({
       continue
     }
 
+    // Bán tại cửa hàng — không cần giao, tính trực tiếp từ Còn phải thu
+    const htGiao = don['Hình thức giao hàng'] || ''
+    if (htGiao === 'Bán tại cửa hàng') {
+      const conPhaiThuBanTai = Number(don['Còn phải thu'] || 0)
+      trangThaiMap[maDon] = conPhaiThuBanTai <= 0 ? 'Hoàn thành' : 'Đã giao'
+      continue
+    }
+
     // Chưa giao gì
     if (slGiao === 0) {
       trangThaiMap[maDon] = 'Chờ giao'

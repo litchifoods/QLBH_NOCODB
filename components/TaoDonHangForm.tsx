@@ -311,7 +311,7 @@ export default function TaoDonHangForm({
               </div>
               <div><LBL>Hình thức giao *</LBL>
                 <select className="input" value={htGiao} onChange={e=>setHtGiao(e.target.value)}>
-                  <option>Giao hàng cho khách</option><option>Khách mang hàng về</option>
+                  <option>Giao hàng cho khách</option><option>Bán tại cửa hàng</option>
                 </select>
               </div>
               {htGiao==='Giao hàng cho khách'&&<div><LBL>Ngày hẹn giao</LBL><input className="input" type="datetime-local" value={ngayHenGiao} onChange={e=>setNgayHenGiao(e.target.value)}/></div>}
