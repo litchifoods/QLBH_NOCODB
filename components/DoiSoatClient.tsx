@@ -314,26 +314,25 @@ export default function DoiSoatClient({
                       </span>
                     </td>
                     <td style={{textAlign:'center'}}>
-                      <div style={{display:'flex',gap:'4px',justifyContent:'center'}}>
+                      <div style={{display:'flex',gap:'4px',justifyContent:'center',alignItems:'center'}}>
                         {chuaDsRow ? (
                           <>
                             <span className="btn-doi-soat">
                               <button onClick={()=>moModal(g)} title="Đối soát"
-                                style={{padding:'4px 8px',borderRadius:'6px',border:'none',background:'var(--primary)',color:'white',fontWeight:700,fontSize:'12px',cursor:'pointer'}}>
+                                style={{padding:'4px 8px',borderRadius:'6px',border:'none',background:'var(--primary)',color:'white',fontWeight:700,fontSize:'12px',cursor:'pointer',lineHeight:'1'}}>
                                 💰
                               </button>
                             </span>
                             <button onClick={()=>setHoanVeGH(g)} title="Hoàn về chờ giao"
-                              style={{padding:'4px 8px',borderRadius:'6px',border:'1px solid #F59E0B',background:'#FFFBEB',color:'#92400E',fontWeight:600,fontSize:'12px',cursor:'pointer'}}>
+                              style={{padding:'4px 8px',borderRadius:'6px',border:'1px solid #F59E0B',background:'#FFFBEB',color:'#92400E',fontWeight:600,fontSize:'12px',cursor:'pointer',lineHeight:'1'}}>
                               ↩
                             </button>
                           </>
                         ) : (
                           <>
-                            <span style={{fontSize:'11px',color:'#16A34A',fontWeight:600}}>✅</span>
-                            <button onClick={()=>setChiTietGH({gh:g,ds:doiSoatMap[g['Mã giao hàng']]})} title="Xem chi tiết"
-                              style={{padding:'4px 8px',borderRadius:'6px',border:'1px solid #E5E7EB',background:'white',color:'#374151',fontSize:'12px',cursor:'pointer'}}>
-                              👁
+                            <button onClick={()=>setChiTietGH({gh:g,ds:doiSoatMap[g['Mã giao hàng']]})} title="Xem chi tiết đối soát"
+                              style={{padding:'4px 10px',borderRadius:'6px',border:'1px solid #BBF7D0',background:'#F0FDF4',color:'#065F46',fontSize:'12px',cursor:'pointer',lineHeight:'1',display:'flex',alignItems:'center',gap:'4px',fontWeight:600}}>
+                              ✅ 👁
                             </button>
                           </>
                         )}

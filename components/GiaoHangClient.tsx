@@ -233,8 +233,7 @@ export default function GiaoHangClient({
         .sp-row{display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:6px;border:1px solid #E5E7EB;margin-bottom:5px;background:white;font-size:13px;}
         .sec-title{font-size:11px;font-weight:700;color:var(--primary);text-transform:uppercase;letter-spacing:.05em;margin:0 0 10px;}
         .btn-tao-chuyen{position:relative;display:inline-block;}
-        .btn-tao-chuyen:hover::after{content:'Tạo chuyến giao';position:absolute;bottom:calc(100% + 4px);left:50%;transform:translateX(-50%);background:#1F2937;color:white;font-size:11px;padding:3px 8px;border-radius:4px;white-space:nowrap;pointer-events:none;z-index:10;}
-        .btn-tao-chuyen:hover::before{content:'';position:absolute;bottom:calc(100% + 1px);left:50%;transform:translateX(-50%);border:4px solid transparent;border-top-color:#1F2937;pointer-events:none;}
+        .btn-tao-chuyen:hover::after{content:'Tạo chuyến giao';position:absolute;bottom:calc(100% + 4px);right:0;background:#1F2937;color:white;font-size:11px;padding:3px 8px;border-radius:4px;white-space:nowrap;pointer-events:none;z-index:10;}
         @media(max-width:1100px){.col-sp{display:none;}}
         @media(max-width:900px){.col-dia{display:none;}}
         @media(max-width:700px){.col-tt{display:none;}}
@@ -351,7 +350,7 @@ export default function GiaoHangClient({
                     </td>
                     <td style={{textAlign:'center'}}>
                       <span className="btn-tao-chuyen">
-                        <button onClick={()=>taoChuyen_TuDon(don)} title="Tạo chuyến giao"
+                        <button onClick={()=>taoChuyen_TuDon(don)}
                           style={{padding:'5px 10px',borderRadius:'6px',border:'none',background:'#0F6B3B',color:'white',fontWeight:700,fontSize:'13px',cursor:'pointer'}}>
                           🚚
                         </button>
