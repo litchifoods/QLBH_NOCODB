@@ -42,6 +42,13 @@ export default function KhachHangClient({ khachHang, donHuyCanHoan, congNoMap, d
     }))
   )
 
+  // Danh sách địa chỉ duy nhất để gợi ý
+  const danhSachDiaChi = useMemo(() => {
+    const set = new Set<string>()
+    localKH.forEach(kh => { if (kh['Địa chỉ']?.trim()) set.add(kh['Địa chỉ'].trim()) })
+    return Array.from(set).sort()
+  }, [localKH])
+
   const [search,     setSearch]     = useState('')
   const [filterLoai, setFilterLoai] = useState('Tất cả')
   const [trang,      setTrang]      = useState(1)
@@ -56,6 +63,8 @@ export default function KhachHangClient({ khachHang, donHuyCanHoan, congNoMap, d
   const [diaChiKH,   setDiaChiKH]   = useState('')
   const [loaiKH,     setLoaiKH]     = useState('Cá nhân')
   const [ghiChuKH,   setGhiChuKH]   = useState('')
+  const [goiYDiaChi, setGoiYDiaChi] = useState<string[]>([])
+  const [showGoiY,   setShowGoiY]   = useState(false)
   const [xoaKH,      setXoaKH]      = useState<any>(null)
   const [dangXoa,    setDangXoa]    = useState(false)
 
@@ -454,9 +463,31 @@ export default function KhachHangClient({ khachHang, donHuyCanHoan, congNoMap, d
                   </select>
                 </div>
               </div>
-              <div>
+              <div style={{position:'relative'}}>
                 <label style={{fontSize:'11px',fontWeight:600,display:'block',marginBottom:'3px'}}>Địa chỉ</label>
-                <input className="input" placeholder="Số nhà, đường, quận..." value={diaChiKH} onChange={e=>setDiaChiKH(e.target.value)}/>
+                <input className="input" placeholder="Số nhà, đường, phường..." value={diaChiKH}
+                  onChange={e=>{
+                    setDiaChiKH(e.target.value)
+                    if (e.target.value.trim().length >= 1) {
+                      const q = boDau(e.target.value.trim())
+                      const goi = danhSachDiaChi.filter(d => boDau(d).includes(q)).slice(0,6)
+                      setGoiYDiaChi(goi); setShowGoiY(goi.length > 0)
+                    } else { setShowGoiY(false) }
+                  }}
+                  onFocus={()=>{ if(diaChiKH.trim().length>=1&&goiYDiaChi.length>0) setShowGoiY(true) }}
+                  onBlur={()=>setTimeout(()=>setShowGoiY(false),200)}/>
+                {showGoiY&&goiYDiaChi.length>0&&(
+                  <div style={{position:'absolute',top:'calc(100% + 2px)',left:0,right:0,zIndex:100,background:'white',border:'1px solid var(--border)',borderRadius:'6px',boxShadow:'0 4px 12px rgba(0,0,0,.1)',maxHeight:'160px',overflowY:'auto'}}>
+                    {goiYDiaChi.map((d,i)=>(
+                      <div key={i} onMouseDown={e=>{e.preventDefault();setDiaChiKH(d);setShowGoiY(false)}}
+                        style={{padding:'7px 12px',cursor:'pointer',fontSize:'12px',borderBottom:'1px solid #F3F4F6'}}
+                        onMouseEnter={e=>(e.currentTarget.style.background='#F0F9FF')}
+                        onMouseLeave={e=>(e.currentTarget.style.background='white')}>
+                        📍 {d}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
               <div>
                 <label style={{fontSize:'11px',fontWeight:600,display:'block',marginBottom:'3px'}}>Ghi chú</label>
