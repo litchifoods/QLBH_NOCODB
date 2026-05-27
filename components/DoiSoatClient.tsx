@@ -482,13 +482,8 @@ export default function DoiSoatClient({
                 setLoadingHoan(true)
                 try {
                   // Xóa chuyến giao khỏi bảng 7
-                  await fetch(`/api/giao-hang?id=${hoanVeGH['Id']||hoanVeGH['id']}`, {method:'DELETE'})
-                  // Cập nhật đơn hàng về Chờ giao
-                  const don = donHangMap[hoanVeGH['Mã đơn hàng']]
-                  if (don) {
-                    await fetch('/api/don-hang', {method:'PATCH', headers:{'Content-Type':'application/json'},
-                      body: JSON.stringify({id:don['Id']||don['id'], 'Trạng thái':'Chờ giao'})})
-                  }
+                  await fetch(`/api/giao-hang?id=${hoanVeGH['Id']||hoanVeGH['id']}&maDon=${hoanVeGH['Mã đơn hàng']}`, {method:'DELETE'})
+                  // Trạng thái đơn được cập nhật tự động trong API DELETE
                   setHoanVeGH(null); router.refresh()
                 } catch(e:any) { alert('Lỗi: '+e.message) }
                 finally { setLoadingHoan(false) }

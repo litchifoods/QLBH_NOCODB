@@ -106,9 +106,38 @@ export async function DELETE(request: NextRequest) {
     const session = await getSession()
     if (!session) return NextResponse.json({ message: 'Chưa đăng nhập' }, { status: 401 })
     const { searchParams } = new URL(request.url)
-    const id = searchParams.get('id')
+    const id    = searchParams.get('id')
+    const maDon = searchParams.get('maDon')
     if (!id) return NextResponse.json({ message: 'Thiếu id' }, { status: 400 })
+
+    // Xóa chuyến giao
     await deleteRecord(TABLES.GIAO_HANG, Number(id))
+
+    // Cập nhật trạng thái đơn hàng
+    if (maDon) {
+      // Kiểm tra còn chuyến nào khác không
+      const conLai = await getRecords(TABLES.GIAO_HANG, {
+        where: `(Mã đơn hàng,eq,${maDon})`, limit: 10,
+        fields: 'Mã giao hàng,Tình trạng đối soát',
+      })
+      const soChuyenConLai = (conLai.list || []).length
+
+      // Tìm đơn để lấy rowId
+      const donResult = await getRecords(TABLES.DON_HANG, {
+        where: `(Mã đơn hàng,eq,${maDon})`, limit: 1,
+        fields: 'Id,Trạng thái',
+      })
+      const don   = donResult.list?.[0]
+      const rowId = don?.['Id'] || don?.['id']
+
+      if (rowId) {
+        // Không còn chuyến nào → về Chờ giao
+        // Còn chuyến khác → giữ Đang giao
+        const ttMoi = soChuyenConLai === 0 ? 'Chờ giao' : 'Đang giao'
+        await updateRecord(TABLES.DON_HANG, Number(rowId), { 'Trạng thái': ttMoi })
+      }
+    }
+
     return NextResponse.json({ success: true })
   } catch (error: any) {
     return NextResponse.json({ message: error.message }, { status: 500 })
