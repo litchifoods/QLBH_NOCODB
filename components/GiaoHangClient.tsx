@@ -540,7 +540,7 @@ export default function GiaoHangClient({
                         )}
                       </div>
                     </div>
-                    <input className="input" placeholder="Ghi chú..." value={nguoi.ghiChu} onChange={e=>updN(nguoi.id,'ghiChu',e.target.value)} style={{fontSize:'12px'}}/>
+
                   </div>
                 )
               })}
