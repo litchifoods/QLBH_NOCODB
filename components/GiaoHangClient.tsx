@@ -72,7 +72,8 @@ export default function GiaoHangClient({
   }
   function getThongTinSP(maDon:string) {
     const ct = chiTietDonMap[maDon] || []
-    const hl = ct.filter((c:any) => c['Tên SP (ghi nhanh)']||c['Mã SP'])
+    // Chỉ lấy SP chưa hủy
+    const hl = ct.filter((c:any) => (c['Tên SP (ghi nhanh)']||c['Mã SP']) && c['Trạng thái SP'] !== 'Huỷ')
     if (hl.length===0) return { tenSP:'—', tongSP:0, coNhieu:false }
     const tenDau = hl[0]['Tên SP (ghi nhanh)'] || hl[0]['Mã SP'] || '—'
     const tongSL = hl.reduce((s:number,c:any)=>s+Number(c['Số lượng']||1),0)
@@ -109,9 +110,8 @@ export default function GiaoHangClient({
     const tongDaGiao = Object.values(daGiao).reduce((s:number,v:any)=>s+Number(v||0),0)
     const tongSPDon  = (ct||[]).reduce((s:number,c:any)=>s+Number(c['Số lượng']||1),0)
     // Phân bổ số lượng đã giao theo tỉ lệ nếu không map được chính xác
-    setDanhSachSP(ct.filter((c:any)=>c['Tên SP (ghi nhanh)']||c['Mã SP']).map((c:any)=>{
+    setDanhSachSP(ct.filter((c:any)=>(c['Tên SP (ghi nhanh)']||c['Mã SP']) && c['Trạng thái SP']!=='Huỷ').map((c:any)=>{
       const sl=Number(c['Số lượng']||1)
-      // Thử các key khác nhau để tìm trong daGiaoMap
       const key1=c['Mã chi tiết']||''
       const key2=c['Tên SP (ghi nhanh)']||''
       const key3=c['Mã SP']||''
@@ -124,7 +124,7 @@ export default function GiaoHangClient({
   function taoChuyen_TuDon(don:any) {
     setDonChon(don); setSearchDon(don['Mã đơn hàng'])
     const ct=chiTietDonMap[don['Mã đơn hàng']]||[]; const daGiao=daGiaoMap[don['Mã đơn hàng']]||{}
-    setDanhSachSP(ct.filter((c:any)=>c['Tên SP (ghi nhanh)']||c['Mã SP']).map((c:any)=>{
+    setDanhSachSP(ct.filter((c:any)=>(c['Tên SP (ghi nhanh)']||c['Mã SP']) && c['Trạng thái SP']!=='Huỷ').map((c:any)=>{
       const key=c['Mã chi tiết']||c['Tên SP (ghi nhanh)']||c['Mã SP']
       const sl=Number(c['Số lượng']||1); const daDG=daGiao[key]||0; const con=Math.max(0,sl-daDG)
       return { maChiTiet:c['Mã chi tiết']||'', tenSP:c['Tên SP (ghi nhanh)']||c['Mã SP']||'—', soLuongDon:sl, daGiao:daDG, soLuongGiao:con, checked:con>0, ghiChu:'' }
