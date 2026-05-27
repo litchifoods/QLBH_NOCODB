@@ -44,7 +44,8 @@ export default function GiaoHangClient({
   const router = useRouter()
   const [trang,    setTrang]    = useState(1)
   const [showForm, setShowForm] = useState(false)
-  const [editNgayDon, setEditNgayDon]   = useState<string|null>(null) // maDon đang sửa ngày
+  const [editNgayDon,  setEditNgayDon]  = useState<string|null>(null)
+  const [ghiChuNgay,   setGhiChuNgay]  = useState('')
   const [ngayGiaoMoi, setNgayGiaoMoi]  = useState('')
   const [loadingNgay, setLoadingNgay]  = useState(false)
   const [loading,  setLoading]  = useState(false)
