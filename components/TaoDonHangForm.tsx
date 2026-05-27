@@ -373,18 +373,6 @@ export default function TaoDonHangForm({
           </div>
 
           <div className="card" style={{padding:'14px'}}>
-            <h3 style={{fontSize:'11px',fontWeight:700,marginBottom:'10px',color:'var(--primary)',textTransform:'uppercase',letterSpacing:'.05em'}}>🚚 Chi phí giao hàng</h3>
-            <div>
-              <LBL>CP giao hàng / lắp đặt (VNĐ)</LBL>
-              <input className="input" type="number" min="0" value={cpGiaoHang||''} placeholder="0 — để trống nếu không có"
-                onChange={e=>setCpGiaoHang(Number(e.target.value))}/>
-              {cpGiaoHang>0&&<div style={{marginTop:'4px',fontSize:'11px',color:'#6B7280',fontStyle:'italic'}}>
-                💡 CP giao hàng sẽ được cộng vào "Còn phải thu"
-              </div>}
-            </div>
-          </div>
-
-          <div className="card" style={{padding:'14px'}}>
             <h3 style={{fontSize:'11px',fontWeight:700,marginBottom:'12px',color:'var(--primary)',textTransform:'uppercase',letterSpacing:'.05em'}}>💰 Đặt cọc</h3>
             <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'10px'}}>
               <div><LBL>💵 Tiền mặt (VNĐ)</LBL><input className="input" type="number" min="0" value={tienMat||''} placeholder="0" onChange={e=>setTienMat(Number(e.target.value))}/></div>
@@ -395,6 +383,18 @@ export default function TaoDonHangForm({
               <select className="input" value={xuatHoaDon} onChange={e=>setXuatHoaDon(e.target.value)}>
                 <option>Không</option><option>Có</option>
               </select>
+            </div>
+          </div>
+
+          <div className="card" style={{padding:'14px'}}>
+            <h3 style={{fontSize:'11px',fontWeight:700,marginBottom:'10px',color:'var(--primary)',textTransform:'uppercase',letterSpacing:'.05em'}}>🚚 Chi phí giao hàng</h3>
+            <div>
+              <LBL>CP giao hàng / lắp đặt (VNĐ)</LBL>
+              <input className="input" type="number" min="0" value={cpGiaoHang||''} placeholder="0 — để trống nếu không có"
+                onChange={e=>setCpGiaoHang(Number(e.target.value))}/>
+              {cpGiaoHang>0&&<div style={{marginTop:'4px',fontSize:'11px',color:'#6B7280',fontStyle:'italic'}}>
+                💡 CP giao hàng sẽ được cộng vào "Còn phải thu"
+              </div>}
             </div>
           </div>
 
