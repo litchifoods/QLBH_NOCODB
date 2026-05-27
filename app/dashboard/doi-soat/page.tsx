@@ -18,7 +18,7 @@ export default async function DoiSoatPage({
     getRecords(TABLES.DON_HANG,  { limit: 500, sort: '-Id' }),
     getRecords(TABLES.CHI_TIET_DON, {
       limit: 500, sort: 'Id',
-      fields: 'Mã chi tiết,Mã đơn hàng,Mã SP,Tên SP (ghi nhanh),Số lượng,Ghi chú SP',
+      fields: 'Mã chi tiết,Mã đơn hàng,Mã SP,Tên SP (ghi nhanh),Số lượng,Ghi chú SP,Trạng thái SP',
     }),
     getRecords(TABLES.KHACH_HANG, {
       limit: 500,
@@ -60,6 +60,15 @@ export default async function DoiSoatPage({
     chiTietGiaoMap[maGH].push(ct)
   }
 
+  // Map chi tiết đơn — lọc SP đã hủy
+  const chiTietDonMapClean: Record<string, any[]> = {}
+  for (const ct of (chiTietDon.list || [])) {
+    const maDon = ct['Mã đơn hàng']
+    if (!maDon) continue
+    if (!chiTietDonMapClean[maDon]) chiTietDonMapClean[maDon] = []
+    if (ct['Trạng thái SP'] !== 'Huỷ') chiTietDonMapClean[maDon].push(ct)
+  }
+
   // Lọc dòng trống trong bảng giao hàng
   const giaoHangHopLe = (giaoHang.list || []).filter(
     (g: any) => g['Mã giao hàng']?.toString().trim() && g['Mã đơn hàng']?.toString().trim()
@@ -71,7 +80,7 @@ export default async function DoiSoatPage({
       doiSoatMap={doiSoatMap}
       donHangMap={donHangMap}
       khachHangMap={khachHangMap}
-      chiTietDonMap={chiTietDonMap}
+      chiTietDonMap={chiTietDonMapClean}
       chiTietGiaoMap={chiTietGiaoMap}
       filterParam={searchParams.maGH}
       user={session!}

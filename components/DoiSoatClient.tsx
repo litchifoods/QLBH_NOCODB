@@ -66,15 +66,20 @@ export default function DoiSoatClient({
   }
   function getThongTinSP(maDon: string, maGH?: string) {
     const ct = chiTietDonMap[maDon] || []
-    const hl = ct.filter((c:any) => c['Tên SP (ghi nhanh)']||c['Mã SP'])
+    // Chỉ lấy SP chưa hủy
+    const hl = ct.filter((c:any) => (c['Tên SP (ghi nhanh)']||c['Mã SP']) && c['Trạng thái SP'] !== 'Huỷ')
     if (!hl.length) return { tenSP:'—', tongSPDon:0, slGiaoLanNay:0, daGiaoHet:false }
     const tongSPDon = hl.reduce((s:number,c:any)=>s+Number(c['Số lượng']||1),0)
     // SL giao lần này từ bảng 8
     const spGiaoLanNay = maGH ? (chiTietGiaoMap[maGH]||[]) : []
     const slGiaoLanNay = spGiaoLanNay.reduce((s:number,c:any)=>s+Number(c['Số lượng giao đợt này']||0),0)
-    // Tính tổng đã giao tất cả chuyến
     const tenSP = hl[0]['Tên SP (ghi nhanh)']||hl[0]['Mã SP']||'—'
-    return { tenSP, tongSPDon, slGiaoLanNay, daGiaoHet: slGiaoLanNay >= tongSPDon }
+    // Tính tổng đã giao tất cả chuyến của đơn này
+    const tatCaSpGiao = Object.values(chiTietGiaoMap)
+      .flat()
+      .filter((c:any) => c['Mã đơn hàng'] === maDon)
+      .reduce((s:number,c:any)=>s+Number(c['Số lượng giao đợt này']||0),0)
+    return { tenSP, tongSPDon, slGiaoLanNay, daGiaoHet: tatCaSpGiao >= tongSPDon && tongSPDon > 0 }
   }
 
   const filtered = useMemo(() => {
