@@ -492,13 +492,13 @@ export default function ChiTietDonHangClient({
                     const ds = doiSoatMap?.[g['Mã giao hàng']]
                     const daSoat = g['Tình trạng đối soát'] === 'Đã đối soát'
                     return (
-                      <div key={i} style={{background:daSoat?'#F0FDF4':'#F8FAFC',borderRadius:'6px',padding:'8px 10px',marginBottom:'6px',fontSize:'12px',border:`1px solid ${daSoat?'#BBF7D0':'#F0F0F0'}`}}>
+                      <div key={i} style={{background:daSoat?'#F0FDF4':'#EFF6FF',borderRadius:'6px',padding:'8px 10px',marginBottom:'6px',fontSize:'12px',border:`1px solid ${daSoat?'#BBF7D0':'#BFDBFE'}`}}>
                         <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
                           <span style={{fontWeight:700}}>{g['Tên NV/đối tác']||'—'}</span>
                           <span style={{fontSize:'11px',padding:'1px 8px',borderRadius:'10px',fontWeight:600,
-                            background:daSoat?'#D1FAE5':'#FEF3C7',
-                            color:daSoat?'#065F46':'#92400E'}}>
-                            {daSoat?'✅ Đã đối soát':'⏳ Chưa đối soát'}
+                            background:daSoat?'#D1FAE5':'#DBEAFE',
+                            color:daSoat?'#065F46':'#1E40AF'}}>
+                            {daSoat?'✅ Đã đối soát':'🚚 Đang giao'}
                           </span>
                         </div>
                         <div style={{color:'var(--text-secondary)',marginTop:'3px'}}>{fDT(g['Ngày giao'])}</div>
