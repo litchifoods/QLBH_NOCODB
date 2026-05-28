@@ -573,7 +573,7 @@ export default function KhachHangClient({ khachHang, donHuyCanHoan, congNoMap, d
                 )}
                 <div style={{display:'flex',gap:'10px'}}>
                   <button onClick={luuThuNo} disabled={dangThuNo||((tienMatThu||0)+(ckThu||0))<=0}
-                    style={{flex:1,padding:'11px',borderRadius:'8px',border:'none',background:(dangThuNo||soTienThu<=0)?'#9CA3AF':'#16A34A',color:'white',fontWeight:700,fontSize:'14px',cursor:(dangThuNo||soTienThu<=0)?'not-allowed':'pointer'}}>
+                    style={{flex:1,padding:'11px',borderRadius:'8px',border:'none',background:(dangThuNo||((tienMatThu||0)+(ckThu||0))<=0)?'#9CA3AF':'#16A34A',color:'white',fontWeight:700,fontSize:'14px',cursor:(dangThuNo||((tienMatThu||0)+(ckThu||0))<=0)?'not-allowed':'pointer'}}>
                     {dangThuNo?'⏳ Đang lưu...':'✅ Xác nhận thu tiền'}
                   </button>
                   <button onClick={()=>setPopupNoKH(null)} style={{padding:'11px 16px',borderRadius:'8px',border:'1px solid var(--border)',background:'white',cursor:'pointer',fontSize:'14px'}}>Huỷ</button>
