@@ -393,7 +393,7 @@ export default function KhachHangClient({ khachHang, donHuyCanHoan, congNoMap, d
                     {/* Cột Còn nợ — click để thu */}
                     <td style={{textAlign:'right',whiteSpace:'nowrap'}}>
                       {(congNoMap[kh['Mã KH']]||0) > 0 ? (
-                        <button onClick={()=>{setPopupNoKH(kh);setDonNoChon(null);setSoTienThu(0)}}
+                        <button onClick={()=>{setPopupNoKH(kh);setDonNoChon(null);setTienMatThu(0);setCkThu(0)}}
                           style={{background:'none',border:'none',cursor:'pointer',color:'#DC2626',fontWeight:700,fontSize:'12px',textDecoration:'underline dotted',padding:0}}>
                           {(congNoMap[kh['Mã KH']]||0).toLocaleString('vi-VN')}đ
                         </button>
@@ -527,7 +527,7 @@ export default function KhachHangClient({ khachHang, donHuyCanHoan, congNoMap, d
               <label style={{fontSize:'12px',fontWeight:700,display:'block',marginBottom:'6px'}}>Chọn đơn hàng cần thu:</label>
               <div style={{display:'flex',flexDirection:'column',gap:'6px',maxHeight:'200px',overflowY:'auto'}}>
                 {(donHangTheoKH[popupNoKH['Mã KH']]||[]).map((don:any,i:number)=>(
-                  <div key={i} onClick={()=>{setDonNoChon(don);setSoTienThu(Number(don['Còn phải thu']||0))}}
+                  <div key={i} onClick={()=>{setDonNoChon(don);setTienMatThu(Number(don['Còn phải thu']||0));setCkThu(0)}}
                     style={{padding:'10px 12px',borderRadius:'8px',border:'2px solid',cursor:'pointer',
                       borderColor:donNoChon?.['Mã đơn hàng']===don['Mã đơn hàng']?'#DC2626':'#E5E7EB',
                       background:donNoChon?.['Mã đơn hàng']===don['Mã đơn hàng']?'#FEF2F2':'white'}}>
