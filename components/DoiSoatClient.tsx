@@ -304,13 +304,19 @@ export default function DoiSoatClient({
 
                     {/* Cột TRẠNG THÁI */}
                     <td style={{textAlign:'center'}}>
-                      {don?.['Trạng thái']==='Huỷ' ? (
-                        <span style={{padding:'3px 9px',borderRadius:'20px',fontSize:'11px',fontWeight:700,background:'#FEE2E2',color:'#991B1B',whiteSpace:'nowrap'}}>🚫 Giao nhưng hủy</span>
-                      ) : !chuaDsRow ? (
-                        <span style={{padding:'3px 9px',borderRadius:'20px',fontSize:'11px',fontWeight:700,background:'#D1FAE5',color:'#065F46',whiteSpace:'nowrap'}}>✅ Đã giao</span>
-                      ) : (
-                        <span style={{padding:'3px 9px',borderRadius:'20px',fontSize:'11px',fontWeight:700,background:'#DBEAFE',color:'#1E40AF',whiteSpace:'nowrap'}}>🚚 Đang giao</span>
-                      )}
+                      {(()=>{
+                        if (don?.['Trạng thái']==='Huỷ') return <span style={{padding:'3px 9px',borderRadius:'20px',fontSize:'11px',fontWeight:700,background:'#FEE2E2',color:'#991B1B',whiteSpace:'nowrap'}}>🚫 Giao nhưng hủy</span>
+                        const {tongSPDon, slGiaoLanNay, daGiaoHet} = getThongTinSP(maDon, g['Mã giao hàng'])
+                        const giao1Phan = slGiaoLanNay > 0 && slGiaoLanNay < tongSPDon
+                        if (!chuaDsRow) {
+                          // Đã đối soát
+                          if (daGiaoHet) return <span style={{padding:'3px 9px',borderRadius:'20px',fontSize:'11px',fontWeight:700,background:'#D1FAE5',color:'#065F46',whiteSpace:'nowrap'}}>✅ Đã giao</span>
+                          return <span style={{padding:'3px 9px',borderRadius:'20px',fontSize:'11px',fontWeight:700,background:'#ECFDF5',color:'#059669',whiteSpace:'nowrap'}}>✅ Đã giao 1 phần</span>
+                        }
+                        // Chưa đối soát
+                        if (giao1Phan) return <span style={{padding:'3px 9px',borderRadius:'20px',fontSize:'11px',fontWeight:700,background:'#E0F2FE',color:'#0369A1',whiteSpace:'nowrap'}}>🚚 Đang giao 1 phần</span>
+                        return <span style={{padding:'3px 9px',borderRadius:'20px',fontSize:'11px',fontWeight:700,background:'#DBEAFE',color:'#1E40AF',whiteSpace:'nowrap'}}>🚚 Đang giao</span>
+                      })()}
                     </td>
                     <td style={{textAlign:'center'}}>
                       <span style={{padding:'3px 9px',borderRadius:'20px',fontSize:'11px',fontWeight:700,
