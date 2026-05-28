@@ -34,7 +34,6 @@ export default function TaoDonHangForm({
   const [kenhBan,     setKenhBan]     = useState('Trực tiếp')
   const [htGiao,      setHtGiao]      = useState('Giao hàng cho khách')
   const [ngayHenGiao, setNgayHenGiao] = useState('')
-  const [xuatHoaDon,  setXuatHoaDon]  = useState('Không')
   const [ghiChu,      setGhiChu]      = useState('')
 
   const [searchNV, setSearchNV] = useState('')
@@ -214,7 +213,7 @@ export default function TaoDonHangForm({
           'Đặt cọc':datCocTong,'Hình thức cọc':htCoc,
           'Còn phải thu':conPhaiThu,'Trạng thái':'Chờ giao',
           'Mã NV':maNV||'','Nhân viên bán':searchNV,
-          'Xuất hóa đơn':xuatHoaDon,'Ghi chú':ghiChu,
+          'Ghi chú':ghiChu,
         }),
       })
 
@@ -379,11 +378,7 @@ export default function TaoDonHangForm({
               <div><LBL>🏦 Chuyển khoản (VNĐ)</LBL><input className="input" type="number" min="0" value={ckCoc||''} placeholder="0" onChange={e=>setCkCoc(Number(e.target.value))}/></div>
             </div>
             {datCocTong>0&&<div style={{marginTop:'6px',fontSize:'12px',color:'var(--success)',fontWeight:600}}>Tổng cọc: {fVND(datCocTong)}</div>}
-            <div style={{marginTop:'10px'}}><LBL>Xuất hoá đơn VAT</LBL>
-              <select className="input" value={xuatHoaDon} onChange={e=>setXuatHoaDon(e.target.value)}>
-                <option>Không</option><option>Có</option>
-              </select>
-            </div>
+
           </div>
 
           <div className="card" style={{padding:'14px'}}>
