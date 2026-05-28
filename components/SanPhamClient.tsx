@@ -73,14 +73,18 @@ export default function SanPhamClient({ danhSach, user }:{ danhSach:any[]; user:
     if (!tenSP.trim()){showMsg2('Vui lòng nhập tên sản phẩm',false);return}
     setLoading(true)
     try {
-      const data = {
-        'Mã SP':maSP.trim()||undefined,
+      const data: Record<string,any> = {
         'Tên sản phẩm':tenSP.trim(),
-        'Loại SP':loaiSP,'Đơn vị tính':donVi,
-        'Giá bán buôn':giaBuon,'Giá bán lẻ':giaLe,
-        'Tồn kho':tonKho,'Cảnh báo tồn kho':canhBao,
-        'Thông số kỹ thuật':thongSo.trim(),'Ghi chú':ghiChu.trim(),
+        'Loại SP':loaiSP,
+        'Đơn vị tính':donVi,
+        'Giá bán buôn':Number(giaBuon)||0,
+        'Giá bán lẻ':Number(giaLe)||0,
+        'Tồn kho':Number(tonKho)||0,
+        'Cảnh báo tồn kho':Number(canhBao)||0,
+        'Thông số kỹ thuật':thongSo.trim(),
+        'Ghi chú':ghiChu.trim(),
       }
+      if (maSP.trim()) data['Mã SP'] = maSP.trim()
       if (editSP) {
         const res = await fetch('/api/san-pham',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:editSP._rowId,...data})})
         const d = await res.json()
@@ -179,7 +183,7 @@ export default function SanPhamClient({ danhSach, user }:{ danhSach:any[]; user:
         .sp-t th,.sp-t td{padding:8px 10px;}
         .sp-t tbody tr:hover td{background:#F0F4FF!important;}
         .ov{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;display:flex;align-items:center;justify-content:center;padding:16px;}
-        .mk{background:white;border-radius:12px;padding:24px;width:100%;max-width:560px;max-height:90vh;overflow-y:auto;}
+        .mk{background:white;border-radius:12px;padding:24px;width:100%;max-width:780px;max-height:93vh;overflow-y:auto;}
         @media(max-width:900px){.col-ts,.col-gc{display:none;}}
         @media(max-width:700px){.col-buon{display:none;}}
       `}</style>
@@ -228,8 +232,8 @@ export default function SanPhamClient({ danhSach, user }:{ danhSach:any[]; user:
                 <th style={{textAlign:'left',fontWeight:700}}>Tên sản phẩm</th>
                 <th style={{textAlign:'center',fontWeight:700}}>Loại</th>
                 <th style={{textAlign:'center',fontWeight:700}}>ĐVT</th>
-                <th className="col-buon" style={{textAlign:'right',fontWeight:700,whiteSpace:'nowrap'}}>Giá buôn</th>
-                <th style={{textAlign:'right',fontWeight:700,whiteSpace:'nowrap'}}>Giá lẻ</th>
+                <th className="col-buon" style={{textAlign:'right',fontWeight:700,whiteSpace:'nowrap'}}>Giá bán buôn</th>
+                <th style={{textAlign:'right',fontWeight:700,whiteSpace:'nowrap'}}>Giá bán lẻ</th>
                 <th style={{textAlign:'center',fontWeight:700}}>Tồn kho</th>
                 <th className="col-ts" style={{textAlign:'left',fontWeight:700}}>Thông số</th>
                 <th style={{textAlign:'center',fontWeight:700,width:'100px'}}>Thao tác</th>
@@ -264,8 +268,8 @@ export default function SanPhamClient({ danhSach, user }:{ danhSach:any[]; user:
                     <td className="col-ts" style={{fontSize:'11px',color:'#6B7280',maxWidth:'140px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{sp['Thông số kỹ thuật']||'—'}</td>
                     <td style={{textAlign:'center'}}>
                       <div style={{display:'flex',gap:'4px',justifyContent:'center'}}>
-                        <button onClick={()=>moSua(sp)} style={{padding:'4px 10px',borderRadius:'5px',border:'1px solid #FCD34D',background:'#FFFBEB',color:'#92400E',fontSize:'11px',fontWeight:600,cursor:'pointer'}}>✏️</button>
-                        <button onClick={()=>setXoaSP(sp)} style={{padding:'4px 8px',borderRadius:'5px',border:'1px solid #FCA5A5',background:'#FEF2F2',color:'#DC2626',fontSize:'11px',cursor:'pointer'}}>🗑️</button>
+                        <button onClick={()=>moSua(sp)} title="Sửa" style={{padding:'4px 10px',borderRadius:'5px',border:'1px solid #FCD34D',background:'#FFFBEB',color:'#92400E',fontSize:'11px',fontWeight:600,cursor:'pointer'}}>✏️ Sửa</button>
+                        <button onClick={()=>setXoaSP(sp)} title="Xóa" style={{padding:'4px 8px',borderRadius:'5px',border:'1px solid #FCA5A5',background:'#FEF2F2',color:'#DC2626',fontSize:'11px',cursor:'pointer',fontWeight:600}}>🗑️ Xóa</button>
                       </div>
                     </td>
                   </tr>
@@ -306,7 +310,7 @@ export default function SanPhamClient({ danhSach, user }:{ danhSach:any[]; user:
                   <input className="input" placeholder="Tên sản phẩm..." value={tenSP} onChange={e=>setTenSP(e.target.value)} autoFocus/>
                 </div>
               </div>
-              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'10px'}}>
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr 1fr',gap:'10px'}}>
                 <div>
                   <label style={{fontSize:'11px',fontWeight:600,display:'block',marginBottom:'3px'}}>Loại SP</label>
                   <select className="input" value={loaiSP} onChange={e=>setLoaiSP(e.target.value)}>
