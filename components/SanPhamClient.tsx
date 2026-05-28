@@ -7,7 +7,7 @@ import { UserSession } from '@/lib/auth'
 import * as XLSX from 'xlsx'
 
 function tinhTonKho(ton:number, canhBaoTon:number): {label:string,color:string,bg:string} {
-  if (ton < 0)  return {label:'Cần nhập',  color:'#7C3AED', bg:'#EDE9FE'}
+  if (ton < 0)  return {label:'Cần nhập',  color:'#A16207', bg:'#FEF9C3'}
   if (ton === 0) return {label:'Hết hàng', color:'#DC2626', bg:'#FEE2E2'}
   if (ton <= canhBaoTon) return {label:'Sắp hết', color:'#D97706', bg:'#FEF3C7'}
   return {label:'Còn hàng', color:'#16A34A', bg:'#D1FAE5'}
@@ -203,16 +203,16 @@ export default function SanPhamClient({ danhSach, user }:{ danhSach:any[]; user:
         <div>
           <h1 style={{fontFamily:'Playfair Display,serif',fontSize:'20px',fontWeight:700,margin:0}}>🪑 Sản phẩm</h1>
           <p style={{color:'var(--text-secondary)',fontSize:'13px',margin:'2px 0 6px'}}>
-            {local.length} sản phẩm
             {(()=>{
               const canNhap = local.filter(sp=>Number(sp['Tồn kho']||0)<0).length
               const hetHang = local.filter(sp=>Number(sp['Tồn kho']||0)===0).length
               const sapHet  = local.filter(sp=>{const t=Number(sp['Tồn kho']||0);return t>0&&t<=Number(sp['Cảnh báo tồn kho']||0)}).length
-              return <>
-                {canNhap>0&&<span style={{marginLeft:'8px',padding:'1px 8px',borderRadius:'10px',background:'#EDE9FE',color:'#7C3AED',fontWeight:600,fontSize:'12px'}}>🟣 {canNhap} Cần nhập</span>}
-                {hetHang>0&&<span style={{marginLeft:'6px',padding:'1px 8px',borderRadius:'10px',background:'#FEE2E2',color:'#DC2626',fontWeight:600,fontSize:'12px'}}>🔴 {hetHang} Hết hàng</span>}
-                {sapHet>0&&<span style={{marginLeft:'6px',padding:'1px 8px',borderRadius:'10px',background:'#FEF3C7',color:'#D97706',fontWeight:600,fontSize:'12px'}}>⚠️ {sapHet} Sắp hết</span>}
-              </>
+              return <span>
+                Tổng {local.length} sản phẩm
+                {canNhap>0&&<span style={{marginLeft:'8px',padding:'1px 8px',borderRadius:'10px',background:'#FEF9C3',color:'#A16207',fontWeight:600,fontSize:'12px'}}>{canNhap} SP cần nhập</span>}
+                {hetHang>0&&<span style={{marginLeft:'6px',padding:'1px 8px',borderRadius:'10px',background:'#FEE2E2',color:'#DC2626',fontWeight:600,fontSize:'12px'}}>{hetHang} SP hết hàng</span>}
+                {sapHet>0&&<span style={{marginLeft:'6px',padding:'1px 8px',borderRadius:'10px',background:'#FEF3C7',color:'#D97706',fontWeight:600,fontSize:'12px'}}>⚠️ {sapHet} SP sắp hết</span>}
+              </span>
             })()}
           </p>
           <div style={{display:'flex',gap:'8px',flexWrap:'wrap'}}>
@@ -233,14 +233,15 @@ export default function SanPhamClient({ danhSach, user }:{ danhSach:any[]; user:
         <div style={{display:'flex',gap:'10px',flexWrap:'wrap',alignItems:'center'}}>
           <input className="input" placeholder="🔍 Tìm tên, mã SP..." value={search} onChange={e=>setSearch(e.target.value)} style={{flex:1,minWidth:'180px',maxWidth:'280px'}}/>
           <div style={{display:'flex',gap:'6px',flexWrap:'wrap',alignItems:'center'}}>
-            <span style={{fontSize:'11px',color:'var(--text-secondary)',fontWeight:600}}>Loại:</span>
-            {['Tất cả',...LOAI_SP].map(l=>(
-              <button key={l} onClick={()=>setFilterLoai(l)} style={{padding:'5px 12px',borderRadius:'20px',border:'1px solid',borderColor:filterLoai===l?'var(--primary)':'var(--border)',background:filterLoai===l?'var(--primary-pale)':'white',color:filterLoai===l?'var(--primary)':'var(--text-secondary)',fontWeight:filterLoai===l?700:400,fontSize:'12px',cursor:'pointer'}}>{l}</button>
+            {/* Lọc theo Loại SP */}
+            {LOAI_SP.map(l=>(
+              <button key={l} onClick={()=>setFilterLoai(filterLoai===l?'Tất cả':l)} style={{padding:'5px 12px',borderRadius:'20px',border:'1px solid',borderColor:filterLoai===l?'var(--primary)':'var(--border)',background:filterLoai===l?'var(--primary-pale)':'white',color:filterLoai===l?'var(--primary)':'var(--text-secondary)',fontWeight:filterLoai===l?700:400,fontSize:'12px',cursor:'pointer'}}>{l}</button>
             ))}
-            <span style={{fontSize:'11px',color:'var(--text-secondary)',fontWeight:600,marginLeft:'6px'}}>Tồn:</span>
+            <span style={{color:'var(--border)',fontSize:'14px'}}>|</span>
+            {/* Lọc theo tồn kho */}
             {[
               {l:'Tất cả',c:'var(--text-secondary)',bg:'#F3F4F6'},
-              {l:'Cần nhập',c:'#7C3AED',bg:'#EDE9FE'},
+              {l:'Cần nhập',c:'#A16207',bg:'#FEF9C3'},
               {l:'Hết hàng',c:'#DC2626',bg:'#FEE2E2'},
               {l:'Sắp hết',c:'#D97706',bg:'#FEF3C7'},
               {l:'Còn hàng',c:'#16A34A',bg:'#D1FAE5'},
@@ -283,7 +284,7 @@ export default function SanPhamClient({ danhSach, user }:{ danhSach:any[]; user:
                       {sp['Ghi chú']&&<div style={{fontSize:'11px',color:'#9CA3AF',fontStyle:'italic'}}>{sp['Ghi chú']}</div>}
                     </td>
                     <td style={{textAlign:'center'}}>
-                      <span style={{padding:'2px 8px',borderRadius:'10px',fontSize:'11px',fontWeight:600,background:sp['Loại SP']==='Theo yêu cầu'?'#FEF3C7':'#DBEAFE',color:sp['Loại SP']==='Theo yêu cầu'?'#B45309':'#1E40AF'}}>
+                      <span style={{padding:'2px 8px',borderRadius:'10px',fontSize:'11px',fontWeight:600,background:sp['Loại SP']==='Theo yêu cầu'?'#FEF9C3':'#DBEAFE',color:sp['Loại SP']==='Theo yêu cầu'?'#A16207':'#1E40AF'}}>
                         {sp['Loại SP']||'—'}
                       </span>
                     </td>
