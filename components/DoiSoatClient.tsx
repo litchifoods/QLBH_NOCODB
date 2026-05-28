@@ -44,8 +44,11 @@ export default function DoiSoatClient({
   const [msg,       setMsg]      = useState('')
   const [msgOk,     setMsgOk]    = useState(true)
 
-  const [tienThuKH,    setTienThuKH]    = useState(0)
-  const [hinhThucThu,  setHinhThucThu]  = useState('Tiền mặt')
+  const [tienMat,      setTienMat]      = useState(0)
+  const [chuyenKhoan,  setChuyenKhoan]  = useState(0)
+  // tienThuKH = tổng tiền mặt + chuyển khoản
+  const tienThuKH = (tienMat||0) + (chuyenKhoan||0)
+  const hinhThucThu = tienMat>0 && chuyenKhoan>0 ? 'Tiền mặt+chuyển khoản' : tienMat>0 ? 'Tiền mặt' : chuyenKhoan>0 ? 'Chuyển khoản' : 'KH nợ — chưa thu'
   const [chiPhiVC,     setChiPhiVC]     = useState(0)
   const [chiPhiLap,    setChiPhiLap]    = useState(0)
   const [thuongChuyen, setThuongChuyen] = useState(0)
@@ -109,12 +112,12 @@ export default function DoiSoatClient({
   function moModal(gh: any) {
     const don = donHangMap[gh['Mã đơn hàng']]
     setModalGH(gh)
-    setTienThuKH(Number(don?.['Còn phải thu']||0))
-    setHinhThucThu('Tiền mặt')
+    setTienMat(Number(don?.['Còn phải thu']||0))
+    setChuyenKhoan(0)
     setChiPhiVC(Number(gh['Chi phí VC']||0))
     setChiPhiLap(Number(gh['Chi phí lắp đặt']||0))
     setThuongChuyen(Number(gh['Thưởng chuyến']||0))
-    setKetQua('Thành công'); setGhiChu(''); setHoanThanhDon(false)
+    setKetQua('Thành công'); setGhiChu(''); setHoanThanhDon(false); setTienMat(0); setChuyenKhoan(0)
   }
 
   async function luuDoiSoat() {
@@ -387,26 +390,28 @@ export default function DoiSoatClient({
                 })()}
               </div>
               <div style={{background:'#F0FDF4',borderRadius:'8px',padding:'12px 14px',border:'1px solid #BBF7D0'}}>
-                <div style={{fontWeight:700,fontSize:'13px',marginBottom:'8px',color:'#15803D'}}>💵 Tiền thu từ khách hàng</div>
+                <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'8px'}}>
+                  <span style={{fontWeight:700,fontSize:'13px',color:'#15803D'}}>💵 Tiền thu từ khách hàng</span>
+                  {tienThuKH>0&&<span style={{fontSize:'12px',fontWeight:700,color:'#15803D'}}>Tổng: {fVND(tienThuKH)}</span>}
+                </div>
                 <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'10px'}}>
                   <div>
-                    <label style={{fontSize:'11px',fontWeight:600,display:'block',marginBottom:'3px'}}>Số tiền thu (đ)</label>
-                    <input className="input" type="number" min="0" value={tienThuKH||''} placeholder="0" onChange={e=>setTienThuKH(Number(e.target.value))}/>
-                    {Number(donModal?.['Còn phải thu']||0)>0&&(
-                      <button onClick={()=>setTienThuKH(Number(donModal?.['Còn phải thu']||0))} style={{marginTop:'3px',padding:'2px 8px',border:'1px solid #BBF7D0',borderRadius:'4px',background:'white',cursor:'pointer',fontSize:'11px',color:'#15803D'}}>
-                        Điền đủ: {fVND(donModal?.['Còn phải thu'])}
-                      </button>
-                    )}
+                    <label style={{fontSize:'11px',fontWeight:600,display:'block',marginBottom:'3px'}}>💵 Tiền mặt (đ)</label>
+                    <input className="input" type="number" min="0" value={tienMat||''} placeholder="0" onChange={e=>setTienMat(Number(e.target.value))}/>
                   </div>
                   <div>
-                    <label style={{fontSize:'11px',fontWeight:600,display:'block',marginBottom:'3px'}}>Hình thức thu</label>
-                    <select className="input" value={hinhThucThu} onChange={e=>setHinhThucThu(e.target.value)}>
-                      <option>Tiền mặt</option><option>Chuyển khoản</option>
-                      <option>Tiền mặt+chuyển khoản</option><option>KH nợ — chưa thu</option>
-                    </select>
+                    <label style={{fontSize:'11px',fontWeight:600,display:'block',marginBottom:'3px'}}>🏦 Chuyển khoản (đ)</label>
+                    <input className="input" type="number" min="0" value={chuyenKhoan||''} placeholder="0" onChange={e=>setChuyenKhoan(Number(e.target.value))}/>
                   </div>
                 </div>
-              </div>
+                {Number(donModal?.['Còn phải thu']||0)>0&&(
+                  <button onClick={()=>{setTienMat(Number(donModal?.['Còn phải thu']||0));setChuyenKhoan(0)}}
+                    style={{marginTop:'6px',padding:'3px 10px',border:'1px solid #BBF7D0',borderRadius:'4px',background:'white',cursor:'pointer',fontSize:'11px',color:'#15803D'}}>
+                    Điền đủ tiền mặt: {fVND(donModal?.['Còn phải thu'])}
+                  </button>
+                )}
+                {tienThuKH===0&&<div style={{marginTop:'4px',fontSize:'11px',color:'#9CA3AF',fontStyle:'italic'}}>Để trống = KH nợ chưa thu</div>}
+              </div></div>
               <div style={{background:laDT?'#FFF7ED':'#F0F9FF',borderRadius:'8px',padding:'12px 14px',border:`1px solid ${laDT?'#FED7AA':'#BAE6FD'}`}}>
                 <div style={{fontWeight:700,fontSize:'13px',marginBottom:'6px',color:laDT?'#C2410C':'#0369A1'}}>{laDT?'💸 Chi phí trả đối tác':'🎁 Thưởng nhân viên'}</div>
                 <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:'8px'}}>
