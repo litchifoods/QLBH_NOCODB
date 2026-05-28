@@ -412,7 +412,7 @@ export default function DoiSoatClient({
                   </button>
                 )}
                 {tienThuKH===0&&<div style={{marginTop:'4px',fontSize:'11px',color:'#9CA3AF',fontStyle:'italic'}}>Để trống = KH nợ chưa thu</div>}
-              </div></div>
+              </div>
               <div style={{background:laDT?'#FFF7ED':'#F0F9FF',borderRadius:'8px',padding:'12px 14px',border:`1px solid ${laDT?'#FED7AA':'#BAE6FD'}`}}>
                 <div style={{fontWeight:700,fontSize:'13px',marginBottom:'6px',color:laDT?'#C2410C':'#0369A1'}}>{laDT?'💸 Chi phí trả đối tác':'🎁 Thưởng nhân viên'}</div>
                 <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:'8px'}}>
