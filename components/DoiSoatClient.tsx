@@ -336,7 +336,7 @@ export default function DoiSoatClient({
                           </>
                         ) : (
                           <>
-                            <button onClick={()=>setChiTietGH({gh:g,ds:doiSoatMap[g['Mã giao hàng']]})} title="Xem chi tiết đối soát"
+                            <button onClick={()=>setChiTietGH({gh:g,ds:doiSoatMap[g['Mã giao hàng']],don:donHangMap[g['Mã đơn hàng']]})} title="Chi tiết đối soát đối soát"
                               style={{padding:'4px 10px',borderRadius:'6px',border:'1px solid #BBF7D0',background:'#F0FDF4',color:'#065F46',fontSize:'12px',cursor:'pointer',lineHeight:'1',display:'flex',alignItems:'center',gap:'4px',fontWeight:600}}>
                               ✅ 👁
                             </button>
@@ -497,6 +497,22 @@ export default function DoiSoatClient({
                 <div style={{padding:'6px 10px',background:'#D1FAE5',borderRadius:'6px',fontSize:'12px',fontWeight:600,color:'#065F46',textAlign:'center'}}>
                   {KET_QUA_LIST.find(k=>k.value===chiTietGH.ds['Kết quả'])?.label||chiTietGH.ds['Kết quả']||'—'}
                 </div>
+                {(()=>{
+                  const daThu   = Number(chiTietGH.ds['Đã thu được']||0)
+                  const conPhaiThu = Number(chiTietGH.don?.['Còn phải thu']||0)
+                  const conNo   = conPhaiThu - daThu
+                  if (daThu === 0) return null
+                  return (
+                    <div style={{padding:'8px 12px',borderRadius:'6px',background:conNo>0?'#FEF2F2':conNo<0?'#FFFBEB':'#F0FDF4',border:`1px solid ${conNo>0?'#FCA5A5':conNo<0?'#FCD34D':'#BBF7D0'}`,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                      <span style={{fontSize:'12px',fontWeight:600,color:conNo>0?'#DC2626':conNo<0?'#D97706':'#16A34A'}}>
+                        {conNo>0?'⚠️ KH còn nợ:':conNo<0?'💰 KH trả thừa:':'✅ Thanh toán đủ'}
+                      </span>
+                      {conNo!==0&&<span style={{fontSize:'13px',fontWeight:800,color:conNo>0?'#DC2626':'#D97706'}}>
+                        {Math.abs(conNo).toLocaleString('vi-VN')}đ
+                      </span>}
+                    </div>
+                  )
+                })()}
               </div>
             ) : <div style={{color:'#9CA3AF',fontSize:'13px',textAlign:'center'}}>Chưa có dữ liệu đối soát</div>}
             <button onClick={()=>setChiTietGH(null)} style={{width:'100%',marginTop:'16px',padding:'10px',borderRadius:'8px',border:'1px solid var(--border)',background:'white',cursor:'pointer',fontSize:'14px',fontWeight:600}}>Đóng</button>
