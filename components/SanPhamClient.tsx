@@ -6,12 +6,19 @@ import { useRouter } from 'next/navigation'
 import { UserSession } from '@/lib/auth'
 import * as XLSX from 'xlsx'
 
+function tinhTonKho(ton:number, canhBaoTon:number): {label:string,color:string,bg:string} {
+  if (ton < 0)  return {label:'Cần nhập',  color:'#7C3AED', bg:'#EDE9FE'}
+  if (ton === 0) return {label:'Hết hàng', color:'#DC2626', bg:'#FEE2E2'}
+  if (ton <= canhBaoTon) return {label:'Sắp hết', color:'#D97706', bg:'#FEF3C7'}
+  return {label:'Còn hàng', color:'#16A34A', bg:'#D1FAE5'}
+}
+
 function boDau(s:string){return(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/đ/g,'d').replace(/Đ/g,'D').toLowerCase()}
 function fVND(n:any){return Number(n||0).toLocaleString('vi-VN')}
 
 const LOAI_SP = ['Phổ thông','Theo yêu cầu']
 const DON_VI  = ['Bộ','Cái','Chiếc','Tấm','Cặp','Bàn','Ghế','Tủ','Kệ','Giường','Sofa']
-const SO_DONG = 15
+const SO_DONG = 10
 
 export default function SanPhamClient({ danhSach, user }:{ danhSach:any[]; user:UserSession }) {
   const router   = useRouter()
@@ -22,7 +29,7 @@ export default function SanPhamClient({ danhSach, user }:{ danhSach:any[]; user:
   const [local,    setLocal]    = useState(() => danhSach.map(sp=>({...sp,_key:nextKey(),_rowId:Number(sp['Id']||sp['id']||0)})))
   const [search,   setSearch]   = useState('')
   const [filterLoai,setFilterLoai] = useState('Tất cả')
-  const [filterTon, setFilterTon]  = useState(false)
+  const [filterTon, setFilterTon]  = useState('Tất cả')
   const [trang,    setTrang]    = useState(1)
   const [msg,      setMsg]      = useState('')
   const [msgOk,    setMsgOk]    = useState(true)
@@ -48,7 +55,10 @@ export default function SanPhamClient({ danhSach, user }:{ danhSach:any[]; user:
 
   const filtered = useMemo(()=>local.filter(sp=>{
     if (filterLoai!=='Tất cả' && sp['Loại SP']!==filterLoai) return false
-    if (filterTon && Number(sp['Tồn kho']||0) > Number(sp['Cảnh báo tồn kho']||0)) return false
+    if (filterTon !== 'Tất cả') {
+      const tt = tinhTonKho(Number(sp['Tồn kho']||0), Number(sp['Cảnh báo tồn kho']||0))
+      if (tt.label !== filterTon) return false
+    }
     if (!search.trim()) return true
     const q=boDau(search)
     return boDau(sp['Tên sản phẩm']||'').includes(q)||boDau(sp['Mã SP']||'').includes(q)||boDau(sp['Loại SP']||'').includes(q)
@@ -175,7 +185,7 @@ export default function SanPhamClient({ danhSach, user }:{ danhSach:any[]; user:
     if (fileRef.current) fileRef.current.value=''
   }
 
-  const tonThap = local.filter(sp=>Number(sp['Tồn kho']||0)<=Number(sp['Cảnh báo tồn kho']||0)).length
+  const tonThap = local.filter(sp=>tinhTonKho(Number(sp['Tồn kho']||0),Number(sp['Cảnh báo tồn kho']||0)).label!=='Còn hàng').length
 
   return (
     <div style={{padding:'20px'}}>
@@ -217,7 +227,15 @@ export default function SanPhamClient({ danhSach, user }:{ danhSach:any[]; user:
             {['Tất cả',...LOAI_SP].map(l=>(
               <button key={l} onClick={()=>setFilterLoai(l)} style={{padding:'5px 12px',borderRadius:'20px',border:'1px solid',borderColor:filterLoai===l?'var(--primary)':'var(--border)',background:filterLoai===l?'var(--primary-pale)':'white',color:filterLoai===l?'var(--primary)':'var(--text-secondary)',fontWeight:filterLoai===l?700:400,fontSize:'12px',cursor:'pointer'}}>{l}</button>
             ))}
-            <button onClick={()=>setFilterTon(v=>!v)} style={{padding:'5px 12px',borderRadius:'20px',border:'1px solid',borderColor:filterTon?'#DC2626':'var(--border)',background:filterTon?'#FEE2E2':'white',color:filterTon?'#DC2626':'var(--text-secondary)',fontWeight:filterTon?700:400,fontSize:'12px',cursor:'pointer'}}>⚠️ Sắp hết hàng</button>
+            {[
+              {l:'Tất cả',c:'var(--primary)',bg:'var(--primary-pale)'},
+              {l:'Cần nhập',c:'#7C3AED',bg:'#EDE9FE'},
+              {l:'Hết hàng',c:'#DC2626',bg:'#FEE2E2'},
+              {l:'Sắp hết',c:'#D97706',bg:'#FEF3C7'},
+              {l:'Còn hàng',c:'#16A34A',bg:'#D1FAE5'},
+            ].map(({l,c,bg})=>(
+              <button key={l} onClick={()=>setFilterTon(l)} style={{padding:'5px 12px',borderRadius:'20px',border:'1px solid',borderColor:filterTon===l?c:'var(--border)',background:filterTon===l?bg:'white',color:filterTon===l?c:'var(--text-secondary)',fontWeight:filterTon===l?700:400,fontSize:'12px',cursor:'pointer'}}>{l}</button>
+            ))}
           </div>
         </div>
       </div>
@@ -247,7 +265,7 @@ export default function SanPhamClient({ danhSach, user }:{ danhSach:any[]; user:
                 const canhBaoTon = Number(sp['Cảnh báo tồn kho']||0)
                 const sapHet  = ton <= canhBaoTon
                 return (
-                  <tr key={sp._key} style={{borderBottom:'1px solid #F0F0F0',background:sapHet?'#FFF9F9':i%2===0?'white':'#FAFBFD'}}>
+                  <tr key={sp._key} style={{borderBottom:'1px solid #F0F0F0',background:(()=>{const tt=tinhTonKho(ton,canhBaoTon);return tt.label==='Hết hàng'?'#FFF5F5':tt.label==='Cần nhập'?'#FAF5FF':tt.label==='Sắp hết'?'#FFFBEB':i%2===0?'white':'#FAFBFD'})()}}>
                     <td style={{fontWeight:700,color:'var(--primary)',whiteSpace:'nowrap'}}>{sp['Mã SP']||'—'}</td>
                     <td>
                       <div style={{fontWeight:600}}>{sp['Tên sản phẩm']}</div>
@@ -262,8 +280,15 @@ export default function SanPhamClient({ danhSach, user }:{ danhSach:any[]; user:
                     <td className="col-buon" style={{textAlign:'right',fontSize:'12px',color:'#6B7280'}}>{Number(sp['Giá bán buôn']||0)>0?fVND(sp['Giá bán buôn'])+'đ':'—'}</td>
                     <td style={{textAlign:'right',fontWeight:700,color:'var(--primary)',whiteSpace:'nowrap'}}>{Number(sp['Giá bán lẻ']||0)>0?fVND(sp['Giá bán lẻ'])+'đ':'—'}</td>
                     <td style={{textAlign:'center'}}>
-                      <span style={{fontWeight:700,fontSize:'13px',color:sapHet?'#DC2626':'#16A34A'}}>{ton}</span>
-                      {sapHet&&<div style={{fontSize:'10px',color:'#DC2626'}}>⚠️ Sắp hết</div>}
+                      {(()=>{
+                        const tt = tinhTonKho(ton, canhBaoTon)
+                        return (
+                          <div>
+                            <span style={{fontWeight:700,fontSize:'13px',color:tt.color}}>{ton}</span>
+                            {tt.label!=='Còn hàng'&&<div style={{fontSize:'10px',padding:'1px 5px',borderRadius:'8px',background:tt.bg,color:tt.color,fontWeight:600,marginTop:'2px',display:'inline-block'}}>{tt.label}</div>}
+                          </div>
+                        )
+                      })()}
                     </td>
                     <td className="col-ts" style={{fontSize:'11px',color:'#6B7280',maxWidth:'140px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{sp['Thông số kỹ thuật']||'—'}</td>
                     <td style={{textAlign:'center'}}>
