@@ -74,7 +74,7 @@ export default async function ChiTietDonHangPage({ params }: { params: { maDon: 
   const dsAll = await getRecords(TABLES.DOI_SOAT, {
     limit: 2000,
     sort: '-Id',
-    fields: 'Mã giao hàng,Đã thu được,Chi phí VC,Chi phí lắp đặt,Thưởng chuyến,Hình thức thu,Kết quả',
+    fields: 'Mã giao hàng,Đã thu được,Chi phí VC,Chi phí lắp đặt,Hình thức thu,Kết quả',
   })
   console.log('[DS] total:', dsAll.list?.length, 'maGHSet:', maGHSet)
   for (const ds of (dsAll.list || [])) {
