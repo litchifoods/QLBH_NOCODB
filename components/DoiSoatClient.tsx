@@ -416,6 +416,22 @@ export default function DoiSoatClient({
                   </button>
                 )}
                 {tienThuKH===0&&<div style={{marginTop:'4px',fontSize:'11px',color:'#9CA3AF',fontStyle:'italic'}}>Để trống = KH nợ chưa thu</div>}
+                {(()=>{
+                  const conNo = Number(donModal?.['Còn phải thu']||0) - tienThuKH
+                  if (tienThuKH===0) return null
+                  return (
+                    <div style={{marginTop:'8px',padding:'8px 12px',borderRadius:'6px',background:conNo>0?'#FEF2F2':conNo<0?'#FFFBEB':'#F0FDF4',border:`1px solid ${conNo>0?'#FCA5A5':conNo<0?'#FCD34D':'#BBF7D0'}`}}>
+                      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                        <span style={{fontSize:'12px',fontWeight:600,color:conNo>0?'#DC2626':conNo<0?'#D97706':'#16A34A'}}>
+                          {conNo>0?'⚠️ KH còn nợ:':conNo<0?'💰 KH trả thừa:':'✅ Thanh toán đủ'}
+                        </span>
+                        {conNo!==0&&<span style={{fontSize:'13px',fontWeight:800,color:conNo>0?'#DC2626':'#D97706'}}>
+                          {Math.abs(conNo).toLocaleString('vi-VN')}đ
+                        </span>}
+                      </div>
+                    </div>
+                  )
+                })()}
               </div>
               <div style={{background:laDT?'#FFF7ED':'#F0F9FF',borderRadius:'8px',padding:'12px 14px',border:`1px solid ${laDT?'#FED7AA':'#BAE6FD'}`}}>
                 <div style={{fontWeight:700,fontSize:'13px',marginBottom:'6px',color:laDT?'#C2410C':'#0369A1'}}>{laDT?'💸 Chi phí trả đối tác':'🎁 Thưởng nhân viên'}</div>
