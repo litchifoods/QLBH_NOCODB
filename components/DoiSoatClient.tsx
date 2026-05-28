@@ -46,9 +46,6 @@ export default function DoiSoatClient({
 
   const [tienMat,      setTienMat]      = useState(0)
   const [chuyenKhoan,  setChuyenKhoan]  = useState(0)
-  // tienThuKH = tổng tiền mặt + chuyển khoản
-  const tienThuKH = (tienMat||0) + (chuyenKhoan||0)
-  const hinhThucThu = (tienMat>0 && chuyenKhoan>0) ? 'Tiền mặt+chuyển khoản' : (tienMat>0) ? 'Tiền mặt' : (chuyenKhoan>0) ? 'Chuyển khoản' : 'KH nợ - chưa thu'
   const [chiPhiVC,     setChiPhiVC]     = useState(0)
   const [chiPhiLap,    setChiPhiLap]    = useState(0)
   const [thuongChuyen, setThuongChuyen] = useState(0)
@@ -58,6 +55,10 @@ export default function DoiSoatClient({
   const [chiTietGH,    setChiTietGH]    = useState<any>(null)  // popup xem chi tiết
   const [hoanVeGH,     setHoanVeGH]     = useState<any>(null)  // popup hoàn về
   const [loadingHoan,  setLoadingHoan]  = useState(false)
+
+  // Tính tổng tiền thu và hình thức thu
+  const tienThuKH = (tienMat||0) + (chuyenKhoan||0)
+  const hinhThucThu = (tienMat>0 && chuyenKhoan>0) ? 'Tiền mặt+chuyển khoản' : (tienMat>0) ? 'Tiền mặt' : (chuyenKhoan>0) ? 'Chuyển khoản' : 'KH nợ - chưa thu'
 
   function getTenKH(maKH: string, tenTuDon?: string) {
     return khachHangMap[maKH]?.['Tên khách hàng'] || tenTuDon || maKH || '—'
