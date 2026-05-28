@@ -336,7 +336,7 @@ export default function DoiSoatClient({
                           </>
                         ) : (
                           <>
-                            <button onClick={()=>setChiTietGH({gh:g,ds:doiSoatMap[g['Mã giao hàng']],don:donHangMap[g['Mã đơn hàng']]})} title="Chi tiết đối soát đối soát"
+                            <button onClick={()=>setChiTietGH({gh:g,ds:doiSoatMap[g['Mã giao hàng']],don:donHangMap[g['Mã đơn hàng']]})} title="Chi tiết đối soát"
                               style={{padding:'4px 10px',borderRadius:'6px',border:'1px solid #BBF7D0',background:'#F0FDF4',color:'#065F46',fontSize:'12px',cursor:'pointer',lineHeight:'1',display:'flex',alignItems:'center',gap:'4px',fontWeight:600}}>
                               ✅ 👁
                             </button>
@@ -498,10 +498,12 @@ export default function DoiSoatClient({
                   {KET_QUA_LIST.find(k=>k.value===chiTietGH.ds['Kết quả'])?.label||chiTietGH.ds['Kết quả']||'—'}
                 </div>
                 {(()=>{
-                  const daThu   = Number(chiTietGH.ds['Đã thu được']||0)
+                  const daThu      = Number(chiTietGH.ds['Đã thu được']||0)
                   const conPhaiThu = Number(chiTietGH.don?.['Còn phải thu']||0)
-                  const conNo   = conPhaiThu - daThu
-                  if (daThu === 0) return null
+                  // conNo = số tiền KH còn nợ SAU khi đối soát chuyến này
+                  // conPhaiThu đã được API cập nhật = tổng còn lại sau tất cả đợt thu
+                  const conNo = conPhaiThu
+                  if (daThu === 0 && conNo === 0) return null
                   return (
                     <div style={{padding:'8px 12px',borderRadius:'6px',background:conNo>0?'#FEF2F2':conNo<0?'#FFFBEB':'#F0FDF4',border:`1px solid ${conNo>0?'#FCA5A5':conNo<0?'#FCD34D':'#BBF7D0'}`,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
                       <span style={{fontSize:'12px',fontWeight:600,color:conNo>0?'#DC2626':conNo<0?'#D97706':'#16A34A'}}>
