@@ -48,7 +48,7 @@ export default function DoiSoatClient({
   const [chuyenKhoan,  setChuyenKhoan]  = useState(0)
   // tienThuKH = tổng tiền mặt + chuyển khoản
   const tienThuKH = (tienMat||0) + (chuyenKhoan||0)
-  const hinhThucThu = tienMat>0 && chuyenKhoan>0 ? 'Tiền mặt+chuyển khoản' : tienMat>0 ? 'Tiền mặt' : chuyenKhoan>0 ? 'Chuyển khoản' : 'KH nợ — chưa thu'
+  const hinhThucThu = (tienMat>0 && chuyenKhoan>0) ? 'Tiền mặt+chuyển khoản' : (tienMat>0) ? 'Tiền mặt' : (chuyenKhoan>0) ? 'Chuyển khoản' : 'KH nợ - chưa thu'
   const [chiPhiVC,     setChiPhiVC]     = useState(0)
   const [chiPhiLap,    setChiPhiLap]    = useState(0)
   const [thuongChuyen, setThuongChuyen] = useState(0)
