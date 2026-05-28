@@ -439,7 +439,9 @@ export default function DoiSoatClient({
                   {[['CP vận chuyển',chiPhiVC,setChiPhiVC],['CP lắp đặt',chiPhiLap,setChiPhiLap],['Thưởng chuyến',thuongChuyen,setThuongChuyen]].map(([lb,val,setter]:any)=>(
                     <div key={lb}>
                       <label style={{fontSize:'11px',fontWeight:600,display:'block',marginBottom:'3px'}}>{lb} (đ)</label>
-                      <input className="input" type="number" min="0" value={val||''} placeholder="0" onChange={e=>setter(Number(e.target.value))} style={{fontSize:'12px'}}/>
+                      <input className="input" type="text" inputMode="numeric" style={{fontSize:'12px'}}
+                        value={val?Number(val).toLocaleString('vi-VN'):''} placeholder="0"
+                        onChange={e=>{const v=Number(e.target.value.replace(/\./g,'').replace(/,/g,''));if(!isNaN(v))setter(v)}}/>
                     </div>
                   ))}
                 </div>
