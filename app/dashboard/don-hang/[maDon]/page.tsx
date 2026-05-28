@@ -45,6 +45,7 @@ function tinhTrangThai(chiTiet: any[], giaoHangList: any[], chiTietGiao: any[], 
 }
 
 export default async function ChiTietDonHangPage({ params }: { params: { maDon: string } }) {
+  console.log('[PAGE-V4] ChiTietDonHangPage called, maDon:', params.maDon)
   const session = await getSession()
   const { maDon } = params
 
@@ -69,13 +70,16 @@ export default async function ChiTietDonHangPage({ params }: { params: { maDon: 
   const ghList = giaoHangResult.list || []
   const maGHSet = ghList.map((gh:any) => gh['Mã giao hàng']).filter(Boolean)
   let doiSoatMap: Record<string, any> = {}
+  console.log('[CHI-TIET] maGHSet:', maGHSet)
   if (maGHSet.length > 0) {
     const dsAll = await getRecords(TABLES.DOI_SOAT, {
       limit: 500,
+      sort: '-Id',
       fields: 'Mã giao hàng,Đã thu được,Chi phí VC,Chi phí lắp đặt,Thưởng chuyến,Hình thức thu,Kết quả',
     })
     for (const ds of (dsAll.list || [])) {
       const maGH = ds['Mã giao hàng']
+      console.log('[CHI-TIET] ds maGH:', maGH, 'includes:', maGHSet.includes(maGH))
       if (maGH && maGHSet.includes(maGH)) {
         doiSoatMap[maGH] = ds
       }
