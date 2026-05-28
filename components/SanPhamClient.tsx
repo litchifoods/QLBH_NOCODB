@@ -126,7 +126,7 @@ export default function SanPhamClient({ danhSach, user }:{ danhSach:any[]; user:
     }))
     const ws = XLSX.utils.json_to_sheet(rows)
     const wb = XLSX.utils.book_new()
-    XLSX.utils.book_append_sheet(wb,'Sản phẩm',ws)
+    XLSX.utils.book_append_sheet(wb,ws,'Sản phẩm')
     XLSX.writeFile(wb,'san-pham.xlsx')
   }
 
@@ -135,7 +135,7 @@ export default function SanPhamClient({ danhSach, user }:{ danhSach:any[]; user:
     const mau = [{'Mã SP':'(để trống = tự tạo)','Tên sản phẩm':'Bàn giám đốc gỗ tự nhiên','Loại SP':'Phổ thông','Đơn vị tính':'Bộ','Giá bán buôn':7000000,'Giá bán lẻ':8500000,'Tồn kho':5,'Cảnh báo tồn kho':3,'Thông số kỹ thuật':'120x60x75cm','Ghi chú':''}]
     const ws = XLSX.utils.json_to_sheet(mau)
     const wb = XLSX.utils.book_new()
-    XLSX.utils.book_append_sheet(wb,'Mẫu nhập SP',ws)
+    XLSX.utils.book_append_sheet(wb,ws,'Mẫu nhập SP')
     XLSX.writeFile(wb,'mau-san-pham.xlsx')
   }
 
