@@ -70,19 +70,16 @@ export default async function ChiTietDonHangPage({ params }: { params: { maDon: 
   const ghList = giaoHangResult.list || []
   const maGHSet = ghList.map((gh:any) => gh['Mã giao hàng']).filter(Boolean)
   let doiSoatMap: Record<string, any> = {}
-  console.log('[CHI-TIET] maGHSet:', maGHSet)
-  if (maGHSet.length > 0) {
-    const dsAll = await getRecords(TABLES.DOI_SOAT, {
-      limit: 500,
+  // Query từng Mã giao hàng trực tiếp thay vì load all
+  for (const maGH of maGHSet) {
+    const dsResult = await getRecords(TABLES.DOI_SOAT, {
+      where: `(Mã giao hàng,eq,${maGH})`,
+      limit: 1,
       sort: '-Id',
       fields: 'Mã giao hàng,Đã thu được,Chi phí VC,Chi phí lắp đặt,Thưởng chuyến,Hình thức thu,Kết quả',
     })
-    for (const ds of (dsAll.list || [])) {
-      const maGH = ds['Mã giao hàng']
-      console.log('[CHI-TIET] ds maGH:', maGH, 'includes:', maGHSet.includes(maGH))
-      if (maGH && maGHSet.includes(maGH)) {
-        doiSoatMap[maGH] = ds
-      }
+    if (dsResult.list?.[0]) {
+      doiSoatMap[maGH] = dsResult.list[0]
     }
   }
   
