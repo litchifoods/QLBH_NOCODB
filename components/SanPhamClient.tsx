@@ -232,22 +232,27 @@ export default function SanPhamClient({ danhSach, user }:{ danhSach:any[]; user:
       <div className="card" style={{padding:'12px 14px',marginBottom:'14px'}}>
         <div style={{display:'flex',gap:'10px',flexWrap:'wrap',alignItems:'center'}}>
           <input className="input" placeholder="🔍 Tìm tên, mã SP..." value={search} onChange={e=>setSearch(e.target.value)} style={{flex:1,minWidth:'180px',maxWidth:'280px'}}/>
-          <div style={{display:'flex',gap:'6px',flexWrap:'wrap',alignItems:'center'}}>
-            {/* Lọc theo Loại SP */}
-            {LOAI_SP.map(l=>(
-              <button key={l} onClick={()=>setFilterLoai(filterLoai===l?'Tất cả':l)} style={{padding:'5px 12px',borderRadius:'20px',border:'1px solid',borderColor:filterLoai===l?'var(--primary)':'var(--border)',background:filterLoai===l?'var(--primary-pale)':'white',color:filterLoai===l?'var(--primary)':'var(--text-secondary)',fontWeight:filterLoai===l?700:400,fontSize:'12px',cursor:'pointer'}}>{l}</button>
-            ))}
-            <span style={{color:'var(--border)',fontSize:'14px'}}>|</span>
-            {/* Lọc theo tồn kho */}
-            {[
-              {l:'Tất cả',c:'var(--text-secondary)',bg:'#F3F4F6'},
-              {l:'Cần nhập',c:'#A16207',bg:'#FEF9C3'},
-              {l:'Hết hàng',c:'#DC2626',bg:'#FEE2E2'},
-              {l:'Sắp hết',c:'#D97706',bg:'#FEF3C7'},
-              {l:'Còn hàng',c:'#16A34A',bg:'#D1FAE5'},
-            ].map(({l,c,bg})=>(
-              <button key={`ton-${l}`} onClick={()=>setFilterTon(l)} style={{padding:'5px 12px',borderRadius:'20px',border:'1px solid',borderColor:filterTon===l?c:'var(--border)',background:filterTon===l?bg:'white',color:filterTon===l?c:'var(--text-secondary)',fontWeight:filterTon===l?700:400,fontSize:'12px',cursor:'pointer'}}>{l}</button>
-            ))}
+          <div style={{display:'flex',flexDirection:'column',gap:'8px'}}>
+            {/* Hàng 1: Lọc theo Loại sản phẩm */}
+            <div style={{display:'flex',gap:'6px',alignItems:'center',flexWrap:'wrap'}}>
+              <span style={{fontSize:'11px',color:'var(--text-secondary)',minWidth:'60px'}}>Loại SP:</span>
+              {['Tất cả','Phổ thông','Theo yêu cầu'].map(l=>(
+                <button key={l} onClick={()=>setFilterLoai(l)} style={{padding:'4px 12px',borderRadius:'20px',border:'1px solid',borderColor:filterLoai===l?'var(--primary)':'var(--border)',background:filterLoai===l?'var(--primary-pale)':'white',color:filterLoai===l?'var(--primary)':'var(--text-secondary)',fontWeight:filterLoai===l?700:400,fontSize:'12px',cursor:'pointer'}}>{l}</button>
+              ))}
+            </div>
+            {/* Hàng 2: Lọc theo tình trạng tồn kho */}
+            <div style={{display:'flex',gap:'6px',alignItems:'center',flexWrap:'wrap'}}>
+              <span style={{fontSize:'11px',color:'var(--text-secondary)',minWidth:'60px'}}>Tồn kho:</span>
+              {[
+                {l:'Tất cả',  c:'var(--text-secondary)', bg:'#F3F4F6'},
+                {l:'Cần nhập',c:'#A16207',               bg:'#FEF9C3'},
+                {l:'Hết hàng',c:'#DC2626',               bg:'#FEE2E2'},
+                {l:'Sắp hết', c:'#D97706',               bg:'#FEF3C7'},
+                {l:'Còn hàng',c:'#16A34A',               bg:'#D1FAE5'},
+              ].map(({l,c,bg})=>(
+                <button key={`ton-${l}`} onClick={()=>setFilterTon(l)} style={{padding:'4px 12px',borderRadius:'20px',border:'1px solid',borderColor:filterTon===l?c:'var(--border)',background:filterTon===l?bg:'white',color:filterTon===l?c:'var(--text-secondary)',fontWeight:filterTon===l?700:400,fontSize:'12px',cursor:'pointer'}}>{l}</button>
+              ))}
+            </div>
           </div>
         </div>
       </div>
@@ -284,8 +289,8 @@ export default function SanPhamClient({ danhSach, user }:{ danhSach:any[]; user:
                       {sp['Ghi chú']&&<div style={{fontSize:'11px',color:'#9CA3AF',fontStyle:'italic'}}>{sp['Ghi chú']}</div>}
                     </td>
                     <td style={{textAlign:'center'}}>
-                      <span style={{padding:'2px 8px',borderRadius:'10px',fontSize:'11px',fontWeight:600,background:sp['Loại SP']==='Theo yêu cầu'?'#FEF9C3':'#DBEAFE',color:sp['Loại SP']==='Theo yêu cầu'?'#A16207':'#1E40AF'}}>
-                        {sp['Loại SP']||'—'}
+                      <span style={{padding:'2px 8px',borderRadius:'10px',fontSize:'11px',fontWeight:600,whiteSpace:'nowrap',background:sp['Loại SP']==='Theo yêu cầu'?'#FEF9C3':'#DBEAFE',color:sp['Loại SP']==='Theo yêu cầu'?'#A16207':'#1E40AF'}}>
+                        {sp['Loại SP']==='Theo yêu cầu'?'Theo YC':'Phổ thông'}
                       </span>
                     </td>
                     <td style={{textAlign:'center',fontSize:'12px',color:'var(--text-secondary)'}}>{sp['Đơn vị tính']||'—'}</td>
