@@ -374,8 +374,8 @@ export default function TaoDonHangForm({
           <div className="card" style={{padding:'14px'}}>
             <h3 style={{fontSize:'11px',fontWeight:700,marginBottom:'12px',color:'var(--primary)',textTransform:'uppercase',letterSpacing:'.05em'}}>💰 Đặt cọc</h3>
             <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'10px'}}>
-              <div><LBL>💵 Tiền mặt (VNĐ)</LBL><input className="input" type="number" min="0" value={tienMat||''} placeholder="0" onChange={e=>setTienMat(Number(e.target.value))}/></div>
-              <div><LBL>🏦 Chuyển khoản (VNĐ)</LBL><input className="input" type="number" min="0" value={ckCoc||''} placeholder="0" onChange={e=>setCkCoc(Number(e.target.value))}/></div>
+              <div><LBL>💵 Tiền mặt (VNĐ)</LBL><input className="input" type="text" inputMode="numeric" value={tienMat?tienMat.toLocaleString('vi-VN'):''} placeholder="0" onChange={e=>{const v=Number(e.target.value.replace(/\./g,'').replace(/,/g,''));if(!isNaN(v))setTienMat(v)}}/></div>
+              <div><LBL>🏦 Chuyển khoản (VNĐ)</LBL><input className="input" type="text" inputMode="numeric" value={ckCoc?ckCoc.toLocaleString('vi-VN'):''} placeholder="0" onChange={e=>{const v=Number(e.target.value.replace(/\./g,'').replace(/,/g,''));if(!isNaN(v))setCkCoc(v)}}/></div>
             </div>
             {datCocTong>0&&<div style={{marginTop:'6px',fontSize:'12px',color:'var(--success)',fontWeight:600}}>Tổng cọc: {fVND(datCocTong)}</div>}
 
