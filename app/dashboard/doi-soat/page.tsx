@@ -14,7 +14,7 @@ export default async function DoiSoatPage({
 
   const [giaoHang, doiSoat, donHang, chiTietDon, khachHang, chiTietGiao] = await Promise.all([
     getRecords(TABLES.GIAO_HANG, { limit: 500, sort: '-Id' }),
-    getRecords(TABLES.DOI_SOAT,  { limit: 500 }),
+    getRecords(TABLES.DOI_SOAT,  { limit: 1000, sort: '-Id' }),
     getRecords(TABLES.DON_HANG,  { limit: 500, sort: '-Id' }),
     getRecords(TABLES.CHI_TIET_DON, {
       limit: 500, sort: 'Id',
@@ -48,7 +48,9 @@ export default async function DoiSoatPage({
 
   const doiSoatMap: Record<string, any> = {}
   for (const ds of (doiSoat.list || [])) {
-    if (ds['Mã giao hàng']) doiSoatMap[ds['Mã giao hàng']] = ds
+    const maGH = ds['Mã giao hàng']
+    // sort -Id nên bản đầu tiên = mới nhất, không ghi đè
+    if (maGH && !doiSoatMap[maGH]) doiSoatMap[maGH] = ds
   }
 
   // Map SP giao theo Mã giao hàng (bảng 8)
