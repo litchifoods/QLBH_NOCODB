@@ -19,7 +19,7 @@ function validateSdt(sdt: string): string {
   return ''
 }
 
-const LOAI    = ['Tất cả','Cá nhân','Cơ quan','Công ty','Đại lý']
+const LOAI    = ['Tất cả','Cá nhân','Cơ quan','Công ty','Khách còn nợ']
 const SO_DONG = 10
 
 export default function KhachHangClient({ khachHang, donHuyCanHoan, congNoMap, donHangTheoKH, user }: {
@@ -81,6 +81,7 @@ export default function KhachHangClient({ khachHang, donHuyCanHoan, congNoMap, d
 
   // Lọc
   const filtered = useMemo(() => localKH.filter((kh:any) => {
+    if (filterLoai === 'Khách còn nợ') return (congNoMap[kh['Mã KH']]||0) > 0
     if (filterLoai !== 'Tất cả' && kh['Đối tượng khách hàng'] !== filterLoai) return false
     if (!search.trim()) return true
     const q = boDau(search)
@@ -279,7 +280,7 @@ export default function KhachHangClient({ khachHang, donHuyCanHoan, congNoMap, d
   function loaiColor(loai: string) {
     const m: Record<string,{bg:string;c:string}> = {
       'Cá nhân': {bg:'#DBEAFE',c:'#1E40AF'}, 'Cơ quan': {bg:'#FEF3C7',c:'#92400E'},
-      'Công ty':  {bg:'#D1FAE5',c:'#065F46'}, 'Đại lý':  {bg:'#EDE9FE',c:'#6D28D9'},
+      'Công ty':  {bg:'#D1FAE5',c:'#065F46'}, 'Khách còn nợ': {bg:'#FEE2E2',c:'#DC2626'},
     }
     return m[loai] || {bg:'#F3F4F6',c:'#374151'}
   }
@@ -460,7 +461,7 @@ export default function KhachHangClient({ khachHang, donHuyCanHoan, congNoMap, d
                 <div>
                   <label style={{fontSize:'11px',fontWeight:600,display:'block',marginBottom:'3px'}}>Đối tượng</label>
                   <select className="input" value={loaiKH} onChange={e=>setLoaiKH(e.target.value)}>
-                    <option>Cá nhân</option><option>Cơ quan</option><option>Công ty</option><option>Đại lý</option>
+                    <option>Cá nhân</option><option>Cơ quan</option><option>Công ty</option>
                   </select>
                 </div>
               </div>
