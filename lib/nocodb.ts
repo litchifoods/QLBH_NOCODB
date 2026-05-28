@@ -62,7 +62,7 @@ export async function getRecords(
     if (options.fields) params.set('fields', options.fields)
     const url = `${API_BASE}/db/data/noco/${BASE_ID}/${tableId}?${params}`
     const res = await fetch(url, { headers, cache: 'no-store' })
-    if (!res.ok) return { list: [], pageInfo: { totalRows: 0 } }
+    if (!res.ok) { console.error('getRecords failed:', tableName, res.status, await res.text()); return { list: [], pageInfo: { totalRows: 0 } } }
     return await res.json()
   } catch (err) {
     console.error(`getRecords "${tableName}":`, err)
@@ -118,3 +118,4 @@ export async function deleteRecord(tableName: string, rowId: number) {
     return res.ok
   } catch { return false }
 }
+
