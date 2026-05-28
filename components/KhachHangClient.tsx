@@ -71,8 +71,8 @@ export default function KhachHangClient({ khachHang, donHuyCanHoan, congNoMap, d
   // Popup thu nợ
   const [popupNoKH,   setPopupNoKH]   = useState<any>(null) // KH đang xử lý thu nợ
   const [donNoChon,   setDonNoChon]   = useState<any>(null) // đơn được chọn
-  const [soTienThu,   setSoTienThu]   = useState(0)
-  const [htThu,       setHtThu]       = useState('Tiền mặt')
+  const [tienMatThu,  setTienMatThu]  = useState(0)
+  const [ckThu,       setCkThu]       = useState(0)
   const [dangThuNo,   setDangThuNo]   = useState(false)
 
   // Popup hoàn cọc
@@ -227,16 +227,17 @@ export default function KhachHangClient({ khachHang, donHuyCanHoan, congNoMap, d
 
   // ── Thu nợ ──
   async function luuThuNo() {
-    if (!donNoChon || soTienThu <= 0) return
+    const tongThu = (tienMatThu||0) + (ckThu||0)
+    if (!donNoChon || tongThu <= 0) return
     setDangThuNo(true)
     try {
-      const conMoi = Math.max(0, Number(donNoChon['Còn phải thu']||0) - soTienThu)
+      const conMoi = Math.max(0, Number(donNoChon['Còn phải thu']||0) - tongThu)
       await fetch('/api/don-hang', {
         method: 'PATCH', headers: {'Content-Type':'application/json'},
         body: JSON.stringify({ id: donNoChon['Id']||donNoChon['id'], 'Còn phải thu': conMoi }),
       })
-      showMsg(`✅ Đã thu ${soTienThu.toLocaleString('vi-VN')}đ từ ${popupNoKH['Tên khách hàng']}`, true)
-      setPopupNoKH(null); setDonNoChon(null); setSoTienThu(0)
+      showMsg(`✅ Đã thu ${tongThu.toLocaleString('vi-VN')}đ từ ${popupNoKH['Tên khách hàng']}`, true)
+      setPopupNoKH(null); setDonNoChon(null); setTienMatThu(0); setCkThu(0)
       // Refresh để cập nhật số liệu
       window.location.reload()
     } catch(e:any) { showMsg('❌ '+(e.message||'Lỗi'), false) }
@@ -549,24 +550,29 @@ export default function KhachHangClient({ khachHang, donHuyCanHoan, congNoMap, d
                 </div>
                 <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'10px'}}>
                   <div>
-                    <label style={{fontSize:'11px',fontWeight:600,display:'block',marginBottom:'3px'}}>Số tiền thu (đ) *</label>
-                    <input className="input" type="number" min="0" max={Number(donNoChon['Còn phải thu']||0)}
-                      value={soTienThu||''} placeholder="0"
-                      onChange={e=>setSoTienThu(Math.min(Number(e.target.value),Number(donNoChon['Còn phải thu']||0)))}/>
-                    <button onClick={()=>setSoTienThu(Number(donNoChon['Còn phải thu']||0))}
-                      style={{marginTop:'3px',padding:'2px 8px',border:'1px solid #BFDBFE',borderRadius:'4px',background:'white',cursor:'pointer',fontSize:'11px',color:'#1D4ED8'}}>
-                      Thu đủ: {Number(donNoChon['Còn phải thu']||0).toLocaleString('vi-VN')}đ
-                    </button>
+                    <label style={{fontSize:'11px',fontWeight:600,display:'block',marginBottom:'3px'}}>💵 Tiền mặt (đ)</label>
+                    <input className="input" type="text" inputMode="numeric"
+                      value={tienMatThu?tienMatThu.toLocaleString('vi-VN'):''}  placeholder="0"
+                      onChange={e=>{const v=Number(e.target.value.replace(/\./g,'').replace(/,/g,''));if(!isNaN(v))setTienMatThu(v)}}/>
                   </div>
                   <div>
-                    <label style={{fontSize:'11px',fontWeight:600,display:'block',marginBottom:'3px'}}>Hình thức</label>
-                    <select className="input" value={htThu} onChange={e=>setHtThu(e.target.value)}>
-                      <option>Tiền mặt</option><option>Chuyển khoản</option><option>Tiền mặt + chuyển khoản</option>
-                    </select>
+                    <label style={{fontSize:'11px',fontWeight:600,display:'block',marginBottom:'3px'}}>🏦 Chuyển khoản (đ)</label>
+                    <input className="input" type="text" inputMode="numeric"
+                      value={ckThu?ckThu.toLocaleString('vi-VN'):''} placeholder="0"
+                      onChange={e=>{const v=Number(e.target.value.replace(/\./g,'').replace(/,/g,''));if(!isNaN(v))setCkThu(v)}}/>
                   </div>
                 </div>
+                {((tienMatThu||0)+(ckThu||0))>0&&(
+                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'6px 10px',background:'#F0FDF4',borderRadius:'6px',fontSize:'12px'}}>
+                    <span style={{color:'#15803D',fontWeight:600}}>Tổng thu: {((tienMatThu||0)+(ckThu||0)).toLocaleString('vi-VN')}đ</span>
+                    <button onClick={()=>{setTienMatThu(Number(donNoChon['Còn phải thu']||0));setCkThu(0)}}
+                      style={{padding:'2px 8px',border:'1px solid #BFDBFE',borderRadius:'4px',background:'white',cursor:'pointer',fontSize:'11px',color:'#1D4ED8'}}>
+                      Thu đủ TM: {Number(donNoChon['Còn phải thu']||0).toLocaleString('vi-VN')}đ
+                    </button>
+                  </div>
+                )}
                 <div style={{display:'flex',gap:'10px'}}>
-                  <button onClick={luuThuNo} disabled={dangThuNo||soTienThu<=0}
+                  <button onClick={luuThuNo} disabled={dangThuNo||((tienMatThu||0)+(ckThu||0))<=0}
                     style={{flex:1,padding:'11px',borderRadius:'8px',border:'none',background:(dangThuNo||soTienThu<=0)?'#9CA3AF':'#16A34A',color:'white',fontWeight:700,fontSize:'14px',cursor:(dangThuNo||soTienThu<=0)?'not-allowed':'pointer'}}>
                     {dangThuNo?'⏳ Đang lưu...':'✅ Xác nhận thu tiền'}
                   </button>
