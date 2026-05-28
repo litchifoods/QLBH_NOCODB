@@ -398,11 +398,15 @@ export default function DoiSoatClient({
                 <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'10px'}}>
                   <div>
                     <label style={{fontSize:'11px',fontWeight:600,display:'block',marginBottom:'3px'}}>💵 Tiền mặt (đ)</label>
-                    <input className="input" type="number" min="0" value={tienMat||''} placeholder="0" onChange={e=>setTienMat(Number(e.target.value))}/>
+                    <input className="input" type="text" inputMode="numeric" value={tienMat?tienMat.toLocaleString('vi-VN'):''} placeholder="0"
+                      onChange={e=>{const v=Number(e.target.value.replace(/\./g,'').replace(/,/g,''));if(!isNaN(v))setTienMat(v)}}/>
+                    {tienMat>0&&<div style={{fontSize:'11px',color:'#15803D',marginTop:'2px'}}>{tienMat.toLocaleString('vi-VN')}đ</div>}
                   </div>
                   <div>
                     <label style={{fontSize:'11px',fontWeight:600,display:'block',marginBottom:'3px'}}>🏦 Chuyển khoản (đ)</label>
-                    <input className="input" type="number" min="0" value={chuyenKhoan||''} placeholder="0" onChange={e=>setChuyenKhoan(Number(e.target.value))}/>
+                    <input className="input" type="text" inputMode="numeric" value={chuyenKhoan?chuyenKhoan.toLocaleString('vi-VN'):''} placeholder="0"
+                      onChange={e=>{const v=Number(e.target.value.replace(/\./g,'').replace(/,/g,''));if(!isNaN(v))setChuyenKhoan(v)}}/>
+                    {chuyenKhoan>0&&<div style={{fontSize:'11px',color:'#0369A1',marginTop:'2px'}}>{chuyenKhoan.toLocaleString('vi-VN')}đ</div>}
                   </div>
                 </div>
                 {Number(donModal?.['Còn phải thu']||0)>0&&(
