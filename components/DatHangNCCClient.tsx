@@ -597,7 +597,7 @@ export default function DatHangNCCClient({donDHList,nccList,sanPhamList,user}:{
         </div>
       )}
 
-      {/* Modal xóa */}}
+      {/* Modal xóa */}
       {xoaItem&&(
         <div className="ov" onClick={()=>setXoaItem(null)}>
           <div style={{background:'white',borderRadius:'12px',padding:'24px',width:'100%',maxWidth:'340px',textAlign:'center'}} onClick={e=>e.stopPropagation()}>
