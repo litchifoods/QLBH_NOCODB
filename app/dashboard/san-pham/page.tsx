@@ -10,7 +10,7 @@ export default async function SanPhamPage() {
 
   const result = await getRecords(TABLES.SAN_PHAM, {
     limit: 500, sort: '-Id',
-    fields: 'Id,Mã SP,Tên sản phẩm,Loại SP,Đơn vị tính,Giá bán buôn,Giá bán lẻ,Tồn kho,Cảnh báo tồn kho,Thông số kỹ thuật,Ghi chú',
+    fields: 'Id,Mã SP,Tên sản phẩm,Loại SP,Đơn vị tính,Giá bán buôn,Giá bán lẻ,Tồn kho,Ngưỡng cảnh báo,Thông số kỹ thuật,Ghi chú',
   })
 
   const danhSach = (result.list || []).filter((sp: any) => sp['Tên sản phẩm']?.toString().trim())

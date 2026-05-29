@@ -56,7 +56,7 @@ export default function SanPhamClient({ danhSach, user }:{ danhSach:any[]; user:
   const filtered = useMemo(()=>local.filter(sp=>{
     if (filterLoai!=='Tất cả' && sp['Loại SP']!==filterLoai) return false
     if (filterTon !== 'Tất cả') {
-      const tt = tinhTonKho(Number(sp['Tồn kho']||0), Number(sp['Cảnh báo tồn kho']||0))
+      const tt = tinhTonKho(Number(sp['Tồn kho']||0), Number(sp['Ngưỡng cảnh báo']||0))
       if (tt.label !== filterTon) return false
     }
     if (!search.trim()) return true
@@ -74,7 +74,7 @@ export default function SanPhamClient({ danhSach, user }:{ danhSach:any[]; user:
     setEditSP(sp);setMaSP(sp['Mã SP']||'');setTenSP(sp['Tên sản phẩm']||'')
     setLoaiSP(sp['Loại SP']||'Phổ thông');setDonVi(sp['Đơn vị tính']||'Bộ')
     setGiaBuon(Number(sp['Giá bán buôn']||0));setGiaLe(Number(sp['Giá bán lẻ']||0))
-    setTonKho(Number(sp['Tồn kho']||0));setCanhBao(Number(sp['Cảnh báo tồn kho']||5))
+    setTonKho(Number(sp['Tồn kho']||0));setCanhBao(Number(sp['Ngưỡng cảnh báo']||5))
     setThongSo(sp['Thông số kỹ thuật']||'');setGhiChu(sp['Ghi chú']||'')
     setShowModal(true)
   }
@@ -90,7 +90,7 @@ export default function SanPhamClient({ danhSach, user }:{ danhSach:any[]; user:
         'Giá bán buôn':Number(giaBuon)||0,
         'Giá bán lẻ':Number(giaLe)||0,
         'Tồn kho':Number(tonKho)||0,
-        'Cảnh báo tồn kho':Number(canhBao)||0,
+        'Ngưỡng cảnh báo':Number(canhBao)||0,
         'Thông số kỹ thuật':thongSo.trim(),
         'Ghi chú':ghiChu.trim(),
       }
@@ -135,7 +135,7 @@ export default function SanPhamClient({ danhSach, user }:{ danhSach:any[]; user:
       'Mã SP':sp['Mã SP']||'','Tên sản phẩm':sp['Tên sản phẩm']||'',
       'Loại SP':sp['Loại SP']||'','Đơn vị tính':sp['Đơn vị tính']||'',
       'Giá bán buôn':Number(sp['Giá bán buôn']||0),'Giá bán lẻ':Number(sp['Giá bán lẻ']||0),
-      'Tồn kho':Number(sp['Tồn kho']||0),'Cảnh báo tồn kho':Number(sp['Cảnh báo tồn kho']||0),
+      'Tồn kho':Number(sp['Tồn kho']||0),'Ngưỡng cảnh báo':Number(sp['Ngưỡng cảnh báo']||0),
       'Thông số kỹ thuật':sp['Thông số kỹ thuật']||'','Ghi chú':sp['Ghi chú']||'',
     }))
     const ws = XLSX.utils.json_to_sheet(rows)
@@ -146,7 +146,7 @@ export default function SanPhamClient({ danhSach, user }:{ danhSach:any[]; user:
 
   // Tải file mẫu
   function taiFileMau(){
-    const mau = [{'Mã SP':'(để trống = tự tạo)','Tên sản phẩm':'Bàn giám đốc gỗ tự nhiên','Loại SP':'Phổ thông','Đơn vị tính':'Bộ','Giá bán buôn':7000000,'Giá bán lẻ':8500000,'Tồn kho':5,'Cảnh báo tồn kho':3,'Thông số kỹ thuật':'120x60x75cm','Ghi chú':''}]
+    const mau = [{'Mã SP':'(để trống = tự tạo)','Tên sản phẩm':'Bàn giám đốc gỗ tự nhiên','Loại SP':'Phổ thông','Đơn vị tính':'Bộ','Giá bán buôn':7000000,'Giá bán lẻ':8500000,'Tồn kho':5,'Ngưỡng cảnh báo':3,'Thông số kỹ thuật':'120x60x75cm','Ghi chú':''}]
     const ws = XLSX.utils.json_to_sheet(mau)
     const wb = XLSX.utils.book_new()
     XLSX.utils.book_append_sheet(wb,ws,'Mẫu nhập SP')
@@ -172,7 +172,7 @@ export default function SanPhamClient({ danhSach, user }:{ danhSach:any[]; user:
             'Tên sản phẩm':ten,'Loại SP':row['Loại SP']||'Phổ thông',
             'Đơn vị tính':row['Đơn vị tính']||'Bộ',
             'Giá bán buôn':Number(row['Giá bán buôn']||0),'Giá bán lẻ':Number(row['Giá bán lẻ']||0),
-            'Tồn kho':Number(row['Tồn kho']||0),'Cảnh báo tồn kho':Number(row['Cảnh báo tồn kho']||5),
+            'Tồn kho':Number(row['Tồn kho']||0),'Ngưỡng cảnh báo':Number(row['Ngưỡng cảnh báo']||5),
             'Thông số kỹ thuật':(row['Thông số kỹ thuật']||'').toString(),
             'Ghi chú':(row['Ghi chú']||'').toString(),
           })})
@@ -185,7 +185,7 @@ export default function SanPhamClient({ danhSach, user }:{ danhSach:any[]; user:
     if (fileRef.current) fileRef.current.value=''
   }
 
-  const tonThap = local.filter(sp=>tinhTonKho(Number(sp['Tồn kho']||0),Number(sp['Cảnh báo tồn kho']||0)).label!=='Còn hàng').length
+  const tonThap = local.filter(sp=>tinhTonKho(Number(sp['Tồn kho']||0),Number(sp['Ngưỡng cảnh báo']||0)).label!=='Còn hàng').length
 
   return (
     <div style={{padding:'20px'}}>
@@ -206,7 +206,7 @@ export default function SanPhamClient({ danhSach, user }:{ danhSach:any[]; user:
             {(()=>{
               const canNhap = local.filter(sp=>Number(sp['Tồn kho']||0)<0).length
               const hetHang = local.filter(sp=>Number(sp['Tồn kho']||0)===0).length
-              const sapHet  = local.filter(sp=>{const t=Number(sp['Tồn kho']||0);return t>0&&t<=Number(sp['Cảnh báo tồn kho']||0)}).length
+              const sapHet  = local.filter(sp=>{const t=Number(sp['Tồn kho']||0);return t>0&&t<=Number(sp['Ngưỡng cảnh báo']||0)}).length
               return <span>
                 Tổng {local.length} sản phẩm
                 {canNhap>0&&<span style={{marginLeft:'8px',padding:'1px 8px',borderRadius:'10px',background:'#FEF9C3',color:'#A16207',fontWeight:600,fontSize:'12px'}}>{canNhap} SP cần nhập</span>}
@@ -279,7 +279,7 @@ export default function SanPhamClient({ danhSach, user }:{ danhSach:any[]; user:
                 <tr><td colSpan={9} style={{textAlign:'center',padding:'48px',color:'var(--text-muted)'}}>{search||filterLoai!=='Tất cả'||filterTon?'Không tìm thấy':'Chưa có sản phẩm'}</td></tr>
               ):dsTrang.map((sp:any,i:number)=>{
                 const ton     = Number(sp['Tồn kho']||0)
-                const canhBaoTon = Number(sp['Cảnh báo tồn kho']||0)
+                const canhBaoTon = Number(sp['Ngưỡng cảnh báo']||0)
                 const sapHet  = ton <= canhBaoTon
                 return (
                   <tr key={sp._key} style={{borderBottom:'1px solid #F0F0F0',background:(()=>{const tt=tinhTonKho(ton,canhBaoTon);return tt.label==='Hết hàng'?'#FFF5F5':tt.label==='Cần nhập'?'#FAF5FF':tt.label==='Sắp hết'?'#FFFBEB':i%2===0?'white':'#FAFBFD'})()}}>
@@ -386,7 +386,7 @@ export default function SanPhamClient({ danhSach, user }:{ danhSach:any[]; user:
                   <input className="input" type="number" min="0" value={tonKho||''} placeholder="0" onChange={e=>setTonKho(Number(e.target.value))}/>
                 </div>
                 <div>
-                  <label style={{fontSize:'11px',fontWeight:600,display:'block',marginBottom:'3px'}}>⚠️ Cảnh báo tồn kho</label>
+                  <label style={{fontSize:'11px',fontWeight:600,display:'block',marginBottom:'3px'}}>⚠️ Ngưỡng cảnh báo</label>
                   <input className="input" type="number" min="0" value={canhBao||''} placeholder="5" onChange={e=>setCanhBao(Number(e.target.value))}/>
                 </div>
               </div>

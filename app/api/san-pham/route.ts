@@ -49,9 +49,7 @@ export async function PATCH(request: NextRequest) {
     const body = await request.json()
     const { id, ...data } = body
     if (!id) return NextResponse.json({message:'Thiếu id'},{status:400})
-    console.log('[PATCH SP] id:', id, 'data:', JSON.stringify(data))
     const result = await updateRecord(TABLES.SAN_PHAM, id, data)
-    console.log('[PATCH SP] result:', JSON.stringify(result))
     return NextResponse.json({ success:true, data:result })
   } catch(e:any) { return NextResponse.json({message:e.message},{status:500}) }
 }
