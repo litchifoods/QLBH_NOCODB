@@ -237,7 +237,7 @@ export default function KhachHangClient({ khachHang, donHuyCanHoan, congNoMap, d
         method: 'PATCH', headers: {'Content-Type':'application/json'},
         body: JSON.stringify({ id: donNoChon['Id']||donNoChon['id'], 'Còn phải thu': conMoi }),
       })
-      setMsgModal(`✅ Đã thu ${tongThu.toLocaleString('vi-VN')}đ từ ${popupNoKH['Tên khách hàng']}`, true)
+      setMsgModal(`✅ Đã thu ${tongThu.toLocaleString('vi-VN')}đ từ ${popupNoKH['Tên khách hàng']}`);setMsgModalOk(true);setTimeout(()=>setMsgModal(''),5000)
       setPopupNoKH(null); setDonNoChon(null); setTienMatThu(0); setCkThu(0)
       // Refresh để cập nhật số liệu
       window.location.reload()
