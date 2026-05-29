@@ -1,9 +1,8 @@
-﻿'use client'
+'use client'
 // components/TaoDonHangForm.tsx — v2.4
 // Sửa lỗi 404: đọc maDon từ json.maDon (API đã query lại sau khi tạo)
 
 import { useState, useMemo, useEffect, useRef } from 'react'
-import { useMeta } from '@/hooks/useMeta'
 import { useRouter } from 'next/navigation'
 import { UserSession } from '@/lib/auth'
 
@@ -28,7 +27,6 @@ export default function TaoDonHangForm({
   khDaChon?: KH | null
 }) {
   const router = useRouter()
-  const { opts } = useMeta(['kenh-ban','hinh-thuc-giao'])
   const today  = new Date().toISOString().split('T')[0]
   const dangLuu = useRef(false) // Ngăn double submit
 
@@ -312,7 +310,7 @@ export default function TaoDonHangForm({
               </div>
               <div><LBL>Hình thức giao *</LBL>
                 <select className="input" value={htGiao} onChange={e=>setHtGiao(e.target.value)}>
-                  {opts('hinh-thuc-giao',['Giao hàng cho khách','Bán tại cửa hàng']).map((h:string)=><option key={h}>{h}</option>)}
+                  <option>Giao hàng cho khách</option><option>Bán tại cửa hàng</option>
                 </select>
               </div>
               {htGiao==='Giao hàng cho khách'&&<div><LBL>Ngày hẹn giao</LBL><input className="input" type="datetime-local" value={ngayHenGiao} onChange={e=>setNgayHenGiao(e.target.value)}/></div>}
@@ -537,4 +535,3 @@ export default function TaoDonHangForm({
     </div>
   )
 }
-

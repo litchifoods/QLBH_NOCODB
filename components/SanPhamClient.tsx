@@ -5,7 +5,6 @@ import { useState, useMemo, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { UserSession } from '@/lib/auth'
 import * as XLSX from 'xlsx'
-import { useMeta } from '@/hooks/useMeta'
 
 function tinhTonKho(ton:number, canhBaoTon:number): {label:string,color:string,bg:string} {
   if (ton < 0)  return {label:'Cần nhập',  color:'#A16207', bg:'#FEF9C3'}
@@ -22,9 +21,8 @@ const SO_DONG = 10
 
 export default function SanPhamClient({ danhSach, user }:{ danhSach:any[]; user:UserSession }) {
   const router   = useRouter()
-  const { opts } = useMeta(['loai-sp','don-vi-tinh'])
-  const LOAI_SP = opts('loai-sp', ['Phổ thông','Theo yêu cầu'])
-  const DON_VI  = opts('don-vi-tinh', ['Cái','Chiếc','Bộ'])
+  const LOAI_SP = ['Phổ thông','Theo yêu cầu']
+  const DON_VI  = ['Cái','Chiếc','Bộ']
   const seqRef   = useRef(0)
   const nextKey  = () => `sp${++seqRef.current}`
   const fileRef  = useRef<HTMLInputElement>(null)
