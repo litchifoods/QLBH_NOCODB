@@ -151,12 +151,14 @@ export default function DatHangNCCClient({donDHList,nccList,sanPhamList,user}:{
   }
 
   async function doiTrangThai(grp:any[],tt:string){
-    for (const d of grp) {
-      await fetch('/api/dat-hang-ncc',{method:'PATCH',headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({id:Number(d['Id']||d['id']),'Trạng thái':tt})})
-    }
-    const ids=new Set(grp.map(d=>d['Id']||d['id']))
-    setLocal(prev=>prev.map(d=>ids.has(d['Id']||d['id'])?{...d,'Trạng thái':tt}:d))
+    try {
+      for (const d of grp) {
+        await fetch('/api/dat-hang-ncc',{method:'PATCH',headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({id:Number(d['Id']||d['id']),'Trạng thái':tt})})
+      }
+      const ids=new Set(grp.map(d=>d['Id']||d['id']))
+      setLocal(prev=>prev.map(d=>ids.has(d['Id']||d['id'])?{...d,'Trạng thái':tt}:d))
+    } catch(e:any){showMsg2('❌ '+(e.message||'Lỗi'),false)}
   }
 
   async function xacNhanXoa(){
@@ -310,17 +312,23 @@ export default function DatHangNCCClient({donDHList,nccList,sanPhamList,user}:{
                     <td style={{textAlign:'center',verticalAlign:'top'}}>
                       {grp.map((d,j)=><div key={j} style={{fontSize:'12px',padding:'2px 0',borderBottom:j<grp.length-1?'1px dashed #F0F0F0':'none'}}>{fDate(d['Ngày hàng về'])}</div>)}
                     </td>
-                    <td style={{textAlign:'center',verticalAlign:'middle'}}>
-                      <select value={tt} onChange={e=>doiTrangThai(grp,e.target.value)}
-                        style={{padding:'4px 8px',borderRadius:'12px',border:'none',background:ttC.bg,color:ttC.c,fontWeight:700,fontSize:'11px',cursor:'pointer'}}>
-                        {TRANG_THAI.map(t=><option key={t}>{t}</option>)}
-                      </select>
+                    <td style={{verticalAlign:'top'}}>
+                      {grp.map((d,j)=>{
+                        const dtt=d['Trạng thái']||'Chờ xác nhận'
+                        const dc=TT_COLOR[dtt]||{bg:'#F3F4F6',c:'#374151'}
+                        return <div key={j} style={{padding:'2px 0',borderBottom:j<grp.length-1?'1px dashed #F0F0F0':'none'}}>
+                          <select value={dtt} onChange={e=>doiTrangThai([d],e.target.value)}
+                            style={{padding:'3px 7px',borderRadius:'10px',border:'none',background:dc.bg,color:dc.c,fontWeight:700,fontSize:'11px',cursor:'pointer',width:'100%'}}>
+                            {TRANG_THAI.map(t=><option key={t}>{t}</option>)}
+                          </select>
+                        </div>
+                      })}
                     </td>
                     <td style={{textAlign:'center',verticalAlign:'middle'}}>
-                      <div style={{display:'flex',gap:'4px',justifyContent:'center',flexWrap:'wrap'}}>
-                        <button onClick={()=>moSua(grp)} style={{padding:'4px 8px',borderRadius:'5px',border:'1px solid #FCD34D',background:'#FFFBEB',color:'#92400E',fontSize:'11px',cursor:'pointer',fontWeight:600}}>✏️ Sửa</button>
-                        <button onClick={()=>xuatPDF(grp)} style={{padding:'4px 8px',borderRadius:'5px',border:'1px solid #BBF7D0',background:'#F0FDF4',color:'#16A34A',fontSize:'11px',cursor:'pointer',fontWeight:600}}>📄 PDF</button>
-                        <button onClick={()=>setXoaItem(first)} style={{padding:'4px 8px',borderRadius:'5px',border:'1px solid #FCA5A5',background:'#FEF2F2',color:'#DC2626',fontSize:'11px',cursor:'pointer',fontWeight:600}}>🗑️</button>
+                      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'4px',width:'100px'}}>
+                        <button onClick={()=>moSua(grp)} style={{gridColumn:'1/-1',padding:'5px 8px',borderRadius:'5px',border:'1px solid #FCD34D',background:'#FFFBEB',color:'#92400E',fontSize:'11px',cursor:'pointer',fontWeight:600,textAlign:'center'}}>✏️ Sửa</button>
+                        <button onClick={()=>xuatPDF(grp)} style={{padding:'5px 4px',borderRadius:'5px',border:'1px solid #BBF7D0',background:'#F0FDF4',color:'#16A34A',fontSize:'11px',cursor:'pointer',fontWeight:600,textAlign:'center'}}>📄 PDF</button>
+                        <button onClick={()=>setXoaItem(first)} style={{padding:'5px 4px',borderRadius:'5px',border:'1px solid #FCA5A5',background:'#FEF2F2',color:'#DC2626',fontSize:'11px',cursor:'pointer',fontWeight:600,textAlign:'center'}}>🗑️ Xóa</button>
                       </div>
                     </td>
                   </tr>
