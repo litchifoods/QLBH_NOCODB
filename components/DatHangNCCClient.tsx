@@ -79,7 +79,10 @@ export default function DatHangNCCClient({donDHList,nccList,sanPhamList,user}:{
     }
     const g:Record<string,any[]>={}
     r.forEach(d=>{
-      const ma=(d['Mã đặt hàng']||'').replace(/-\d+$/,'')||d['Mã đặt hàng']
+      const full = d['Mã đặt hàng']||''
+      // Group key: lấy phần DH-NCC-XXX (3 phần đầu ngăn bởi -)
+      const parts = full.split('-')
+      const ma = parts.length >= 3 ? parts.slice(0,3).join('-') : full
       if(!g[ma]) g[ma]=[]
       g[ma].push(d)
     })
@@ -142,7 +145,9 @@ export default function DatHangNCCClient({donDHList,nccList,sanPhamList,user}:{
         for (const d of editDon) {
           await fetch(`/api/dat-hang-ncc?id=${d['Id']||d['id']}`,{method:'DELETE'})
         }
-        const maDH = (editDon[0]['Mã đặt hàng']||'').replace(/-\d+$/,'')||editDon[0]['Mã đặt hàng']
+        const full3 = editDon[0]['Mã đặt hàng']||''
+        const parts3 = full3.split('-')
+        const maDH = parts3.length>=3 ? parts3.slice(0,3).join('-') : full3
         for (let i=0;i<valid.length;i++) {
           const it=valid[i]
           await fetch('/api/dat-hang-ncc',{method:'POST',headers:{'Content-Type':'application/json'},
@@ -174,7 +179,10 @@ export default function DatHangNCCClient({donDHList,nccList,sanPhamList,user}:{
 
   async function xacNhanXoa(){
     if (!xoaItem) return
-    const grp=grouped[(xoaItem['Mã đặt hàng']||'').replace(/-\d+$/,'')||xoaItem['Mã đặt hàng']]||[xoaItem]
+    const full2 = xoaItem['Mã đặt hàng']||''
+    const parts2 = full2.split('-')
+    const key2 = parts2.length>=3 ? parts2.slice(0,3).join('-') : full2
+    const grp=grouped[key2]||[xoaItem]
     for (const d of grp) await fetch(`/api/dat-hang-ncc?id=${d['Id']||d['id']}`,{method:'DELETE'})
     const ids=new Set(grp.map(d=>d['Id']||d['id']))
     setLocal(prev=>prev.filter(d=>!ids.has(d['Id']||d['id'])))
@@ -199,7 +207,9 @@ export default function DatHangNCCClient({donDHList,nccList,sanPhamList,user}:{
 
   function xuatPDF(grp:any[]){
     const ncc=nccMap[grp[0]['Mã NCC']]||{}
-    const maDH=(grp[0]['Mã đặt hàng']||'').replace(/-\d+$/,'')||grp[0]['Mã đặt hàng']
+    const maDHF=grp[0]['Mã đặt hàng']||''
+    const maDHP=maDHF.split('-')
+    const maDH=maDHP.length>=3?maDHP.slice(0,3).join('-'):maDHF
     const rows=grp.map(it=>{
       const sp=spMap[it['Mã SP']]||{}
       const tt=Number(it['Số lượng đặt']||0)*Number(it['Giá nhập dự kiến']||0)
@@ -547,7 +557,7 @@ export default function DatHangNCCClient({donDHList,nccList,sanPhamList,user}:{
           <div style={{background:'white',borderRadius:'12px',padding:'24px',width:'100%',maxWidth:'340px',textAlign:'center'}} onClick={e=>e.stopPropagation()}>
             <div style={{fontSize:'32px',marginBottom:'8px'}}>🗑️</div>
             <h2 style={{fontSize:'15px',fontWeight:700,margin:'0 0 8px'}}>Xác nhận xóa đơn?</h2>
-            <p style={{fontSize:'13px',color:'#6B7280',margin:'0 0 16px'}}>Xóa toàn bộ đơn <strong>{(xoaItem['Mã đặt hàng']||'').replace(/-\d+$/,'')||xoaItem['Mã đặt hàng']}</strong>?</p>
+            <p style={{fontSize:'13px',color:'#6B7280',margin:'0 0 16px'}}>Xóa toàn bộ đơn <strong>{(()=>{const f=xoaItem['Mã đặt hàng']||'';const p=f.split('-');return p.length>=3?p.slice(0,3).join('-'):f})()} </strong>?</p>
             <div style={{display:'flex',gap:'10px'}}>
               <button onClick={xacNhanXoa} style={{flex:1,padding:'10px',borderRadius:'8px',border:'none',background:'#DC2626',color:'white',fontWeight:700,cursor:'pointer'}}>Xóa</button>
               <button onClick={()=>setXoaItem(null)} style={{flex:1,padding:'10px',borderRadius:'8px',border:'1px solid var(--border)',background:'white',cursor:'pointer',fontWeight:600}}>Huỷ</button>
