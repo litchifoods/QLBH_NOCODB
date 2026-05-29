@@ -1,0 +1,465 @@
+'use client'
+// components/NhapKhoClient.tsx
+import { useState, useMemo, useRef } from 'react'
+import { useRouter } from 'next/navigation'
+import { UserSession } from '@/lib/auth'
+
+function fVND(n:any){return Number(n||0).toLocaleString('vi-VN')}
+function fDate(s:string){if(!s)return'—';const d=new Date(s);return`${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`}
+function boDau(s:string){return(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/đ/g,'d').replace(/Đ/g,'D').toLowerCase()}
+
+const TT_COLOR:Record<string,{bg:string,c:string}> = {
+  'Đủ-đạt yêu cầu': {bg:'#D1FAE5',c:'#065F46'},
+  'Thiếu hàng':      {bg:'#FEE2E2',c:'#991B1B'},
+}
+const SO_DONG = 10
+
+export default function NhapKhoClient({nhapKhoList,nccList,sanPhamList,datHangList,user}:{
+  nhapKhoList:any[]; nccList:any[]; sanPhamList:any[]; datHangList:any[]; user:UserSession
+}) {
+  const router = useRouter()
+  const [local,     setLocal]     = useState(nhapKhoList)
+  const [spLocal,   setSpLocal]   = useState(sanPhamList)
+  const [search,    setSearch]    = useState('')
+  const [filterTT,  setFilterTT]  = useState('Tất cả')
+  const [filterNCC, setFilterNCC] = useState('Tất cả')
+  const [trang,     setTrang]     = useState(1)
+  const [msg,       setMsg]       = useState('')
+  const [msgOk,     setMsgOk]     = useState(true)
+  const [showModal, setShowModal] = useState(false)
+  const [editItem,  setEditItem]  = useState<any>(null)
+  const [loading,   setLoading]   = useState(false)
+  const [xoaItem,   setXoaItem]   = useState<any>(null)
+  const [msgModal,  setMsgModal]  = useState('')
+  const [msgModalOk,setMsgModalOk]= useState(true)
+
+  // Form fields
+  const [maNCC,       setMaNCC]       = useState('')
+  const [searchNCC,   setSearchNCC]   = useState('')
+  const [showNCC,     setShowNCC]     = useState(false)
+  const [maSP,        setMaSP]        = useState('')
+  const [searchSP,    setSearchSP]    = useState('')
+  const [showSPDrop,  setShowSPDrop]  = useState(false)
+  const [maDatHang,   setMaDatHang]   = useState('')
+  const [ngayNhap,    setNgayNhap]    = useState(new Date().toISOString().split('T')[0])
+  const [slDat,       setSlDat]       = useState(0)
+  const [slThucNhan,  setSlThucNhan]  = useState(0)
+  const [giaNhapTT,   setGiaNhapTT]   = useState(0)
+  const [cpVC,        setCpVC]        = useState(0)
+  const [tinhTrang,   setTinhTrang]   = useState('Đủ-đạt yêu cầu')
+  const [ghiChu,      setGhiChu]      = useState('')
+
+  function showMsg2(t:string,ok=true){setMsg(t);setMsgOk(ok);setTimeout(()=>setMsg(''),5000)}
+  function showMsgM(t:string,ok=true){setMsgModal(t);setMsgModalOk(ok);setTimeout(()=>setMsgModal(''),5000)}
+
+  const nccMap = useMemo(()=>{const m:Record<string,any>={};nccList.forEach(n=>{m[n['Mã NCC']||'']=n});return m},[nccList])
+  const spMap  = useMemo(()=>{const m:Record<string,any>={};spLocal.forEach(s=>{m[s['Mã SP']||'']=s});return m},[spLocal])
+
+  const tongNhap = slThucNhan * giaNhapTT
+
+  const filtered = useMemo(()=>{
+    let r = local
+    if (filterTT!=='Tất cả') r=r.filter(d=>d['Tình trạng hàng']===filterTT)
+    if (filterNCC!=='Tất cả') r=r.filter(d=>d['Mã NCC']===filterNCC)
+    if (search.trim()) {
+      const q=boDau(search)
+      r=r.filter(d=>boDau(d['Mã phiếu nhập']||'').includes(q)||boDau(d['Mã NCC']||'').includes(q)||boDau(nccMap[d['Mã NCC']]?.['Tên NCC']||'').includes(q)||boDau(d['Mã SP']||'').includes(q)||boDau(spMap[d['Mã SP']]?.['Tên sản phẩm']||'').includes(q))
+    }
+    return r
+  },[local,filterTT,filterNCC,search,nccMap,spMap])
+
+  const tongTrang = Math.max(1,Math.ceil(filtered.length/SO_DONG))
+  const trangHT   = Math.min(trang,tongTrang)
+  const dsTrang   = filtered.slice((trangHT-1)*SO_DONG, trangHT*SO_DONG)
+  const nccDS     = useMemo(()=>[...new Set(local.map(d=>d['Mã NCC']).filter(Boolean))].map(ma=>({ma,ten:nccMap[ma]?.['Tên NCC']||ma})),[local,nccMap])
+
+  const tongGiaTri = local.reduce((s,d)=>s+Number(d['Tổng tiền hàng']||0),0)
+  const soPhieu    = local.length
+  const soThieu    = local.filter(d=>d['Tình trạng hàng']==='Thiếu hàng').length
+
+  function reset(){
+    setMaNCC('');setSearchNCC('');setMaSP('');setSearchSP('');setMaDatHang('')
+    setNgayNhap(new Date().toISOString().split('T')[0])
+    setSlDat(0);setSlThucNhan(0);setGiaNhapTT(0);setCpVC(0)
+    setTinhTrang('Đủ-đạt yêu cầu');setGhiChu('');setEditItem(null)
+    setMsgModal('')
+  }
+
+  function moTao(){reset();setShowModal(true)}
+  function moSua(item:any){
+    setEditItem(item)
+    setMaNCC(item['Mã NCC']||'');setSearchNCC(nccMap[item['Mã NCC']]?.['Tên NCC']||item['Mã NCC']||'')
+    setMaSP(item['Mã SP']||'');setSearchSP(spMap[item['Mã SP']]?.['Tên sản phẩm']||item['Mã SP']||'')
+    setMaDatHang(item['Mã đặt hàng']||'')
+    setNgayNhap(item['Ngày nhập']?.split('T')[0]||new Date().toISOString().split('T')[0])
+    setSlDat(Number(item['Số lượng đặt']||0))
+    setSlThucNhan(Number(item['Số lượng thực nhận']||0))
+    setGiaNhapTT(Number(item['Giá nhập thực tế']||0))
+    setCpVC(Number(item['CP vận chuyển về kho']||0))
+    setTinhTrang(item['Tình trạng hàng']||'Đủ-đạt yêu cầu')
+    setGhiChu(item['Ghi chú']||'')
+    setShowModal(true)
+  }
+
+  async function luuPhieu(){
+    if (!maNCC){showMsgM('Chọn nhà cung cấp',false);return}
+    if (!maSP){showMsgM('Chọn sản phẩm',false);return}
+    if (slThucNhan<=0){showMsgM('Nhập số lượng thực nhận',false);return}
+    setLoading(true)
+    try {
+      if (editItem) {
+        const res=await fetch('/api/nhap-kho',{method:'PATCH',headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({
+            id:Number(editItem['Id']||editItem['id']),
+            slThucNhanCu:Number(editItem['Số lượng thực nhận']||0),
+            'Mã NCC':maNCC,'Mã SP':maSP,'Mã đặt hàng':maDatHang,
+            'Ngày nhập':ngayNhap,'Số lượng đặt':slDat,
+            'Giá nhập thực tế':giaNhapTT,'Số lượng thực nhận':slThucNhan,
+            'CP vận chuyển về kho':cpVC,'Tình trạng hàng':tinhTrang,'Ghi chú':ghiChu,
+          })})
+        if (!res.ok) throw new Error((await res.json()).message)
+        setLocal(prev=>prev.map(d=>(d['Id']||d['id'])===(editItem['Id']||editItem['id'])?{...d,'Mã NCC':maNCC,'Mã SP':maSP,'Ngày nhập':ngayNhap,'Số lượng thực nhận':slThucNhan,'Giá nhập thực tế':giaNhapTT,'Tổng tiền hàng':slThucNhan*giaNhapTT,'CP vận chuyển về kho':cpVC,'Tình trạng hàng':tinhTrang,'Ghi chú':ghiChu}:d))
+        showMsg2('✅ Đã cập nhật phiếu nhập')
+      } else {
+        const res=await fetch('/api/nhap-kho',{method:'POST',headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({maNCC,maSP,maDatHang,ngayNhap,slDat,slThucNhan,giaNhapTT,cpVC,tinhTrang,ghiChu})})
+        const d=await res.json()
+        if (!res.ok) throw new Error(d.message)
+        // Cập nhật tồn kho local
+        setSpLocal(prev=>prev.map(s=>s['Mã SP']===maSP?{...s,'Tồn kho':Number(s['Tồn kho']||0)+slThucNhan}:s))
+        setLocal(prev=>[{...d.data,'_key':Date.now()},...prev])
+        showMsg2(`✅ Đã tạo phiếu ${d.maPhieu}`)
+      }
+      setShowModal(false);reset()
+    } catch(e:any){showMsgM('❌ '+(e.message||'Lỗi'),false)}
+    finally{setLoading(false)}
+  }
+
+  async function xacNhanXoa(){
+    if (!xoaItem) return
+    try {
+      const res=await fetch(`/api/nhap-kho?id=${xoaItem['Id']||xoaItem['id']}&maSP=${xoaItem['Mã SP']||''}&sl=${xoaItem['Số lượng thực nhận']||0}`,{method:'DELETE'})
+      if (!res.ok) throw new Error((await res.json()).message)
+      setLocal(prev=>prev.filter(d=>(d['Id']||d['id'])!==(xoaItem['Id']||xoaItem['id'])))
+      setSpLocal(prev=>prev.map(s=>s['Mã SP']===xoaItem['Mã SP']?{...s,'Tồn kho':Math.max(0,Number(s['Tồn kho']||0)-Number(xoaItem['Số lượng thực nhận']||0))}:s))
+      showMsg2('✅ Đã xóa phiếu nhập');setXoaItem(null)
+    } catch(e:any){showMsg2('❌ '+(e.message||'Lỗi'),false)}
+  }
+
+  function xuatPDF(item:any){
+    const ncc = nccMap[item['Mã NCC']]||{}
+    const sp  = spMap[item['Mã SP']]||{}
+    const ttC = TT_COLOR[item['Tình trạng hàng']]||{bg:'#F3F4F6',c:'#374151'}
+    const html=`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Phiếu nhập kho ${item['Mã phiếu nhập']}</title>
+    <style>body{font-family:Arial,sans-serif;padding:32px;font-size:13px;}h1{font-size:20px;color:#1e3a5f;}
+    .info{display:flex;gap:16px;margin:16px 0;}.box{flex:1;background:#F8FAFC;border:1px solid #E5E7EB;border-radius:6px;padding:12px 16px;}
+    table{width:100%;border-collapse:collapse;margin-top:16px;}th{background:#1e3a5f;color:white;padding:8px 10px;font-size:12px;text-align:left;}
+    td{padding:8px 10px;border-bottom:1px solid #E5E7EB;font-size:13px;}
+    .badge{padding:3px 10px;border-radius:10px;font-weight:bold;font-size:12px;}
+    .footer{margin-top:40px;display:flex;justify-content:space-between;}
+    .sign{text-align:center;width:180px;}.sign p{font-weight:bold;margin-bottom:50px;}
+    @media print{button{display:none!important;}}</style></head><body>
+    <div style="display:flex;justify-content:space-between">
+      <div><h1>🪑 Nội Thất Tính Tuyết</h1><p style="color:#6B7280;margin:0">PHIẾU NHẬP KHO</p></div>
+      <div style="text-align:right"><div style="font-size:20px;font-weight:bold;color:#1e3a5f">${item['Mã phiếu nhập']}</div>
+      <div style="color:#6B7280">Ngày nhập: ${fDate(item['Ngày nhập'])}</div>
+      <div><span class="badge" style="background:${ttC.bg};color:${ttC.c}">${item['Tình trạng hàng']||'—'}</span></div></div>
+    </div>
+    <div class="info">
+      <div class="box"><b>📦 Nhà cung cấp</b><br>${ncc['Tên NCC']||item['Mã NCC']||'—'}<br>Mã: ${item['Mã NCC']||'—'}${ncc['Số điện thoại']?'<br>SĐT: '+ncc['Số điện thoại']:''}</div>
+      <div class="box"><b>🛒 Đơn đặt hàng</b><br>Mã đặt hàng: ${item['Mã đặt hàng']||'Nhập thủ công'}<br>Người nhập: ${user.hoTen||user.tenDangNhap||'—'}</div>
+    </div>
+    <table>
+      <thead><tr><th>Mã SP</th><th>Tên sản phẩm</th><th>ĐVT</th><th style="text-align:center">SL đặt</th><th style="text-align:center">SL nhận</th><th style="text-align:right">Giá nhập</th><th style="text-align:right">Thành tiền</th></tr></thead>
+      <tbody><tr>
+        <td>${item['Mã SP']||'—'}</td>
+        <td><b>${sp['Tên sản phẩm']||item['Mã SP']||'—'}</b></td>
+        <td>${sp['Đơn vị tính']||'—'}</td>
+        <td style="text-align:center">${item['Số lượng đặt']||0}</td>
+        <td style="text-align:center"><b>${item['Số lượng thực nhận']||0}</b></td>
+        <td style="text-align:right">${fVND(item['Giá nhập thực tế'])}đ</td>
+        <td style="text-align:right"><b>${fVND(item['Tổng tiền hàng'])}đ</b></td>
+      </tr></tbody>
+    </table>
+    <div style="margin-top:12px;padding:10px 14px;background:#F8FAFC;border-radius:6px;display:flex;justify-content:space-between;font-size:13px;">
+      <span>CP vận chuyển về kho: <b>${fVND(item['CP vận chuyển về kho'])}đ</b></span>
+      <span style="font-size:15px;font-weight:bold;color:#1e3a5f">Tổng chi: ${fVND(Number(item['Tổng tiền hàng']||0)+Number(item['CP vận chuyển về kho']||0))}đ</span>
+    </div>
+    ${item['Ghi chú']?`<div style="margin-top:8px;padding:8px 12px;background:#FFFBEB;border-radius:6px;font-size:12px;color:#92400E">Ghi chú: ${item['Ghi chú']}</div>`:''}
+    <div class="footer">
+      <div class="sign"><p>Người giao hàng</p><div style="border-top:1px solid #ccc;padding-top:6px;font-size:11px;color:#6B7280">(Ký, ghi rõ họ tên)</div></div>
+      <div class="sign"><p>Người nhận hàng</p><div style="border-top:1px solid #ccc;padding-top:6px;font-size:11px;color:#6B7280">(Ký, ghi rõ họ tên)</div></div>
+      <div class="sign"><p>Thủ kho</p><div style="border-top:1px solid #ccc;padding-top:6px;font-size:11px;color:#6B7280">(Ký, ghi rõ họ tên)</div></div>
+    </div>
+    <script>window.onload=()=>window.print()</script></body></html>`
+    const w=window.open('','_blank');if(w){w.document.write(html);w.document.close()}
+  }
+
+  const FInput = ({label,children}:{label:string,children:React.ReactNode}) => (
+    <div><label style={{fontSize:'11px',fontWeight:600,display:'block',marginBottom:'3px'}}>{label}</label>{children}</div>
+  )
+
+  return (
+    <div style={{padding:'20px'}}>
+      <style>{`
+        .nk-t th,.nk-t td{padding:8px 10px;vertical-align:middle;}
+        .nk-t tbody tr:hover td{background:#F0F4FF!important;}
+        .ov{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;display:flex;align-items:center;justify-content:center;padding:16px;overflow-y:auto;}
+        .mk{background:white;border-radius:12px;padding:28px;width:100%;max-width:860px;max-height:95vh;overflow-y:auto;}
+        .db{position:absolute;top:calc(100%+3px);left:0;right:0;z-index:70;background:white;border:1px solid var(--border);border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.12);max-height:200px;overflow-y:auto;}
+        .di{padding:8px 12px;cursor:pointer;border-bottom:1px solid #F3F4F6;font-size:13px;}
+        .di:hover{background:#F0F9FF;}
+      `}</style>
+
+      {/* Header */}
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:'14px',flexWrap:'wrap',gap:'10px'}}>
+        <div>
+          <h1 style={{fontFamily:'Playfair Display,serif',fontSize:'20px',fontWeight:700,margin:0}}>📦 Nhập kho</h1>
+          <p style={{color:'var(--text-secondary)',fontSize:'13px',margin:'2px 0 0'}}>
+            {soPhieu} phiếu · Tổng giá trị: <strong>{fVND(tongGiaTri)}đ</strong>
+            {soThieu>0&&<span style={{marginLeft:'8px',color:'#DC2626',fontWeight:600}}>⚠️ {soThieu} phiếu thiếu hàng</span>}
+          </p>
+        </div>
+        <button onClick={moTao} style={{background:'var(--primary)',color:'white',border:'none',borderRadius:'8px',padding:'10px 18px',fontSize:'14px',fontWeight:600,cursor:'pointer'}}>+ Tạo phiếu nhập kho</button>
+      </div>
+
+      {msg&&<div style={{padding:'10px 14px',borderRadius:'8px',marginBottom:'14px',fontSize:'13px',background:msgOk?'#D1FAE5':'#FEE2E2',color:msgOk?'#065F46':'#991B1B'}}>{msg}</div>}
+
+      {/* Tổng quan */}
+      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(130px,1fr))',gap:'10px',marginBottom:'14px'}}>
+        {[
+          {icon:'📋',label:'Tổng phiếu',val:soPhieu,c:'var(--primary)'},
+          {icon:'✅',label:'Đủ hàng',val:local.filter(d=>d['Tình trạng hàng']==='Đủ-đạt yêu cầu').length,c:'#065F46'},
+          {icon:'⚠️',label:'Thiếu hàng',val:soThieu,c:'#DC2626'},
+          {icon:'💰',label:'Tổng giá trị',val:fVND(tongGiaTri)+'đ',c:'#1e3a5f'},
+        ].map(({icon,label,val,c})=>(
+          <div key={label} className="card" style={{padding:'12px 14px'}}>
+            <div style={{fontSize:'18px',marginBottom:'2px'}}>{icon}</div>
+            <div style={{fontSize:'15px',fontWeight:800,color:c}}>{val}</div>
+            <div style={{fontSize:'11px',color:'var(--text-secondary)'}}>{label}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Filter */}
+      <div className="card" style={{padding:'12px 14px',marginBottom:'14px'}}>
+        <div style={{display:'flex',gap:'8px',flexWrap:'wrap',alignItems:'center'}}>
+          <input className="input" placeholder="🔍 Tìm phiếu, NCC, SP..." value={search} onChange={e=>setSearch(e.target.value)} style={{flex:1,minWidth:'180px',maxWidth:'260px'}}/>
+          <select className="input" value={filterNCC} onChange={e=>setFilterNCC(e.target.value)} style={{width:'180px'}}>
+            <option value="Tất cả">Tất cả NCC</option>
+            {nccDS.map(n=><option key={n.ma} value={n.ma}>{n.ten}</option>)}
+          </select>
+          <div style={{display:'flex',gap:'6px'}}>
+            {['Tất cả','Đủ-đạt yêu cầu','Thiếu hàng'].map(tt=>{
+              const c=TT_COLOR[tt]||{bg:'#F3F4F6',c:'#374151'}
+              return <button key={tt} onClick={()=>setFilterTT(tt)} style={{padding:'5px 12px',borderRadius:'20px',border:'1px solid',borderColor:filterTT===tt?c.c:'var(--border)',background:filterTT===tt?c.bg:'white',color:filterTT===tt?c.c:'var(--text-secondary)',fontWeight:filterTT===tt?700:400,fontSize:'12px',cursor:'pointer'}}>{tt}</button>
+            })}
+          </div>
+        </div>
+      </div>
+
+      {/* Bảng */}
+      <div className="card" style={{overflow:'hidden'}}>
+        <div style={{overflowX:'auto'}}>
+          <table className="nk-t" style={{width:'100%',borderCollapse:'collapse',fontSize:'13px'}}>
+            <thead>
+              <tr style={{background:'#F0F4FF',borderBottom:'2px solid var(--border)'}}>
+                <th style={{textAlign:'left',fontWeight:700,whiteSpace:'nowrap'}}>Mã phiếu</th>
+                <th style={{textAlign:'left',fontWeight:700,whiteSpace:'nowrap'}}>Ngày nhập</th>
+                <th style={{textAlign:'left',fontWeight:700}}>Nhà cung cấp</th>
+                <th style={{textAlign:'left',fontWeight:700}}>Sản phẩm</th>
+                <th style={{textAlign:'center',fontWeight:700}}>SL nhận</th>
+                <th style={{textAlign:'right',fontWeight:700,whiteSpace:'nowrap'}}>Giá nhập</th>
+                <th style={{textAlign:'right',fontWeight:700}}>Thành tiền</th>
+                <th style={{textAlign:'center',fontWeight:700}}>Tình trạng</th>
+                <th style={{textAlign:'center',fontWeight:700,width:'120px'}}>Thao tác</th>
+              </tr>
+            </thead>
+            <tbody>
+              {dsTrang.length===0?(
+                <tr><td colSpan={9} style={{textAlign:'center',padding:'48px',color:'var(--text-muted)'}}>Không có phiếu nhập nào</td></tr>
+              ):dsTrang.map((item,i)=>{
+                const ncc=nccMap[item['Mã NCC']]||{}
+                const sp=spMap[item['Mã SP']]||{}
+                const tt=item['Tình trạng hàng']||'Đủ-đạt yêu cầu'
+                const ttC=TT_COLOR[tt]||{bg:'#F3F4F6',c:'#374151'}
+                const tongChi=Number(item['Tổng tiền hàng']||0)+Number(item['CP vận chuyển về kho']||0)
+                return (
+                  <tr key={item['Id']||i} style={{borderBottom:'1px solid #F0F0F0',background:i%2===0?'white':'#FAFBFD'}}>
+                    <td style={{fontWeight:600,color:'#374151',whiteSpace:'nowrap',fontSize:'12px'}}>
+                      {item['Mã phiếu nhập']||'—'}
+                      {item['Mã đặt hàng']&&<div style={{fontSize:'10px',color:'#9CA3AF'}}>🛒 {item['Mã đặt hàng']}</div>}
+                    </td>
+                    <td style={{fontSize:'12px',color:'var(--text-secondary)',whiteSpace:'nowrap'}}>{fDate(item['Ngày nhập'])}</td>
+                    <td>
+                      <div style={{fontWeight:600}}>{ncc['Tên NCC']||item['Mã NCC']||'—'}</div>
+                      <div style={{fontSize:'11px',color:'#6B7280'}}>{item['Mã NCC']}</div>
+                    </td>
+                    <td style={{maxWidth:'180px'}}>
+                      <div style={{fontWeight:600,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{sp['Tên sản phẩm']||item['Mã SP']||'—'}</div>
+                      <div style={{fontSize:'11px',color:'#6B7280'}}>{item['Mã SP']} · {sp['Đơn vị tính']||''}</div>
+                    </td>
+                    <td style={{textAlign:'center'}}>
+                      <span style={{fontWeight:700,fontSize:'14px'}}>{item['Số lượng thực nhận']||0}</span>
+                      {Number(item['Số lượng đặt']||0)>0&&<div style={{fontSize:'10px',color:'#9CA3AF'}}>/{item['Số lượng đặt']} đặt</div>}
+                    </td>
+                    <td style={{textAlign:'right',fontSize:'12px'}}>{Number(item['Giá nhập thực tế']||0)>0?fVND(item['Giá nhập thực tế'])+'đ':'—'}</td>
+                    <td style={{textAlign:'right',fontWeight:700,whiteSpace:'nowrap'}}>
+                      {fVND(item['Tổng tiền hàng']||0)}đ
+                      {Number(item['CP vận chuyển về kho']||0)>0&&<div style={{fontSize:'10px',color:'#6B7280'}}>+{fVND(item['CP vận chuyển về kho'])}đ VC</div>}
+                    </td>
+                    <td style={{textAlign:'center'}}>
+                      <span style={{padding:'3px 9px',borderRadius:'20px',fontSize:'11px',fontWeight:700,background:ttC.bg,color:ttC.c,whiteSpace:'nowrap'}}>{tt}</span>
+                    </td>
+                    <td style={{textAlign:'center'}}>
+                      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'4px',width:'110px'}}>
+                        <button onClick={()=>moSua(item)} style={{gridColumn:'1/-1',padding:'5px',borderRadius:'5px',border:'1px solid #FCD34D',background:'#FFFBEB',color:'#92400E',fontSize:'11px',cursor:'pointer',fontWeight:600}}>✏️ Sửa</button>
+                        <button onClick={()=>xuatPDF(item)} style={{padding:'5px',borderRadius:'5px',border:'1px solid #BBF7D0',background:'#F0FDF4',color:'#16A34A',fontSize:'11px',cursor:'pointer',fontWeight:600}}>📄 PDF</button>
+                        <button onClick={()=>setXoaItem(item)} style={{padding:'5px',borderRadius:'5px',border:'1px solid #FCA5A5',background:'#FEF2F2',color:'#DC2626',fontSize:'11px',cursor:'pointer',fontWeight:600}}>🗑️ Xóa</button>
+                      </div>
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+        {tongTrang>1&&(
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'10px 14px',borderTop:'1px solid #F0F0F0'}}>
+            <span style={{fontSize:'12px',color:'var(--text-secondary)'}}>{filtered.length} phiếu</span>
+            <div style={{display:'flex',gap:'4px'}}>
+              <Btn disabled={trangHT===1} onClick={()=>setTrang(t=>t-1)}>‹</Btn>
+              {Array.from({length:tongTrang},(_,i)=>i+1).map(p=><Btn key={p} active={p===trangHT} onClick={()=>setTrang(p)}>{p}</Btn>)}
+              <Btn disabled={trangHT===tongTrang} onClick={()=>setTrang(t=>t+1)}>›</Btn>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* MODAL TẠO/SỬA PHIẾU */}
+      {showModal&&(
+        <div className="ov" onClick={()=>{setShowModal(false);reset()}}>
+          <div className="mk" onClick={e=>e.stopPropagation()}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'16px'}}>
+              <h2 style={{fontSize:'17px',fontWeight:700,margin:0}}>{editItem?'✏️ Sửa phiếu nhập kho':'📦 Tạo phiếu nhập kho'}</h2>
+              <button onClick={()=>{setShowModal(false);reset()}} style={{background:'none',border:'none',cursor:'pointer',fontSize:'22px',color:'#6B7280'}}>✕</button>
+            </div>
+
+            {/* Thông tin chung */}
+            <div style={{background:'#F8FAFC',borderRadius:'8px',padding:'14px',marginBottom:'14px',border:'1px solid #E5E7EB'}}>
+              <div style={{display:'grid',gridTemplateColumns:'2fr 1fr 1fr',gap:'12px'}}>
+                {/* NCC */}
+                <div style={{position:'relative'}}>
+                  <label style={{fontSize:'11px',fontWeight:600,display:'block',marginBottom:'3px'}}>Nhà cung cấp *</label>
+                  <input className="input" placeholder="Tìm tên, mã NCC..." value={searchNCC}
+                    onChange={e=>{setSearchNCC(e.target.value);setMaNCC('');setShowNCC(true)}}
+                    onFocus={()=>setShowNCC(true)} onBlur={()=>setTimeout(()=>setShowNCC(false),200)}/>
+                  {maNCC&&<div style={{fontSize:'11px',color:'var(--primary)',fontWeight:600,marginTop:'2px'}}>✅ {nccMap[maNCC]?.['Tên NCC']||maNCC}</div>}
+                  {showNCC&&(
+                    <div className="db">
+                      {nccList.filter(n=>{const q=boDau(searchNCC);return !q||boDau(n['Tên NCC']||'').includes(q)||boDau(n['Mã NCC']||'').includes(q)}).map(n=>(
+                        <div key={n['Mã NCC']} className="di" onMouseDown={e=>{e.preventDefault();setMaNCC(n['Mã NCC']);setSearchNCC(n['Tên NCC']);setShowNCC(false)}}>
+                          <span style={{fontWeight:600}}>{n['Tên NCC']}</span> <span style={{fontSize:'11px',color:'#6B7280'}}>{n['Mã NCC']}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <FInput label="Ngày nhập">
+                  <input className="input" type="date" value={ngayNhap} onChange={e=>setNgayNhap(e.target.value)}/>
+                </FInput>
+                <FInput label="Mã đặt hàng (nếu có)">
+                  <input className="input" placeholder="DH-NCC-001..." value={maDatHang} onChange={e=>setMaDatHang(e.target.value)}/>
+                </FInput>
+              </div>
+            </div>
+
+            {/* SP và số lượng */}
+            <div style={{background:'#F8FAFC',borderRadius:'8px',padding:'14px',marginBottom:'14px',border:'1px solid #E5E7EB'}}>
+              <div style={{display:'grid',gridTemplateColumns:'2fr 1fr 1fr 1fr',gap:'12px',marginBottom:'12px'}}>
+                {/* SP */}
+                <div style={{position:'relative'}}>
+                  <label style={{fontSize:'11px',fontWeight:600,display:'block',marginBottom:'3px'}}>Sản phẩm *</label>
+                  <input className="input" placeholder="Tìm tên hoặc mã SP..." value={searchSP}
+                    onChange={e=>{setSearchSP(e.target.value);setMaSP('');setShowSPDrop(true)}}
+                    onFocus={()=>setShowSPDrop(true)} onBlur={()=>setTimeout(()=>setShowSPDrop(false),200)}/>
+                  {maSP&&<div style={{fontSize:'11px',color:'var(--primary)',fontWeight:600,marginTop:'2px'}}>✅ {spMap[maSP]?.['Tên sản phẩm']||maSP}</div>}
+                  {showSPDrop&&(
+                    <div className="db">
+                      {spLocal.filter(s=>{const q=boDau(searchSP);return !q||boDau(s['Tên sản phẩm']||'').includes(q)||boDau(s['Mã SP']||'').includes(q)}).slice(0,10).map(s=>(
+                        <div key={s['Mã SP']} className="di" onMouseDown={e=>{e.preventDefault();setMaSP(s['Mã SP']);setSearchSP(s['Tên sản phẩm']);setShowSPDrop(false);setSlDat(0)}}>
+                          <span style={{fontWeight:600}}>{s['Tên sản phẩm']}</span> <span style={{fontSize:'11px',color:'#6B7280'}}>{s['Mã SP']} · Tồn: {s['Tồn kho']||0}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <FInput label="SL đặt">
+                  <input className="input" type="number" min="0" value={slDat||''} placeholder="0" onChange={e=>setSlDat(Number(e.target.value))}/>
+                </FInput>
+                <FInput label="SL thực nhận *">
+                  <input className="input" type="number" min="1" value={slThucNhan||''} placeholder="0" onChange={e=>setSlThucNhan(Number(e.target.value))}/>
+                </FInput>
+                <FInput label="Tình trạng hàng">
+                  <select className="input" value={tinhTrang} onChange={e=>setTinhTrang(e.target.value)}>
+                    <option>Đủ-đạt yêu cầu</option><option>Thiếu hàng</option>
+                  </select>
+                </FInput>
+              </div>
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:'12px'}}>
+                <FInput label="💵 Giá nhập thực tế (đ)">
+                  <input className="input" type="text" inputMode="numeric" placeholder="0"
+                    value={giaNhapTT?giaNhapTT.toLocaleString('vi-VN'):''}
+                    onChange={e=>{const v=Number(e.target.value.replace(/\./g,'').replace(/,/g,''));if(!isNaN(v))setGiaNhapTT(v)}}/>
+                </FInput>
+                <FInput label="🚚 CP vận chuyển về kho (đ)">
+                  <input className="input" type="text" inputMode="numeric" placeholder="0"
+                    value={cpVC?cpVC.toLocaleString('vi-VN'):''}
+                    onChange={e=>{const v=Number(e.target.value.replace(/\./g,'').replace(/,/g,''));if(!isNaN(v))setCpVC(v)}}/>
+                </FInput>
+                <div style={{padding:'8px 12px',background:'#EFF6FF',borderRadius:'8px',border:'1px solid #BFDBFE',display:'flex',flexDirection:'column',justifyContent:'center'}}>
+                  <div style={{fontSize:'11px',color:'#6B7280'}}>Tổng tiền hàng</div>
+                  <div style={{fontSize:'16px',fontWeight:800,color:'var(--primary)'}}>{fVND(tongNhap)}đ</div>
+                  {cpVC>0&&<div style={{fontSize:'11px',color:'#6B7280'}}>+ {fVND(cpVC)}đ VC = <strong>{fVND(tongNhap+cpVC)}đ</strong></div>}
+                </div>
+              </div>
+            </div>
+
+            <FInput label="Ghi chú">
+              <input className="input" placeholder="Ghi chú thêm..." value={ghiChu} onChange={e=>setGhiChu(e.target.value)}/>
+            </FInput>
+
+            {msgModal&&<div style={{padding:'8px 12px',borderRadius:'8px',marginTop:'12px',fontSize:'13px',background:msgModalOk?'#D1FAE5':'#FEE2E2',color:msgModalOk?'#065F46':'#991B1B'}}>{msgModal}</div>}
+
+            <div style={{display:'flex',gap:'10px',marginTop:'16px'}}>
+              <button onClick={luuPhieu} disabled={loading} style={{flex:1,padding:'12px',borderRadius:'8px',border:'none',background:loading?'#9CA3AF':'var(--primary)',color:'white',fontWeight:700,fontSize:'14px',cursor:loading?'not-allowed':'pointer'}}>
+                {loading?'⏳ Đang lưu...':editItem?'✅ Cập nhật phiếu':'✅ Tạo phiếu nhập kho'}
+              </button>
+              <button onClick={()=>{setShowModal(false);reset()}} style={{padding:'12px 18px',borderRadius:'8px',border:'1px solid var(--border)',background:'white',cursor:'pointer',fontSize:'14px'}}>Huỷ</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal xóa */}
+      {xoaItem&&(
+        <div className="ov" onClick={()=>setXoaItem(null)}>
+          <div style={{background:'white',borderRadius:'12px',padding:'24px',width:'100%',maxWidth:'360px',textAlign:'center'}} onClick={e=>e.stopPropagation()}>
+            <div style={{fontSize:'32px',marginBottom:'8px'}}>🗑️</div>
+            <h2 style={{fontSize:'15px',fontWeight:700,margin:'0 0 8px'}}>Xóa phiếu nhập?</h2>
+            <p style={{fontSize:'13px',color:'#6B7280',margin:'0 0 6px'}}><strong>{xoaItem['Mã phiếu nhập']}</strong></p>
+            <p style={{fontSize:'12px',color:'#DC2626',margin:'0 0 16px',background:'#FEF2F2',padding:'6px 10px',borderRadius:'6px'}}>⚠️ Tồn kho SP sẽ bị trừ {xoaItem['Số lượng thực nhận']} {spMap[xoaItem['Mã SP']]?.['Đơn vị tính']||''}</p>
+            <div style={{display:'flex',gap:'10px'}}>
+              <button onClick={xacNhanXoa} style={{flex:1,padding:'10px',borderRadius:'8px',border:'none',background:'#DC2626',color:'white',fontWeight:700,cursor:'pointer'}}>Xóa</button>
+              <button onClick={()=>setXoaItem(null)} style={{flex:1,padding:'10px',borderRadius:'8px',border:'1px solid var(--border)',background:'white',cursor:'pointer',fontWeight:600}}>Huỷ</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function Btn({children,active,disabled,onClick}:any){
+  return <button onClick={onClick} disabled={disabled} style={{padding:'4px 10px',borderRadius:'5px',border:'1px solid',borderColor:active?'var(--primary)':'var(--border)',background:active?'var(--primary)':disabled?'#F9FAFB':'white',color:active?'white':disabled?'#CCC':'var(--text-secondary)',cursor:disabled?'not-allowed':'pointer',fontSize:'13px',fontWeight:active?700:400,minWidth:'32px'}}>{children}</button>
+}
