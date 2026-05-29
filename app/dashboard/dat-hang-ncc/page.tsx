@@ -6,6 +6,7 @@ import DatHangNCCClient from '@/components/DatHangNCCClient'
 
 export default async function DatHangNCCPage() {
   const session = await getSession()
+  console.log('[NCC-PAGE] loading...')
   const [donDH, ncc, sanPham] = await Promise.all([
     getRecords(TABLES.DAT_HANG_NCC, {
       limit: 500, sort: '-Id',
@@ -20,6 +21,7 @@ export default async function DatHangNCCPage() {
       fields: 'Id,Mã SP,Tên sản phẩm,Đơn vị tính,Giá bán buôn',
     }),
   ])
+  console.log('[NCC-PAGE] ncc count:', ncc.list?.length, 'don count:', donDH.list?.length)
   return (
     <DatHangNCCClient
       donDHList={donDH.list||[]}
