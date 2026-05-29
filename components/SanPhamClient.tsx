@@ -282,27 +282,27 @@ export default function SanPhamClient({ danhSach, user }:{ danhSach:any[]; user:
                 const canhBaoTon = Number(sp['Ngưỡng cảnh báo']||0)
                 const sapHet  = ton <= canhBaoTon
                 return (
-                  <tr key={sp._key} style={{borderBottom:'1px solid #F0F0F0',background:(()=>{const tt=tinhTonKho(ton,canhBaoTon);return tt.label==='Hết hàng'?'#FFF5F5':tt.label==='Cần nhập'?'#FAF5FF':tt.label==='Sắp hết'?'#FFFBEB':i%2===0?'white':'#FAFBFD'})()}}>
-                    <td style={{fontWeight:700,color:'var(--primary)',whiteSpace:'nowrap'}}>{sp['Mã SP']||'—'}</td>
+                  <tr key={sp._key} style={{borderBottom:'1px solid #F0F0F0',background:i%2===0?'white':'#FAFBFD'}}>
+                    <td style={{fontWeight:600,color:'#374151',whiteSpace:'nowrap',fontSize:'12px'}}>{sp['Mã SP']||'—'}</td>
                     <td>
                       <div style={{fontWeight:600}}>{sp['Tên sản phẩm']}</div>
                       {sp['Ghi chú']&&<div style={{fontSize:'11px',color:'#9CA3AF',fontStyle:'italic'}}>{sp['Ghi chú']}</div>}
                     </td>
                     <td style={{textAlign:'center'}}>
-                      <span style={{padding:'2px 8px',borderRadius:'10px',fontSize:'11px',fontWeight:600,whiteSpace:'nowrap',background:sp['Loại SP']==='Theo yêu cầu'?'#FEF9C3':'#DBEAFE',color:sp['Loại SP']==='Theo yêu cầu'?'#A16207':'#1E40AF'}}>
+                      <span style={{fontSize:'11px',color:sp['Loại SP']==='Theo yêu cầu'?'#A16207':'#6B7280',fontWeight:sp['Loại SP']==='Theo yêu cầu'?600:400,whiteSpace:'nowrap'}}>
                         {sp['Loại SP']==='Theo yêu cầu'?'Theo YC':'Phổ thông'}
                       </span>
                     </td>
                     <td style={{textAlign:'center',fontSize:'12px',color:'var(--text-secondary)'}}>{sp['Đơn vị tính']||'—'}</td>
-                    <td className="col-buon" style={{textAlign:'right',fontSize:'12px',color:'#6B7280'}}>{Number(sp['Giá bán buôn']||0)>0?fVND(sp['Giá bán buôn'])+'đ':'—'}</td>
-                    <td style={{textAlign:'right',fontWeight:700,color:'var(--primary)',whiteSpace:'nowrap'}}>{Number(sp['Giá bán lẻ']||0)>0?fVND(sp['Giá bán lẻ'])+'đ':'—'}</td>
+                    <td className="col-buon" style={{textAlign:'right',fontSize:'12px',color:'#9CA3AF'}}>{Number(sp['Giá bán buôn']||0)>0?fVND(sp['Giá bán buôn'])+'đ':'—'}</td>
+                    <td style={{textAlign:'right',fontWeight:700,color:'#111827',whiteSpace:'nowrap'}}>{Number(sp['Giá bán lẻ']||0)>0?fVND(sp['Giá bán lẻ'])+'đ':'—'}</td>
                     <td style={{textAlign:'center'}}>
                       {(()=>{
                         const tt = tinhTonKho(ton, canhBaoTon)
                         return (
-                          <div>
-                            <div style={{fontWeight:700,fontSize:'13px',color:tt.color}}>{ton}</div>
-                            {tt.label!=='Còn hàng'&&<div style={{fontSize:'10px',padding:'1px 6px',borderRadius:'8px',background:tt.bg,color:tt.color,fontWeight:700,marginTop:'3px',display:'inline-block',whiteSpace:'nowrap'}}>{tt.label}</div>}
+                          <div style={{textAlign:'center'}}>
+                            <div style={{fontWeight:700,fontSize:'14px',color:tt.label==='Còn hàng'?'#111827':tt.color}}>{ton}</div>
+                            {tt.label!=='Còn hàng'&&<div style={{fontSize:'10px',padding:'1px 7px',borderRadius:'4px',background:tt.bg,color:tt.color,fontWeight:600,marginTop:'2px',display:'inline-block',whiteSpace:'nowrap',border:`1px solid ${tt.color}22`}}>{tt.label}</div>}
                           </div>
                         )
                       })()}
