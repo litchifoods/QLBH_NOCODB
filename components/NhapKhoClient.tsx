@@ -34,6 +34,15 @@ export default function NhapKhoClient({nhapKhoList,nccList,sanPhamList,datHangLi
   const [xoaItem,   setXoaItem]   = useState<any>(null)
   const [msgModal,  setMsgModal]  = useState('')
   const [msgModalOk,setMsgModalOk]= useState(true)
+  // Tạo SP mới
+  const [showNewSP, setShowNewSP] = useState(false)
+  const [newTenSP,  setNewTenSP]  = useState('')
+  const [newMaSP,   setNewMaSP]   = useState('')
+  const [newLoai,   setNewLoai]   = useState('Phổ thông')
+  const [newDonVi,  setNewDonVi]  = useState('Cái')
+  const [newGiaBuon,setNewGiaBuon]= useState(0)
+  const [newGiaLe,  setNewGiaLe]  = useState(0)
+  const [savingSP,  setSavingSP]  = useState(false)
 
   // Flow chọn đơn NCC
   const [chonTuDon,   setChonTuDon]   = useState(false) // true=nhập từ đơn, false=thủ công
@@ -100,6 +109,25 @@ export default function NhapKhoClient({nhapKhoList,nccList,sanPhamList,datHangLi
   }
 
   const isOwner = user.vaiTro === 'Chủ cửa hàng'
+
+  async function luuSPMoi(){
+    if (!newTenSP.trim()){showMsgM('Nhập tên SP',false);return}
+    setSavingSP(true)
+    try {
+      const res=await fetch('/api/san-pham',{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({'Mã SP':newMaSP.trim()||undefined,'Tên sản phẩm':newTenSP.trim(),'Loại SP':newLoai,'Đơn vị tính':newDonVi,'Giá bán buôn':newGiaBuon,'Giá bán lẻ':newGiaLe})})
+      const d=await res.json()
+      if (!res.ok) throw new Error(d.message)
+      const newSP={...d.data,'Mã SP':d.data?.['Mã SP']||newMaSP,'Tên sản phẩm':newTenSP}
+      setSpLocal(p=>[newSP,...p])
+      // Tự chọn SP vừa tạo
+      setMaSP(d.data?.['Mã SP']||newMaSP)
+      setSearchSP(newTenSP)
+      showMsg2(`✅ Đã thêm: ${newTenSP}`)
+      setShowNewSP(false);setNewTenSP('');setNewMaSP('');setNewLoai('Phổ thông');setNewDonVi('Cái');setNewGiaBuon(0);setNewGiaLe(0)
+    } catch(e:any){showMsgM('❌ '+(e.message||'Lỗi'),false)}
+    finally{setSavingSP(false)}
+  }
 
   function showMsg2(t:string,ok=true){setMsg(t);setMsgOk(ok);setTimeout(()=>setMsg(''),5000)}
   function showMsgM(t:string,ok=true){setMsgModal(t);setMsgModalOk(ok);setTimeout(()=>setMsgModal(''),5000)}
@@ -354,6 +382,7 @@ export default function NhapKhoClient({nhapKhoList,nccList,sanPhamList,datHangLi
                 <th style={{textAlign:'right',fontWeight:700,whiteSpace:'nowrap'}}>Giá nhập</th>
                 <th style={{textAlign:'right',fontWeight:700}}>Thành tiền</th>
                 <th style={{textAlign:'center',fontWeight:700}}>Tình trạng</th>
+                <th style={{textAlign:'left',fontWeight:700}}>Người nhập</th>
                 <th style={{textAlign:'center',fontWeight:700,width:'120px'}}>Thao tác</th>
               </tr>
             </thead>
@@ -394,6 +423,7 @@ export default function NhapKhoClient({nhapKhoList,nccList,sanPhamList,datHangLi
                     <td style={{textAlign:'center'}}>
                       <span style={{padding:'3px 9px',borderRadius:'20px',fontSize:'11px',fontWeight:700,background:ttC.bg,color:ttC.c,whiteSpace:'nowrap'}}>{tt}</span>
                     </td>
+                    <td style={{fontSize:'12px',color:'#6B7280'}}>{item['Người nhập']||'—'}</td>
                     <td style={{textAlign:'center'}}>
                       <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'4px',width:'110px'}}>
                         {isOwner&&<button onClick={()=>moSua(item)} style={{gridColumn:'1/-1',padding:'5px',borderRadius:'5px',border:'1px solid #FCD34D',background:'#FFFBEB',color:'#92400E',fontSize:'11px',cursor:'pointer',fontWeight:600}}>✏️ Sửa</button>}
@@ -523,8 +553,8 @@ export default function NhapKhoClient({nhapKhoList,nccList,sanPhamList,datHangLi
                     <input type="number" min="0" value={it.slThucNhan||''} disabled={!it.checked}
                       onChange={e=>updSpItem(i,'slThucNhan',Number(e.target.value))}
                       style={{padding:'4px 6px',border:'1px solid var(--border)',borderRadius:'5px',fontSize:'12px',textAlign:'center',width:'100%',opacity:it.checked?1:0.5}}/>
-                    <input type="text" inputMode="numeric" value={it.giaNhapTT?it.giaNhapTT.toLocaleString('vi-VN'):''} disabled={!it.checked}
-                      onChange={e=>{const v=Number(e.target.value.replace(/\./g,'').replace(/,/g,''));if(!isNaN(v))updSpItem(i,'giaNhapTT',v)}}
+                    <input type="number" min="0" value={it.giaNhapTT||''} disabled={!it.checked}
+                      onChange={e=>updSpItem(i,'giaNhapTT',Number(e.target.value)||0)}
                       style={{padding:'4px 6px',border:'1px solid var(--border)',borderRadius:'5px',fontSize:'12px',width:'100%',opacity:it.checked?1:0.5}}/>
                     <select value={it.tinhTrang} disabled={!it.checked} onChange={e=>updSpItem(i,'tinhTrang',e.target.value)}
                       style={{padding:'4px 6px',border:'1px solid var(--border)',borderRadius:'5px',fontSize:'11px',width:'100%',
@@ -548,7 +578,10 @@ export default function NhapKhoClient({nhapKhoList,nccList,sanPhamList,datHangLi
               <div style={{display:'grid',gridTemplateColumns:'2fr 1fr 1fr 1fr',gap:'12px',marginBottom:'12px'}}>
                 {/* SP */}
                 <div style={{position:'relative'}}>
-                  <label style={{fontSize:'11px',fontWeight:600,display:'block',marginBottom:'3px'}}>Sản phẩm *</label>
+                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'3px'}}>
+                    <label style={{fontSize:'11px',fontWeight:600}}>Sản phẩm *</label>
+                    <button onClick={()=>setShowNewSP(true)} style={{padding:'2px 8px',borderRadius:'5px',border:'1px solid #8B5CF6',background:'#F5F3FF',color:'#7C3AED',fontSize:'10px',fontWeight:600,cursor:'pointer'}}>✨ Thêm SP mới</button>
+                  </div>
                   <input className="input" placeholder="Tìm tên hoặc mã SP..." value={searchSP}
                     onChange={e=>{setSearchSP(e.target.value);setMaSP('');setShowSPDrop(true)}}
                     onFocus={()=>setShowSPDrop(true)} onBlur={()=>setTimeout(()=>setShowSPDrop(false),200)}/>
@@ -577,14 +610,16 @@ export default function NhapKhoClient({nhapKhoList,nccList,sanPhamList,datHangLi
               </div>
               <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:'12px'}}>
                 <FInput label="💵 Giá nhập thực tế (đ)">
-                  <input className="input" type="text" inputMode="numeric" placeholder="0"
-                    value={giaNhapTT?giaNhapTT.toLocaleString('vi-VN'):''}
-                    onChange={e=>{const v=Number(e.target.value.replace(/\./g,'').replace(/,/g,''));if(!isNaN(v))setGiaNhapTT(v)}}/>
+                  <input className="input" type="number" min="0" placeholder="0"
+                    value={giaNhapTT||''}
+                    onChange={e=>setGiaNhapTT(Number(e.target.value)||0)}/>
+                  {giaNhapTT>0&&<div style={{fontSize:'11px',color:'var(--primary)',marginTop:'2px'}}>{giaNhapTT.toLocaleString('vi-VN')}đ</div>}
                 </FInput>
                 <FInput label="🚚 CP vận chuyển về kho (đ)">
-                  <input className="input" type="text" inputMode="numeric" placeholder="0"
-                    value={cpVC?cpVC.toLocaleString('vi-VN'):''}
-                    onChange={e=>{const v=Number(e.target.value.replace(/\./g,'').replace(/,/g,''));if(!isNaN(v))setCpVC(v)}}/>
+                  <input className="input" type="number" min="0" placeholder="0"
+                    value={cpVC||''}
+                    onChange={e=>setCpVC(Number(e.target.value)||0)}/>
+                  {cpVC>0&&<div style={{fontSize:'11px',color:'#6B7280',marginTop:'2px'}}>{cpVC.toLocaleString('vi-VN')}đ</div>}
                 </FInput>
                 <div style={{padding:'8px 12px',background:'#EFF6FF',borderRadius:'8px',border:'1px solid #BFDBFE',display:'flex',flexDirection:'column',justifyContent:'center'}}>
                   <div style={{fontSize:'11px',color:'#6B7280'}}>Tổng tiền hàng</div>
@@ -605,6 +640,63 @@ export default function NhapKhoClient({nhapKhoList,nccList,sanPhamList,datHangLi
                 {loading?'⏳ Đang lưu...':editItem?'✅ Cập nhật phiếu':'✅ Tạo phiếu nhập kho'}
               </button>
               <button onClick={()=>{setShowModal(false);reset()}} style={{padding:'12px 18px',borderRadius:'8px',border:'1px solid var(--border)',background:'white',cursor:'pointer',fontSize:'14px'}}>Huỷ</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal tạo SP mới */}
+      {showNewSP&&(
+        <div className="ov" onClick={()=>setShowNewSP(false)}>
+          <div style={{background:'white',borderRadius:'12px',padding:'24px',width:'100%',maxWidth:'560px'}} onClick={e=>e.stopPropagation()}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'16px'}}>
+              <h2 style={{fontSize:'16px',fontWeight:700,margin:0}}>✨ Thêm sản phẩm mới</h2>
+              <button onClick={()=>setShowNewSP(false)} style={{background:'none',border:'none',cursor:'pointer',fontSize:'20px',color:'#6B7280'}}>✕</button>
+            </div>
+            <div style={{display:'flex',flexDirection:'column',gap:'12px'}}>
+              <div style={{display:'grid',gridTemplateColumns:'1fr 2fr',gap:'10px'}}>
+                <div>
+                  <label style={{fontSize:'11px',fontWeight:600,display:'block',marginBottom:'3px'}}>Mã SP (tự động)</label>
+                  <input className="input" placeholder="SP-xxx" value={newMaSP} onChange={e=>setNewMaSP(e.target.value)}/>
+                </div>
+                <div>
+                  <label style={{fontSize:'11px',fontWeight:600,display:'block',marginBottom:'3px'}}>Tên sản phẩm *</label>
+                  <input className="input" placeholder="Tên sản phẩm..." value={newTenSP} onChange={e=>setNewTenSP(e.target.value)} autoFocus/>
+                </div>
+              </div>
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'10px'}}>
+                <div>
+                  <label style={{fontSize:'11px',fontWeight:600,display:'block',marginBottom:'3px'}}>Loại SP</label>
+                  <select className="input" value={newLoai} onChange={e=>setNewLoai(e.target.value)}>
+                    <option>Phổ thông</option><option>Theo yêu cầu</option>
+                  </select>
+                </div>
+                <div>
+                  <label style={{fontSize:'11px',fontWeight:600,display:'block',marginBottom:'3px'}}>Đơn vị tính</label>
+                  <select className="input" value={newDonVi} onChange={e=>setNewDonVi(e.target.value)}>
+                    <option>Cái</option><option>Chiếc</option><option>Bộ</option>
+                  </select>
+                </div>
+              </div>
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'10px'}}>
+                <div>
+                  <label style={{fontSize:'11px',fontWeight:600,display:'block',marginBottom:'3px'}}>💵 Giá bán buôn (đ)</label>
+                  <input className="input" type="number" min="0" placeholder="0" value={newGiaBuon||''} onChange={e=>setNewGiaBuon(Number(e.target.value)||0)}/>
+                </div>
+                <div>
+                  <label style={{fontSize:'11px',fontWeight:600,display:'block',marginBottom:'3px'}}>🏷️ Giá bán lẻ (đ)</label>
+                  <input className="input" type="number" min="0" placeholder="0" value={newGiaLe||''} onChange={e=>setNewGiaLe(Number(e.target.value)||0)}/>
+                </div>
+              </div>
+              <div style={{padding:'8px 12px',background:'#F5F3FF',borderRadius:'6px',fontSize:'12px',color:'#7C3AED'}}>
+                💡 SP mới sẽ tự động được chọn vào ô sản phẩm và thêm vào danh sách SP.
+              </div>
+              <div style={{display:'flex',gap:'10px'}}>
+                <button onClick={luuSPMoi} disabled={savingSP} style={{flex:1,padding:'11px',borderRadius:'8px',border:'none',background:savingSP?'#9CA3AF':'#7C3AED',color:'white',fontWeight:700,fontSize:'14px',cursor:savingSP?'not-allowed':'pointer'}}>
+                  {savingSP?'⏳ Đang lưu...':'✅ Thêm sản phẩm'}
+                </button>
+                <button onClick={()=>setShowNewSP(false)} style={{padding:'11px 16px',borderRadius:'8px',border:'1px solid var(--border)',background:'white',cursor:'pointer',fontSize:'14px',fontWeight:600}}>Huỷ</button>
+              </div>
             </div>
           </div>
         </div>
