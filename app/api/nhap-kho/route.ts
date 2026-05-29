@@ -38,6 +38,7 @@ export async function POST(req: NextRequest) {
       'CP vận chuyển về kho': Number(body.cpVC||0),
       'Tình trạng hàng': body.tinhTrang||'Đủ-đạt yêu cầu',
       'Ghi chú': body.ghiChu||'',
+      'Người nhập': body.nguoiNhap||'',
     })
     if (!r) return NextResponse.json({message:'Lỗi tạo phiếu nhập'},{status:500})
 

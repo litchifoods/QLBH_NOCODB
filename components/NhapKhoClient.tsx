@@ -99,6 +99,8 @@ export default function NhapKhoClient({nhapKhoList,nccList,sanPhamList,datHangLi
     setSpItems(p=>p.map((it,idx)=>idx===i?{...it,[k]:v}:it))
   }
 
+  const isOwner = user.vaiTro === 'Chủ cửa hàng'
+
   function showMsg2(t:string,ok=true){setMsg(t);setMsgOk(ok);setTimeout(()=>setMsg(''),5000)}
   function showMsgM(t:string,ok=true){setMsgModal(t);setMsgModalOk(ok);setTimeout(()=>setMsgModal(''),5000)}
 
@@ -369,6 +371,7 @@ export default function NhapKhoClient({nhapKhoList,nccList,sanPhamList,datHangLi
                     <td style={{fontWeight:600,color:'#374151',whiteSpace:'nowrap',fontSize:'12px'}}>
                       {item['Mã phiếu nhập']||'—'}
                       {item['Mã đặt hàng']&&<div style={{fontSize:'10px',color:'#9CA3AF'}}>🛒 {item['Mã đặt hàng']}</div>}
+                      {item['Người nhập']&&<div style={{fontSize:'10px',color:'#6B7280'}}>👤 {item['Người nhập']}</div>}
                     </td>
                     <td style={{fontSize:'12px',color:'var(--text-secondary)',whiteSpace:'nowrap'}}>{fDate(item['Ngày nhập'])}</td>
                     <td>
@@ -393,9 +396,9 @@ export default function NhapKhoClient({nhapKhoList,nccList,sanPhamList,datHangLi
                     </td>
                     <td style={{textAlign:'center'}}>
                       <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'4px',width:'110px'}}>
-                        <button onClick={()=>moSua(item)} style={{gridColumn:'1/-1',padding:'5px',borderRadius:'5px',border:'1px solid #FCD34D',background:'#FFFBEB',color:'#92400E',fontSize:'11px',cursor:'pointer',fontWeight:600}}>✏️ Sửa</button>
-                        <button onClick={()=>xuatPDF(item)} style={{padding:'5px',borderRadius:'5px',border:'1px solid #BBF7D0',background:'#F0FDF4',color:'#16A34A',fontSize:'11px',cursor:'pointer',fontWeight:600}}>📄 PDF</button>
-                        <button onClick={()=>setXoaItem(item)} style={{padding:'5px',borderRadius:'5px',border:'1px solid #FCA5A5',background:'#FEF2F2',color:'#DC2626',fontSize:'11px',cursor:'pointer',fontWeight:600}}>🗑️ Xóa</button>
+                        {isOwner&&<button onClick={()=>moSua(item)} style={{gridColumn:'1/-1',padding:'5px',borderRadius:'5px',border:'1px solid #FCD34D',background:'#FFFBEB',color:'#92400E',fontSize:'11px',cursor:'pointer',fontWeight:600}}>✏️ Sửa</button>}
+                        <button onClick={()=>xuatPDF(item)} style={{padding:'5px',borderRadius:'5px',border:'1px solid #BBF7D0',background:'#F0FDF4',color:'#16A34A',fontSize:'11px',cursor:'pointer',fontWeight:600,gridColumn:isOwner?undefined:'1/-1'}}>📄 PDF</button>
+                        {isOwner&&<button onClick={()=>setXoaItem(item)} style={{padding:'5px',borderRadius:'5px',border:'1px solid #FCA5A5',background:'#FEF2F2',color:'#DC2626',fontSize:'11px',cursor:'pointer',fontWeight:600}}>🗑️ Xóa</button>}
                       </div>
                     </td>
                   </tr>

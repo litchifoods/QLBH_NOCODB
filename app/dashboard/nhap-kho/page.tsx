@@ -9,7 +9,7 @@ export default async function NhapKhoPage() {
   const [nhapKho, ncc, sanPham, datHangNCC] = await Promise.all([
     getRecords(TABLES.NHAP_KHO, {
       limit: 500, sort: '-Id',
-      fields: 'Id,Mã phiếu nhập,Ngày nhập,Mã đặt hàng,Mã NCC,Mã SP,Số lượng đặt,Giá nhập thực tế,Số lượng thực nhận,Tổng tiền hàng,CP vận chuyển về kho,Tình trạng hàng,Ghi chú',
+      fields: 'Id,Mã phiếu nhập,Ngày nhập,Mã đặt hàng,Mã NCC,Mã SP,Số lượng đặt,Giá nhập thực tế,Số lượng thực nhận,Tổng tiền hàng,CP vận chuyển về kho,Tình trạng hàng,Ghi chú,Người nhập',
     }),
     getRecords(TABLES.NHA_CUNG_CAP, {
       limit: 200, fields: 'Id,Mã NCC,Tên NCC,Số điện thoại,Địa chỉ,Số TK ngân hàng',
