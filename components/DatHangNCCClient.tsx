@@ -1,6 +1,6 @@
 'use client'
-// components/DatHangNCCClient.tsx
-import { useState, useMemo, useRef } from 'react'
+// components/DatHangNCCClient.tsx v2
+import { useState, useMemo, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { UserSession } from '@/lib/auth'
 
@@ -8,13 +8,10 @@ function fVND(n:any){return Number(n||0).toLocaleString('vi-VN')}
 function fDate(s:string){if(!s)return'—';const d=new Date(s);return`${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`}
 function boDau(s:string){return(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/đ/g,'d').replace(/Đ/g,'D').toLowerCase()}
 
-const TRANG_THAI = ['Chờ xác nhận','Đã xác nhận','Đang giao','Đã nhận hàng','Huỷ']
+const TRANG_THAI = ['Chờ xác nhận','Đã xác nhận']
 const TT_COLOR: Record<string,{bg:string,c:string}> = {
   'Chờ xác nhận': {bg:'#FEF3C7',c:'#92400E'},
-  'Đã xác nhận':  {bg:'#DBEAFE',c:'#1E40AF'},
-  'Đang giao':    {bg:'#E0F2FE',c:'#0369A1'},
-  'Đã nhận hàng': {bg:'#D1FAE5',c:'#065F46'},
-  'Huỷ':          {bg:'#FEE2E2',c:'#991B1B'},
+  'Đã xác nhận':  {bg:'#D1FAE5',c:'#065F46'},
 }
 const SO_DONG = 10
 
@@ -24,71 +21,104 @@ export default function DatHangNCCClient({donDHList,nccList,sanPhamList,user}:{
   donDHList:any[]; nccList:any[]; sanPhamList:any[]; user:UserSession
 }) {
   const router = useRouter()
-  const [local, setLocal]       = useState(donDHList)
-  const [search, setSearch]     = useState('')
-  const [filterTT, setFilterTT] = useState('Tất cả')
-  const [filterNCC,setFilterNCC]= useState('Tất cả')
-  const [trang, setTrang]       = useState(1)
-  const [msg, setMsg]           = useState('')
-  const [msgOk, setMsgOk]       = useState(true)
-  const [showModal, setShowModal]= useState(false)
-  const [loading, setLoading]   = useState(false)
-  const [xoaItem, setXoaItem]   = useState<any>(null)
-  const [showPDF, setShowPDF]   = useState<any[]>([])
-
-  // Form state
-  const [maNCC,    setMaNCC]    = useState('')
-  const [ngayDat,  setNgayDat]  = useState(new Date().toISOString().split('T')[0])
-  const [ghiChuDon,setGhiChuDon]= useState('')
-  const [items,    setItems]    = useState<SPItem[]>([{maSP:'',tenSP:'',donVi:'',soLuong:1,giaNhap:0,ngayVe:'',ghiChu:''}])
-  const [searchSP, setSearchSP] = useState<Record<number,string>>({})
-  const [showSP,   setShowSP]   = useState<Record<number,boolean>>({})
+  const [local, setLocal]        = useState(donDHList)
+  const [spLocal, setSpLocal]    = useState(sanPhamList)
+  const [search, setSearch]      = useState('')
+  const [filterTT, setFilterTT]  = useState('Tất cả')
+  const [filterNCC,setFilterNCC] = useState('Tất cả')
+  const [trang, setTrang]        = useState(1)
+  const [msg, setMsg]            = useState('')
+  const [msgOk, setMsgOk]        = useState(true)
+  const [showModal, setShowModal] = useState(false)
+  const [editDon, setEditDon]     = useState<any[]|null>(null) // null=tao moi, array=sua
+  const [loading, setLoading]    = useState(false)
+  const [xoaItem, setXoaItem]    = useState<any>(null)
+  // Form tao/sua don
+  const [maNCC,     setMaNCC]    = useState('')
+  const [ngayDat,   setNgayDat]  = useState(new Date().toISOString().split('T')[0])
+  const [ghiChuDon, setGhiChuDon]= useState('')
+  const [items, setItems]        = useState<SPItem[]>([{maSP:'',tenSP:'',donVi:'',soLuong:1,giaNhap:0,ngayVe:'',ghiChu:''}])
+  const [searchSP,  setSearchSP] = useState<Record<number,string>>({})
+  const [showSP,    setShowSP]   = useState<Record<number,boolean>>({})
+  // Modal tao SP moi
+  const [showNewSP, setShowNewSP]= useState(false)
+  const [newTenSP,  setNewTenSP] = useState('')
+  const [newMaSP,   setNewMaSP]  = useState('')
+  const [newLoai,   setNewLoai]  = useState('Theo yêu cầu')
+  const [newDonVi,  setNewDonVi] = useState('Cái')
+  const [newGia,    setNewGia]   = useState(0)
+  const [newGhiChu, setNewGhiChu]= useState('')
+  const [savingSP,  setSavingSP] = useState(false)
 
   function showMsg2(t:string,ok=true){setMsg(t);setMsgOk(ok);setTimeout(()=>setMsg(''),5000)}
 
   const nccMap = useMemo(()=>{
     const m:Record<string,any>={}
-    nccList.forEach(n=>{ m[n['Mã NCC']||'']=n })
+    nccList.forEach(n=>{m[n['Mã NCC']||'']=n})
     return m
   },[nccList])
 
   const spMap = useMemo(()=>{
     const m:Record<string,any>={}
-    sanPhamList.forEach(s=>{ m[s['Mã SP']||'']=s })
+    spLocal.forEach(s=>{m[s['Mã SP']||'']=s})
     return m
-  },[sanPhamList])
+  },[spLocal])
 
-  const filtered = useMemo(()=>{
+  // Group theo mã đơn gốc
+  const grouped = useMemo(()=>{
     let r = local
     if (filterTT!=='Tất cả') r=r.filter(d=>d['Trạng thái']===filterTT)
     if (filterNCC!=='Tất cả') r=r.filter(d=>d['Mã NCC']===filterNCC)
     if (search.trim()) {
       const q=boDau(search)
-      r=r.filter(d=>boDau(d['Mã đặt hàng']||'').includes(q)||boDau(d['Mã NCC']||'').includes(q)||boDau(nccMap[d['Mã NCC']]?.['Tên NCC']||'').includes(q)||boDau(d['Mã SP']||'').includes(q))
+      r=r.filter(d=>boDau(d['Mã đặt hàng']||'').includes(q)||boDau(nccMap[d['Mã NCC']]?.['Tên NCC']||'').includes(q)||boDau(d['Mã SP']||'').includes(q))
     }
-    return r
+    const g:Record<string,any[]>={}
+    r.forEach(d=>{
+      const ma=(d['Mã đặt hàng']||'').replace(/-\d+$/,'')||d['Mã đặt hàng']
+      if(!g[ma]) g[ma]=[]
+      g[ma].push(d)
+    })
+    return g
   },[local,filterTT,filterNCC,search,nccMap])
 
-  const tongTrang = Math.max(1,Math.ceil(filtered.length/SO_DONG))
-  const trangHT   = Math.min(trang,tongTrang)
-  const dsTrang   = filtered.slice((trangHT-1)*SO_DONG, trangHT*SO_DONG)
+  const groupKeys  = Object.keys(grouped)
+  const tongTrangG = Math.max(1,Math.ceil(groupKeys.length/SO_DONG))
+  const trangHT    = Math.min(trang,tongTrangG)
+  const keysTrang  = groupKeys.slice((trangHT-1)*SO_DONG, trangHT*SO_DONG)
+  const nccDanhSach= useMemo(()=>[...new Set(local.map(d=>d['Mã NCC']).filter(Boolean))].map(ma=>({ma,ten:nccMap[ma]?.['Tên NCC']||ma})),[local,nccMap])
+  const chuaXN     = local.filter(d=>d['Trạng thái']==='Chờ xác nhận').length
 
-  const nccDanhSach = useMemo(()=>[...new Set(local.map(d=>d['Mã NCC']).filter(Boolean))]
-    .map(ma=>({ma, ten:nccMap[ma]?.['Tên NCC']||ma})),[local,nccMap])
-
-  function addItem(){setItems(prev=>[...prev,{maSP:'',tenSP:'',donVi:'',soLuong:1,giaNhap:0,ngayVe:'',ghiChu:''}])}
-  function removeItem(i:number){setItems(prev=>prev.filter((_,idx)=>idx!==i))}
-  function updItem(i:number,k:keyof SPItem,v:any){setItems(prev=>prev.map((it,idx)=>idx===i?{...it,[k]:v}:it))}
+  function addItem(){setItems(p=>[...p,{maSP:'',tenSP:'',donVi:'',soLuong:1,giaNhap:0,ngayVe:'',ghiChu:''}])}
+  function removeItem(i:number){setItems(p=>p.filter((_,idx)=>idx!==i))}
+  function updItem(i:number,k:keyof SPItem,v:any){setItems(p=>p.map((it,idx)=>idx===i?{...it,[k]:v}:it))}
   function chonSP(i:number,sp:any){
     updItem(i,'maSP',sp['Mã SP']||'')
     updItem(i,'tenSP',sp['Tên sản phẩm']||'')
     updItem(i,'donVi',sp['Đơn vị tính']||'')
     updItem(i,'giaNhap',Number(sp['Giá bán buôn']||0))
-    setSearchSP(prev=>({...prev,[i]:sp['Tên sản phẩm']||''}))
-    setShowSP(prev=>({...prev,[i]:false}))
+    setSearchSP(p=>({...p,[i]:sp['Tên sản phẩm']||''}))
+    setShowSP(p=>({...p,[i]:false}))
   }
-
   const tongTien = items.reduce((s,it)=>s+Number(it.soLuong||0)*Number(it.giaNhap||0),0)
+
+  function moTaoMoi(){setEditDon(null);resetForm();setShowModal(true)}
+  function moSua(grp:any[]){
+    setEditDon(grp)
+    const first=grp[0]
+    setMaNCC(first['Mã NCC']||'')
+    setNgayDat(first['Ngày đặt']?.split('T')[0]||new Date().toISOString().split('T')[0])
+    setGhiChuDon(first['Ghi chú']||'')
+    setItems(grp.map(d=>({
+      maSP:d['Mã SP']||'', tenSP:spMap[d['Mã SP']]?.['Tên sản phẩm']||d['Mã SP']||'',
+      donVi:spMap[d['Mã SP']]?.['Đơn vị tính']||'',
+      soLuong:Number(d['Số lượng đặt']||1), giaNhap:Number(d['Giá nhập dự kiến']||0),
+      ngayVe:d['Ngày hàng về']?.split('T')[0]||'', ghiChu:d['Ghi chú']||''
+    })))
+    setSearchSP(Object.fromEntries(grp.map((d,i)=>[i,spMap[d['Mã SP']]?.['Tên sản phẩm']||d['Mã SP']||''])))
+    setShowModal(true)
+  }
+  function resetForm(){setMaNCC('');setNgayDat(new Date().toISOString().split('T')[0]);setGhiChuDon('');setItems([{maSP:'',tenSP:'',donVi:'',soLuong:1,giaNhap:0,ngayVe:'',ghiChu:''}]);setSearchSP({});setShowSP({})}
 
   async function luuDon(){
     if (!maNCC){showMsg2('Chọn nhà cung cấp',false);return}
@@ -96,175 +126,126 @@ export default function DatHangNCCClient({donDHList,nccList,sanPhamList,user}:{
     if (!valid.length){showMsg2('Thêm ít nhất 1 sản phẩm',false);return}
     setLoading(true)
     try {
-      const res = await fetch('/api/dat-hang-ncc',{method:'POST',headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({maNCC,ngayDat,ghiChu:ghiChuDon,items:valid})})
-      const d = await res.json()
-      if (!res.ok) throw new Error(d.message)
-      showMsg2(`✅ Đã tạo ${d.maDH} — ${d.soSP} sản phẩm`)
-      setShowModal(false); resetForm(); router.refresh()
+      if (editDon) {
+        // Xóa dòng cũ rồi tạo lại
+        for (const d of editDon) {
+          await fetch(`/api/dat-hang-ncc?id=${d['Id']||d['id']}`,{method:'DELETE'})
+        }
+        const maDH = (editDon[0]['Mã đặt hàng']||'').replace(/-\d+$/,'')||editDon[0]['Mã đặt hàng']
+        for (let i=0;i<valid.length;i++) {
+          const it=valid[i]
+          await fetch('/api/dat-hang-ncc',{method:'POST',headers:{'Content-Type':'application/json'},
+            body:JSON.stringify({maNCC,ngayDat,ghiChu:ghiChuDon,forceMaDH:valid.length>1?`${maDH}-${i+1}`:maDH,items:[it]})})
+        }
+        showMsg2(`✅ Đã cập nhật đơn ${maDH}`)
+      } else {
+        const res=await fetch('/api/dat-hang-ncc',{method:'POST',headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({maNCC,ngayDat,ghiChu:ghiChuDon,items:valid})})
+        const d=await res.json()
+        if (!res.ok) throw new Error(d.message)
+        showMsg2(`✅ Đã tạo ${d.maDH} — ${d.soSP} SP`)
+      }
+      setShowModal(false);resetForm();router.refresh()
     } catch(e:any){showMsg2('❌ '+(e.message||'Lỗi'),false)}
     finally{setLoading(false)}
   }
 
-  function resetForm(){setMaNCC('');setNgayDat(new Date().toISOString().split('T')[0]);setGhiChuDon('');setItems([{maSP:'',tenSP:'',donVi:'',soLuong:1,giaNhap:0,ngayVe:'',ghiChu:''}]);setSearchSP({});setShowSP({})}
-
-  async function doiTrangThai(item:any, tt:string){
-    try {
-      const res = await fetch('/api/dat-hang-ncc',{method:'PATCH',headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({id:Number(item['Id']||item['id']),  'Trạng thái':tt})})
-      if (!res.ok) throw new Error((await res.json()).message)
-      setLocal(prev=>prev.map(d=>(d['Id']||d['id'])===(item['Id']||item['id'])?{...d,'Trạng thái':tt}:d))
-    } catch(e:any){showMsg2('❌ '+(e.message||'Lỗi'),false)}
+  async function doiTrangThai(grp:any[],tt:string){
+    for (const d of grp) {
+      await fetch('/api/dat-hang-ncc',{method:'PATCH',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({id:Number(d['Id']||d['id']),'Trạng thái':tt})})
+    }
+    const ids=new Set(grp.map(d=>d['Id']||d['id']))
+    setLocal(prev=>prev.map(d=>ids.has(d['Id']||d['id'])?{...d,'Trạng thái':tt}:d))
   }
 
   async function xacNhanXoa(){
     if (!xoaItem) return
-    try {
-      await fetch(`/api/dat-hang-ncc?id=${xoaItem['Id']||xoaItem['id']}`,{method:'DELETE'})
-      setLocal(prev=>prev.filter(d=>(d['Id']||d['id'])!==(xoaItem['Id']||xoaItem['id'])))
-      showMsg2('✅ Đã xóa'); setXoaItem(null)
-    } catch(e:any){showMsg2('❌ '+(e.message||'Lỗi'),false)}
+    const grp=grouped[(xoaItem['Mã đặt hàng']||'').replace(/-\d+$/,'')||xoaItem['Mã đặt hàng']]||[xoaItem]
+    for (const d of grp) await fetch(`/api/dat-hang-ncc?id=${d['Id']||d['id']}`,{method:'DELETE'})
+    const ids=new Set(grp.map(d=>d['Id']||d['id']))
+    setLocal(prev=>prev.filter(d=>!ids.has(d['Id']||d['id'])))
+    showMsg2('✅ Đã xóa');setXoaItem(null)
   }
 
-  // Xuất PDF đơn đặt hàng
-  function xuatPDF(items: any[]){
-    if (!items.length) return
-    const ncc = nccMap[items[0]['Mã NCC']] || {}
-    const maDH = items[0]['Mã đặt hàng']?.split('-').slice(0,3).join('-') || items[0]['Mã đặt hàng']
-    const ngay = fDate(items[0]['Ngày đặt'])
-    const rows = items.map(it=>{
-      const sp = spMap[it['Mã SP']] || {}
-      return `<tr>
-        <td>${it['Mã SP']||'—'}</td>
-        <td>${sp['Tên sản phẩm']||it['Mã SP']||'—'}</td>
-        <td style="text-align:center">${it['Số lượng đặt']||0}</td>
-        <td style="text-align:center">${sp['Đơn vị tính']||'—'}</td>
-        <td style="text-align:right">${fVND(it['Giá nhập dự kiến'])}đ</td>
-        <td style="text-align:right">${fVND(Number(it['Số lượng đặt']||0)*Number(it['Giá nhập dự kiến']||0))}đ</td>
-        <td>${fDate(it['Ngày dự kiến về'])}</td>
-        <td>${it['Ghi chú']||''}</td>
-      </tr>`
+  async function luuSPMoi(){
+    if (!newTenSP.trim()){showMsg2('Nhập tên SP',false);return}
+    setSavingSP(true)
+    try {
+      const res=await fetch('/api/san-pham',{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({'Mã SP':newMaSP.trim()||undefined,'Tên sản phẩm':newTenSP.trim(),'Loại SP':newLoai,'Đơn vị tính':newDonVi,'Giá bán buôn':newGia,'Ghi chú':newGhiChu})})
+      const d=await res.json()
+      if (!res.ok) throw new Error(d.message)
+      const newSP={...d.data,'Mã SP':d.data?.['Mã SP']||newMaSP}
+      setSpLocal(p=>[newSP,...p])
+      showMsg2(`✅ Đã thêm SP: ${newTenSP}`)
+      setShowNewSP(false);setNewTenSP('');setNewMaSP('');setNewLoai('Theo yêu cầu');setNewDonVi('Cái');setNewGia(0);setNewGhiChu('')
+    } catch(e:any){showMsg2('❌ '+(e.message||'Lỗi'),false)}
+    finally{setSavingSP(false)}
+  }
+
+  function xuatPDF(grp:any[]){
+    const ncc=nccMap[grp[0]['Mã NCC']]||{}
+    const maDH=(grp[0]['Mã đặt hàng']||'').replace(/-\d+$/,'')||grp[0]['Mã đặt hàng']
+    const rows=grp.map(it=>{
+      const sp=spMap[it['Mã SP']]||{}
+      const tt=Number(it['Số lượng đặt']||0)*Number(it['Giá nhập dự kiến']||0)
+      return `<tr><td>${it['Mã SP']||'—'}</td><td>${sp['Tên sản phẩm']||it['Mã SP']||'—'}</td><td style="text-align:center">${it['Số lượng đặt']||0}</td><td style="text-align:center">${sp['Đơn vị tính']||'—'}</td><td style="text-align:right">${fVND(it['Giá nhập dự kiến'])}đ</td><td style="text-align:right">${fVND(tt)}đ</td><td>${fDate(it['Ngày hàng về'])}</td><td>${it['Ghi chú']||''}</td></tr>`
     }).join('')
-    const tongTienPDF = items.reduce((s,it)=>s+Number(it['Số lượng đặt']||0)*Number(it['Giá nhập dự kiến']||0),0)
-    const html = `<!DOCTYPE html><html><head><meta charset="utf-8">
-    <title>Đơn đặt hàng ${maDH}</title>
-    <style>
-      body{font-family:Arial,sans-serif;padding:32px;color:#1F2937;font-size:13px;}
-      h1{font-size:20px;color:#1e3a5f;margin-bottom:4px;}
-      .info{display:flex;justify-content:space-between;margin:16px 0;}
-      .box{background:#F8FAFC;border:1px solid #E5E7EB;border-radius:6px;padding:12px 16px;flex:1;margin-right:12px;}
-      .box:last-child{margin-right:0;}
-      table{width:100%;border-collapse:collapse;margin-top:16px;}
-      th{background:#1e3a5f;color:white;padding:8px 10px;text-align:left;font-size:12px;}
-      td{padding:7px 10px;border-bottom:1px solid #E5E7EB;font-size:12px;}
-      tr:nth-child(even) td{background:#F9FAFB;}
-      .tong{text-align:right;margin-top:12px;font-size:15px;font-weight:bold;color:#1e3a5f;}
-      .footer{margin-top:32px;display:flex;justify-content:space-between;}
-      .sign{text-align:center;width:200px;}
-      .sign p{font-weight:bold;margin-bottom:40px;}
-      @media print{button{display:none!important;}}
-    </style></head><body>
-    <div style="display:flex;justify-content:space-between;align-items:flex-start;">
-      <div>
-        <h1>🪑 Nội Thất Tính Tuyết</h1>
-        <p style="color:#6B7280;margin:0">Phiếu đặt hàng nhà cung cấp</p>
-      </div>
-      <div style="text-align:right">
-        <div style="font-size:18px;font-weight:bold;color:#1e3a5f">${maDH}</div>
-        <div style="color:#6B7280">Ngày đặt: ${ngay}</div>
-      </div>
+    const tong=grp.reduce((s,it)=>s+Number(it['Số lượng đặt']||0)*Number(it['Giá nhập dự kiến']||0),0)
+    const html=`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Đơn đặt hàng ${maDH}</title>
+    <style>body{font-family:Arial,sans-serif;padding:32px;font-size:13px;}h1{font-size:20px;color:#1e3a5f;}
+    .info{display:flex;gap:16px;margin:16px 0;}.box{flex:1;background:#F8FAFC;border:1px solid #E5E7EB;border-radius:6px;padding:12px 16px;}
+    table{width:100%;border-collapse:collapse;margin-top:16px;}th{background:#1e3a5f;color:white;padding:8px 10px;font-size:12px;}
+    td{padding:7px 10px;border-bottom:1px solid #E5E7EB;font-size:12px;}tr:nth-child(even) td{background:#F9FAFB;}
+    .tong{text-align:right;margin-top:12px;font-size:15px;font-weight:bold;color:#1e3a5f;}
+    .footer{margin-top:40px;display:flex;justify-content:space-between;}
+    .sign{text-align:center;width:200px;}.sign p{font-weight:bold;margin-bottom:50px;}
+    @media print{button{display:none!important;}}</style></head><body>
+    <div style="display:flex;justify-content:space-between">
+      <div><h1>🪑 Nội Thất Tính Tuyết</h1><p style="color:#6B7280;margin:0">Phiếu đặt hàng nhà cung cấp</p></div>
+      <div style="text-align:right"><div style="font-size:20px;font-weight:bold;color:#1e3a5f">${maDH}</div><div style="color:#6B7280">Ngày đặt: ${fDate(grp[0]['Ngày đặt'])}</div></div>
     </div>
     <div class="info">
-      <div class="box">
-        <div style="font-weight:bold;margin-bottom:6px;color:#1e3a5f">📦 Nhà cung cấp</div>
-        <div><b>${ncc['Tên NCC']||items[0]['Mã NCC']||'—'}</b></div>
-        <div>Mã NCC: ${items[0]['Mã NCC']||'—'}</div>
-        ${ncc['Số điện thoại']?`<div>SĐT: ${ncc['Số điện thoại']}</div>`:''}
-        ${ncc['Địa chỉ']?`<div>Địa chỉ: ${ncc['Địa chỉ']}</div>`:''}
-        ${ncc['Số TK ngân hàng']?`<div>STK: ${ncc['Số TK ngân hàng']}</div>`:''}
-      </div>
-      <div class="box">
-        <div style="font-weight:bold;margin-bottom:6px;color:#1e3a5f">🏪 Bên đặt hàng</div>
-        <div><b>Nội Thất Tính Tuyết</b></div>
-        <div>Người đặt: ${user.hoTen||user.tenDangNhap||'—'}</div>
-        <div>Ngày đặt: ${ngay}</div>
-        ${items[0]['Ghi chú']?`<div>Ghi chú: ${items[0]['Ghi chú']}</div>`:''}
-      </div>
+      <div class="box"><b>📦 Nhà cung cấp</b><br>${ncc['Tên NCC']||grp[0]['Mã NCC']||'—'}<br>Mã: ${grp[0]['Mã NCC']||'—'}${ncc['Số điện thoại']?'<br>SĐT: '+ncc['Số điện thoại']:''} ${ncc['Số TK ngân hàng']?'<br>STK: '+ncc['Số TK ngân hàng']:''}</div>
+      <div class="box"><b>🏪 Bên đặt hàng</b><br>Nội Thất Tính Tuyết<br>Người đặt: ${user.hoTen||user.tenDangNhap||'—'}${grp[0]['Ghi chú']?'<br>Ghi chú: '+grp[0]['Ghi chú']:''}</div>
     </div>
-    <table>
-      <thead><tr>
-        <th>Mã SP</th><th>Tên sản phẩm</th><th style="text-align:center">SL</th>
-        <th style="text-align:center">ĐVT</th><th style="text-align:right">Đơn giá</th>
-        <th style="text-align:right">Thành tiền</th><th>Ngày dự kiến về</th><th>Ghi chú</th>
-      </tr></thead>
-      <tbody>${rows}</tbody>
-    </table>
-    <div class="tong">Tổng cộng: ${fVND(tongTienPDF)}đ</div>
-    <div class="footer">
-      <div class="sign"><p>Đại diện nhà cung cấp</p><div style="border-top:1px solid #ccc;padding-top:6px;color:#6B7280;font-size:11px">(Ký, ghi rõ họ tên)</div></div>
-      <div class="sign"><p>Người đặt hàng</p><div style="border-top:1px solid #ccc;padding-top:6px;color:#6B7280;font-size:11px">(Ký, ghi rõ họ tên)</div></div>
-    </div>
-    <script>window.onload=()=>window.print()</script>
-    </body></html>`
-    const w = window.open('','_blank')
-    if (w) { w.document.write(html); w.document.close() }
+    <table><thead><tr><th>Mã SP</th><th>Tên sản phẩm</th><th>SL</th><th>ĐVT</th><th>Đơn giá</th><th>Thành tiền</th><th>Ngày hàng về</th><th>Ghi chú</th></tr></thead><tbody>${rows}</tbody></table>
+    <div class="tong">Tổng cộng: ${fVND(tong)}đ</div>
+    <div class="footer"><div class="sign"><p>Đại diện NCC</p><div style="border-top:1px solid #ccc;padding-top:6px;font-size:11px;color:#6B7280">(Ký, ghi rõ họ tên)</div></div>
+    <div class="sign"><p>Người đặt hàng</p><div style="border-top:1px solid #ccc;padding-top:6px;font-size:11px;color:#6B7280">(Ký, ghi rõ họ tên)</div></div></div>
+    <script>window.onload=()=>window.print()</script></body></html>`
+    const w=window.open('','_blank')
+    if(w){w.document.write(html);w.document.close()}
   }
-
-  // Group items theo Mã đơn hàng gốc (bỏ suffix -1,-2,...)
-  const grouped = useMemo(()=>{
-    const g:Record<string,any[]>={}
-    filtered.forEach(d=>{
-      const ma = (d['Mã đặt hàng']||'').replace(/-\d+$/,'') || d['Mã đặt hàng']
-      if(!g[ma]) g[ma]=[]
-      g[ma].push(d)
-    })
-    return g
-  },[filtered])
-
-  const groupKeys = Object.keys(grouped).slice((trangHT-1)*SO_DONG, trangHT*SO_DONG)
-  const tongTrangG = Math.max(1,Math.ceil(Object.keys(grouped).length/SO_DONG))
-
-  const chuaXN = local.filter(d=>d['Trạng thái']==='Chờ xác nhận').length
 
   return (
     <div style={{padding:'20px'}}>
       <style>{`
-        .ncc-t th,.ncc-t td{padding:8px 10px;}
+        .ncc-t th,.ncc-t td{padding:7px 10px;vertical-align:top;}
         .ncc-t tbody tr:hover td{background:#F0F4FF!important;}
         .ov{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;display:flex;align-items:center;justify-content:center;padding:16px;overflow-y:auto;}
-        .mk{background:white;border-radius:12px;padding:24px;width:100%;max-width:780px;max-height:93vh;overflow-y:auto;}
-        .sp-row{display:flex;gap:8px;padding:10px;border:1px solid #E5E7EB;border-radius:8px;margin-bottom:8px;background:#FAFBFD;flex-wrap:wrap;}
-        .db{position:absolute;top:calc(100%+3px);left:0;right:0;z-index:70;background:white;border:1px solid var(--border);border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.12);max-height:220px;overflow-y:auto;}
-        .di{padding:9px 12px;cursor:pointer;border-bottom:1px solid #F3F4F6;font-size:13px;}
+        .mk{background:white;border-radius:12px;padding:28px;width:100%;max-width:960px;max-height:95vh;overflow-y:auto;}
+        .mk2{background:white;border-radius:12px;padding:24px;width:100%;max-width:460px;}
+        .sp-row{display:grid;grid-template-columns:2fr 70px 80px 110px 130px 100px 1fr 32px;gap:8px;padding:10px;border:1px solid #E5E7EB;border-radius:8px;margin-bottom:6px;background:#FAFBFD;align-items:start;}
+        .db{position:absolute;top:calc(100%+3px);left:0;right:0;z-index:70;background:white;border:1px solid var(--border);border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.12);max-height:200px;overflow-y:auto;}
+        .di{padding:8px 12px;cursor:pointer;border-bottom:1px solid #F3F4F6;font-size:13px;}
         .di:hover{background:#F0F9FF;}
       `}</style>
 
+      {/* Header */}
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:'14px',flexWrap:'wrap',gap:'10px'}}>
         <div>
           <h1 style={{fontFamily:'Playfair Display,serif',fontSize:'20px',fontWeight:700,margin:0}}>🛒 Đặt hàng NCC</h1>
           <p style={{color:'var(--text-secondary)',fontSize:'13px',margin:'2px 0 0'}}>
-            {Object.keys(grouped).length} đơn
+            {groupKeys.length} đơn
             {chuaXN>0&&<span style={{marginLeft:'8px',color:'#D97706',fontWeight:600}}>⏳ {chuaXN} chờ xác nhận</span>}
           </p>
         </div>
-        <button onClick={()=>setShowModal(true)} style={{background:'var(--primary)',color:'white',border:'none',borderRadius:'8px',padding:'10px 18px',fontSize:'14px',fontWeight:600,cursor:'pointer'}}>+ Tạo đơn đặt hàng</button>
+        <button onClick={moTaoMoi} style={{background:'var(--primary)',color:'white',border:'none',borderRadius:'8px',padding:'10px 18px',fontSize:'14px',fontWeight:600,cursor:'pointer'}}>+ Tạo đơn đặt hàng</button>
       </div>
 
       {msg&&<div style={{padding:'10px 14px',borderRadius:'8px',marginBottom:'14px',fontSize:'13px',background:msgOk?'#D1FAE5':'#FEE2E2',color:msgOk?'#065F46':'#991B1B'}}>{msg}</div>}
-
-      {/* Tổng quan */}
-      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(120px,1fr))',gap:'10px',marginBottom:'14px'}}>
-        {TRANG_THAI.map(tt=>{
-          const n=local.filter(d=>d['Trạng thái']===tt).length
-          const c=TT_COLOR[tt]
-          return n>0?(
-            <div key={tt} className="card" style={{padding:'12px 14px',cursor:'pointer',border:filterTT===tt?`2px solid ${c.c}`:'1px solid var(--border)'}} onClick={()=>setFilterTT(filterTT===tt?'Tất cả':tt)}>
-              <div style={{fontSize:'18px',fontWeight:800,color:c.c}}>{n}</div>
-              <div style={{fontSize:'11px',color:c.c,fontWeight:600}}>{tt}</div>
-            </div>
-          ):null
-        })}
-      </div>
 
       {/* Filter */}
       <div className="card" style={{padding:'12px 14px',marginBottom:'14px'}}>
@@ -274,63 +255,72 @@ export default function DatHangNCCClient({donDHList,nccList,sanPhamList,user}:{
             <option value="Tất cả">Tất cả NCC</option>
             {nccDanhSach.map(n=><option key={n.ma} value={n.ma}>{n.ten}</option>)}
           </select>
-          <select className="input" value={filterTT} onChange={e=>setFilterTT(e.target.value)} style={{width:'160px'}}>
-            <option value="Tất cả">Tất cả trạng thái</option>
-            {TRANG_THAI.map(tt=><option key={tt}>{tt}</option>)}
-          </select>
+          <div style={{display:'flex',gap:'6px'}}>
+            {['Tất cả',...TRANG_THAI].map(tt=>{
+              const c=TT_COLOR[tt]||{bg:'#F3F4F6',c:'#374151'}
+              return <button key={tt} onClick={()=>setFilterTT(tt)} style={{padding:'5px 12px',borderRadius:'20px',border:'1px solid',borderColor:filterTT===tt?c.c:'var(--border)',background:filterTT===tt?c.bg:'white',color:filterTT===tt?c.c:'var(--text-secondary)',fontWeight:filterTT===tt?700:400,fontSize:'12px',cursor:'pointer'}}>{tt}</button>
+            })}
+          </div>
         </div>
       </div>
 
-      {/* Bảng đơn hàng */}
+      {/* Bảng */}
       <div className="card" style={{overflow:'hidden'}}>
         <div style={{overflowX:'auto'}}>
           <table className="ncc-t" style={{width:'100%',borderCollapse:'collapse',fontSize:'13px'}}>
             <thead>
               <tr style={{background:'#F0F4FF',borderBottom:'2px solid var(--border)'}}>
-                <th style={{textAlign:'left',fontWeight:700}}>Mã đơn</th>
-                <th style={{textAlign:'left',fontWeight:700}}>Ngày đặt</th>
-                <th style={{textAlign:'left',fontWeight:700}}>Nhà cung cấp</th>
+                <th style={{textAlign:'left',fontWeight:700,whiteSpace:'nowrap'}}>Mã đơn</th>
+                <th style={{textAlign:'left',fontWeight:700}}>Tên NCC</th>
                 <th style={{textAlign:'left',fontWeight:700}}>Sản phẩm</th>
-                <th style={{textAlign:'right',fontWeight:700}}>Tổng tiền</th>
+                <th style={{textAlign:'center',fontWeight:700}}>Số lượng</th>
+                <th style={{textAlign:'center',fontWeight:700,whiteSpace:'nowrap'}}>Ngày hàng về</th>
                 <th style={{textAlign:'center',fontWeight:700}}>Trạng thái</th>
-                <th style={{textAlign:'center',fontWeight:700,width:'120px'}}>Thao tác</th>
+                <th style={{textAlign:'center',fontWeight:700,width:'130px'}}>Thao tác</th>
               </tr>
             </thead>
             <tbody>
-              {groupKeys.length===0?(
+              {keysTrang.length===0?(
                 <tr><td colSpan={7} style={{textAlign:'center',padding:'48px',color:'var(--text-muted)'}}>Không có đơn hàng nào</td></tr>
-              ):groupKeys.map((maDH,i)=>{
-                const grp = grouped[maDH]
-                const first = grp[0]
-                const ncc = nccMap[first['Mã NCC']] || {}
-                const tongTienDon = grp.reduce((s,d)=>s+Number(d['Số lượng đặt']||0)*Number(d['Giá nhập dự kiến']||0),0)
-                const tt = first['Trạng thái']||'Chờ xác nhận'
-                const ttC = TT_COLOR[tt]||{bg:'#F3F4F6',c:'#374151'}
+              ):keysTrang.map((maDH,i)=>{
+                const grp=grouped[maDH]
+                const first=grp[0]
+                const ncc=nccMap[first['Mã NCC']]||{}
+                const tt=first['Trạng thái']||'Chờ xác nhận'
+                const ttC=TT_COLOR[tt]||{bg:'#F3F4F6',c:'#374151'}
                 return (
                   <tr key={maDH} style={{borderBottom:'1px solid #F0F0F0',background:i%2===0?'white':'#FAFBFD'}}>
-                    <td style={{fontWeight:700,color:'#374151',whiteSpace:'nowrap'}}>{maDH}</td>
-                    <td style={{fontSize:'12px',color:'var(--text-secondary)',whiteSpace:'nowrap'}}>{fDate(first['Ngày đặt'])}</td>
-                    <td>
+                    <td style={{fontWeight:700,color:'#374151',whiteSpace:'nowrap',verticalAlign:'top'}}>
+                      <button onClick={()=>moSua(grp)} style={{background:'none',border:'none',cursor:'pointer',color:'var(--primary)',fontWeight:700,fontSize:'13px',padding:0,textDecoration:'underline'}}>{maDH}</button>
+                      <div style={{fontSize:'11px',color:'#9CA3AF'}}>{fDate(first['Ngày đặt'])}</div>
+                    </td>
+                    <td style={{verticalAlign:'top'}}>
                       <div style={{fontWeight:600}}>{ncc['Tên NCC']||first['Mã NCC']||'—'}</div>
                       <div style={{fontSize:'11px',color:'#6B7280'}}>{first['Mã NCC']}</div>
                     </td>
-                    <td>
+                    <td style={{verticalAlign:'top'}}>
                       {grp.map((d,j)=>{
-                        const sp = spMap[d['Mã SP']]||{}
-                        return <div key={j} style={{fontSize:'12px'}}>{sp['Tên sản phẩm']||d['Mã SP']||'—'} <span style={{color:'#6B7280'}}>×{d['Số lượng đặt']}</span></div>
+                        const sp=spMap[d['Mã SP']]||{}
+                        return <div key={j} style={{fontSize:'12px',padding:'2px 0',borderBottom:j<grp.length-1?'1px dashed #F0F0F0':'none'}}>{sp['Tên sản phẩm']||d['Mã SP']||'—'}</div>
                       })}
                     </td>
-                    <td style={{textAlign:'right',fontWeight:700,whiteSpace:'nowrap'}}>{tongTienDon>0?fVND(tongTienDon)+'đ':'—'}</td>
-                    <td style={{textAlign:'center'}}>
-                      <select value={tt} onChange={e=>grp.forEach(d=>doiTrangThai(d,e.target.value))}
-                        style={{padding:'3px 8px',borderRadius:'12px',border:'none',background:ttC.bg,color:ttC.c,fontWeight:700,fontSize:'11px',cursor:'pointer'}}>
+                    <td style={{textAlign:'center',verticalAlign:'top'}}>
+                      {grp.map((d,j)=><div key={j} style={{fontSize:'12px',padding:'2px 0',borderBottom:j<grp.length-1?'1px dashed #F0F0F0':'none',fontWeight:600}}>{d['Số lượng đặt']||0}</div>)}
+                    </td>
+                    <td style={{textAlign:'center',verticalAlign:'top'}}>
+                      {grp.map((d,j)=><div key={j} style={{fontSize:'12px',padding:'2px 0',borderBottom:j<grp.length-1?'1px dashed #F0F0F0':'none'}}>{fDate(d['Ngày hàng về'])}</div>)}
+                    </td>
+                    <td style={{textAlign:'center',verticalAlign:'middle'}}>
+                      <select value={tt} onChange={e=>doiTrangThai(grp,e.target.value)}
+                        style={{padding:'4px 8px',borderRadius:'12px',border:'none',background:ttC.bg,color:ttC.c,fontWeight:700,fontSize:'11px',cursor:'pointer'}}>
                         {TRANG_THAI.map(t=><option key={t}>{t}</option>)}
                       </select>
                     </td>
-                    <td style={{textAlign:'center'}}>
-                      <div style={{display:'flex',gap:'4px',justifyContent:'center'}}>
-                        <button onClick={()=>xuatPDF(grp)} title="Xuất PDF" style={{padding:'4px 8px',borderRadius:'5px',border:'1px solid #BBF7D0',background:'#F0FDF4',color:'#16A34A',fontSize:'11px',cursor:'pointer',fontWeight:600}}>📄 PDF</button>
-                        <button onClick={()=>setXoaItem(first)} title="Xóa" style={{padding:'4px 8px',borderRadius:'5px',border:'1px solid #FCA5A5',background:'#FEF2F2',color:'#DC2626',fontSize:'11px',cursor:'pointer',fontWeight:600}}>🗑️</button>
+                    <td style={{textAlign:'center',verticalAlign:'middle'}}>
+                      <div style={{display:'flex',gap:'4px',justifyContent:'center',flexWrap:'wrap'}}>
+                        <button onClick={()=>moSua(grp)} style={{padding:'4px 8px',borderRadius:'5px',border:'1px solid #FCD34D',background:'#FFFBEB',color:'#92400E',fontSize:'11px',cursor:'pointer',fontWeight:600}}>✏️ Sửa</button>
+                        <button onClick={()=>xuatPDF(grp)} style={{padding:'4px 8px',borderRadius:'5px',border:'1px solid #BBF7D0',background:'#F0FDF4',color:'#16A34A',fontSize:'11px',cursor:'pointer',fontWeight:600}}>📄 PDF</button>
+                        <button onClick={()=>setXoaItem(first)} style={{padding:'4px 8px',borderRadius:'5px',border:'1px solid #FCA5A5',background:'#FEF2F2',color:'#DC2626',fontSize:'11px',cursor:'pointer',fontWeight:600}}>🗑️</button>
                       </div>
                     </td>
                   </tr>
@@ -341,7 +331,7 @@ export default function DatHangNCCClient({donDHList,nccList,sanPhamList,user}:{
         </div>
         {tongTrangG>1&&(
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'10px 14px',borderTop:'1px solid #F0F0F0'}}>
-            <span style={{fontSize:'12px',color:'var(--text-secondary)'}}>{Object.keys(grouped).length} đơn</span>
+            <span style={{fontSize:'12px',color:'var(--text-secondary)'}}>{groupKeys.length} đơn</span>
             <div style={{display:'flex',gap:'4px'}}>
               <Btn disabled={trangHT===1} onClick={()=>setTrang(t=>t-1)}>‹</Btn>
               {Array.from({length:tongTrangG},(_,i)=>i+1).map(p=><Btn key={p} active={p===trangHT} onClick={()=>setTrang(p)}>{p}</Btn>)}
@@ -351,18 +341,18 @@ export default function DatHangNCCClient({donDHList,nccList,sanPhamList,user}:{
         )}
       </div>
 
-      {/* MODAL TẠO ĐƠN */}
+      {/* MODAL TẠO/SỬA ĐƠN */}
       {showModal&&(
         <div className="ov" onClick={()=>{setShowModal(false);resetForm()}}>
           <div className="mk" onClick={e=>e.stopPropagation()}>
             <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'16px'}}>
-              <h2 style={{fontSize:'16px',fontWeight:700,margin:0}}>🛒 Tạo đơn đặt hàng NCC</h2>
-              <button onClick={()=>{setShowModal(false);resetForm()}} style={{background:'none',border:'none',cursor:'pointer',fontSize:'20px',color:'#6B7280'}}>✕</button>
+              <h2 style={{fontSize:'17px',fontWeight:700,margin:0}}>{editDon?'✏️ Chỉnh sửa đơn đặt hàng':'🛒 Tạo đơn đặt hàng NCC'}</h2>
+              <button onClick={()=>{setShowModal(false);resetForm()}} style={{background:'none',border:'none',cursor:'pointer',fontSize:'22px',color:'#6B7280'}}>✕</button>
             </div>
 
             {/* Thông tin chung */}
             <div style={{background:'#F8FAFC',borderRadius:'8px',padding:'14px',marginBottom:'14px',border:'1px solid #E5E7EB'}}>
-              <div style={{display:'grid',gridTemplateColumns:'2fr 1fr',gap:'12px',marginBottom:'10px'}}>
+              <div style={{display:'grid',gridTemplateColumns:'2fr 1fr 1fr',gap:'12px'}}>
                 <div>
                   <label style={{fontSize:'11px',fontWeight:600,display:'block',marginBottom:'3px'}}>Nhà cung cấp *</label>
                   <select className="input" value={maNCC} onChange={e=>setMaNCC(e.target.value)}>
@@ -374,9 +364,13 @@ export default function DatHangNCCClient({donDHList,nccList,sanPhamList,user}:{
                   <label style={{fontSize:'11px',fontWeight:600,display:'block',marginBottom:'3px'}}>Ngày đặt</label>
                   <input className="input" type="date" value={ngayDat} onChange={e=>setNgayDat(e.target.value)}/>
                 </div>
+                <div>
+                  <label style={{fontSize:'11px',fontWeight:600,display:'block',marginBottom:'3px'}}>Ghi chú đơn</label>
+                  <input className="input" placeholder="Ghi chú..." value={ghiChuDon} onChange={e=>setGhiChuDon(e.target.value)}/>
+                </div>
               </div>
               {maNCC&&nccMap[maNCC]&&(
-                <div style={{fontSize:'12px',color:'#374151',background:'var(--primary-pale)',borderRadius:'6px',padding:'8px 12px'}}>
+                <div style={{marginTop:'8px',fontSize:'12px',color:'#374151',background:'var(--primary-pale)',borderRadius:'6px',padding:'8px 12px'}}>
                   <span style={{fontWeight:600}}>{nccMap[maNCC]['Tên NCC']}</span>
                   {nccMap[maNCC]['Số điện thoại']&&<span style={{marginLeft:'12px',color:'#6B7280'}}>📞 {nccMap[maNCC]['Số điện thoại']}</span>}
                   {nccMap[maNCC]['Số TK ngân hàng']&&<span style={{marginLeft:'12px',color:'#6B7280'}}>🏦 {nccMap[maNCC]['Số TK ngân hàng']}</span>}
@@ -384,89 +378,130 @@ export default function DatHangNCCClient({donDHList,nccList,sanPhamList,user}:{
               )}
             </div>
 
-            {/* Danh sách SP */}
-            <div style={{marginBottom:'14px'}}>
-              <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'8px'}}>
-                <label style={{fontSize:'12px',fontWeight:700,color:'var(--primary)'}}>📦 SẢN PHẨM ĐẶT HÀNG</label>
-                <button onClick={addItem} style={{padding:'4px 12px',borderRadius:'6px',border:'1px solid var(--primary)',background:'white',color:'var(--primary)',fontSize:'12px',fontWeight:600,cursor:'pointer'}}>+ Thêm SP</button>
+            {/* SP header */}
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'8px'}}>
+              <label style={{fontSize:'12px',fontWeight:700,color:'var(--primary)'}}>📦 SẢN PHẨM ĐẶT HÀNG</label>
+              <div style={{display:'flex',gap:'8px'}}>
+                <button onClick={()=>setShowNewSP(true)} style={{padding:'5px 12px',borderRadius:'6px',border:'1px solid #8B5CF6',background:'#F5F3FF',color:'#7C3AED',fontSize:'12px',fontWeight:600,cursor:'pointer'}}>✨ Tạo SP mới</button>
+                <button onClick={addItem} style={{padding:'5px 12px',borderRadius:'6px',border:'1px solid var(--primary)',background:'white',color:'var(--primary)',fontSize:'12px',fontWeight:600,cursor:'pointer'}}>+ Thêm SP</button>
               </div>
-              {items.map((it,i)=>(
-                <div key={i} className="sp-row">
-                  {/* Tìm SP */}
-                  <div style={{flex:'2',minWidth:'180px',position:'relative'}}>
-                    <label style={{fontSize:'10px',color:'#6B7280',display:'block',marginBottom:'2px'}}>Sản phẩm *</label>
-                    <input className="input" placeholder="Tìm tên hoặc mã SP..." value={searchSP[i]??it.tenSP}
-                      onChange={e=>{setSearchSP(prev=>({...prev,[i]:e.target.value}));updItem(i,'tenSP',e.target.value);updItem(i,'maSP','');setShowSP(prev=>({...prev,[i]:true}))}}
-                      onFocus={()=>setShowSP(prev=>({...prev,[i]:true}))}
-                      onBlur={()=>setTimeout(()=>setShowSP(prev=>({...prev,[i]:false})),200)}
-                      style={{fontSize:'12px'}}/>
-                    {showSP[i]&&(
-                      <div className="db">
-                        {sanPhamList.filter(sp=>{
-                          const q=boDau(searchSP[i]||'')
-                          return !q||boDau(sp['Tên sản phẩm']||'').includes(q)||boDau(sp['Mã SP']||'').includes(q)
-                        }).slice(0,10).map((sp,j)=>(
-                          <div key={j} className="di" onMouseDown={e=>{e.preventDefault();chonSP(i,sp)}}>
-                            <span style={{fontWeight:600}}>{sp['Tên sản phẩm']}</span>
-                            <span style={{fontSize:'11px',color:'#6B7280',marginLeft:'8px'}}>{sp['Mã SP']}</span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                  {/* SL */}
-                  <div style={{width:'70px'}}>
-                    <label style={{fontSize:'10px',color:'#6B7280',display:'block',marginBottom:'2px'}}>Số lượng</label>
-                    <input className="input" type="number" min="1" value={it.soLuong||''} onChange={e=>updItem(i,'soLuong',Number(e.target.value))} style={{fontSize:'12px',textAlign:'center'}}/>
-                  </div>
-                  {/* Đơn vị */}
-                  <div style={{width:'70px'}}>
-                    <label style={{fontSize:'10px',color:'#6B7280',display:'block',marginBottom:'2px'}}>ĐVT</label>
-                    <input className="input" value={it.donVi} onChange={e=>updItem(i,'donVi',e.target.value)} style={{fontSize:'12px'}}/>
-                  </div>
-                  {/* Giá nhập */}
-                  <div style={{width:'120px'}}>
-                    <label style={{fontSize:'10px',color:'#6B7280',display:'block',marginBottom:'2px'}}>Giá nhập (đ)</label>
-                    <input className="input" type="text" inputMode="numeric"
-                      value={it.giaNhap?it.giaNhap.toLocaleString('vi-VN'):''}
-                      placeholder="0"
-                      onChange={e=>{const v=Number(e.target.value.replace(/\./g,'').replace(/,/g,''));if(!isNaN(v))updItem(i,'giaNhap',v)}}
-                      style={{fontSize:'12px'}}/>
-                  </div>
-                  {/* Ngày dự kiến */}
-                  <div style={{width:'120px'}}>
-                    <label style={{fontSize:'10px',color:'#6B7280',display:'block',marginBottom:'2px'}}>Ngày về</label>
-                    <input className="input" type="date" value={it.ngayVe} onChange={e=>updItem(i,'ngayVe',e.target.value)} style={{fontSize:'12px'}}/>
-                  </div>
-                  {/* Xóa */}
-                  {items.length>1&&<button onClick={()=>removeItem(i)} style={{alignSelf:'flex-end',padding:'6px 8px',borderRadius:'5px',border:'none',background:'#FEE2E2',color:'#DC2626',cursor:'pointer',fontSize:'13px'}}>✕</button>}
+            </div>
+            {/* Header cột */}
+            <div style={{display:'grid',gridTemplateColumns:'2fr 70px 80px 110px 130px 100px 1fr 32px',gap:'8px',padding:'4px 10px',fontSize:'11px',color:'#6B7280',fontWeight:600}}>
+              <div>Sản phẩm</div><div>SL</div><div>ĐVT</div><div>Giá nhập (đ)</div><div>Thành tiền</div><div>Ngày về</div><div>Ghi chú</div><div></div>
+            </div>
+            {items.map((it,i)=>(
+              <div key={i} className="sp-row">
+                {/* SP */}
+                <div style={{position:'relative'}}>
+                  <input className="input" placeholder="Tìm tên hoặc mã SP..." value={searchSP[i]??it.tenSP}
+                    onChange={e=>{setSearchSP(p=>({...p,[i]:e.target.value}));updItem(i,'tenSP',e.target.value);updItem(i,'maSP','');setShowSP(p=>({...p,[i]:true}))}}
+                    onFocus={()=>setShowSP(p=>({...p,[i]:true}))}
+                    onBlur={()=>setTimeout(()=>setShowSP(p=>({...p,[i]:false})),200)}
+                    style={{fontSize:'12px'}}/>
+                  {showSP[i]&&(
+                    <div className="db">
+                      {spLocal.filter(sp=>{const q=boDau(searchSP[i]||'').slice(0,20);return !q||boDau(sp['Tên sản phẩm']||'').includes(q)||boDau(sp['Mã SP']||'').includes(q)}).slice(0,10).map((sp,j)=>(
+                        <div key={j} className="di" onMouseDown={e=>{e.preventDefault();chonSP(i,sp)}}>
+                          <span style={{fontWeight:600}}>{sp['Tên sản phẩm']}</span>
+                          <span style={{fontSize:'11px',color:'#6B7280',marginLeft:'8px'}}>{sp['Mã SP']}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
-              ))}
-              {tongTien>0&&<div style={{textAlign:'right',fontWeight:700,fontSize:'14px',color:'var(--primary)',marginTop:'8px'}}>Tổng dự kiến: {fVND(tongTien)}đ</div>}
-            </div>
+                {/* SL */}
+                <input className="input" type="number" min="1" value={it.soLuong||''} onChange={e=>updItem(i,'soLuong',Number(e.target.value))} style={{fontSize:'12px',textAlign:'center'}}/>
+                {/* ĐVT */}
+                <input className="input" value={it.donVi} onChange={e=>updItem(i,'donVi',e.target.value)} style={{fontSize:'12px'}}/>
+                {/* Giá nhập */}
+                <input className="input" type="text" inputMode="numeric"
+                  value={it.giaNhap?it.giaNhap.toLocaleString('vi-VN'):''}  placeholder="0"
+                  onChange={e=>{const v=Number(e.target.value.replace(/\./g,'').replace(/,/g,''));if(!isNaN(v))updItem(i,'giaNhap',v)}}
+                  style={{fontSize:'12px'}}/>
+                {/* Thành tiền */}
+                <div style={{padding:'8px 6px',fontSize:'12px',fontWeight:600,color:'var(--primary)',alignSelf:'center'}}>
+                  {(Number(it.soLuong||0)*Number(it.giaNhap||0)).toLocaleString('vi-VN')}đ
+                </div>
+                {/* Ngày về */}
+                <input className="input" type="date" value={it.ngayVe} onChange={e=>updItem(i,'ngayVe',e.target.value)} style={{fontSize:'12px'}}/>
+                {/* Ghi chú */}
+                <input className="input" placeholder="Ghi chú..." value={it.ghiChu} onChange={e=>updItem(i,'ghiChu',e.target.value)} style={{fontSize:'12px'}}/>
+                {/* Xóa */}
+                {items.length>1&&<button onClick={()=>removeItem(i)} style={{padding:'6px',borderRadius:'5px',border:'none',background:'#FEE2E2',color:'#DC2626',cursor:'pointer',fontSize:'14px',alignSelf:'center'}}>✕</button>}
+              </div>
+            ))}
+            {tongTien>0&&<div style={{textAlign:'right',fontWeight:700,fontSize:'14px',color:'var(--primary)',marginTop:'8px',paddingRight:'8px'}}>Tổng dự kiến: {fVND(tongTien)}đ</div>}
 
-            <div style={{marginBottom:'14px'}}>
-              <label style={{fontSize:'11px',fontWeight:600,display:'block',marginBottom:'3px'}}>Ghi chú đơn hàng</label>
-              <input className="input" placeholder="Ghi chú thêm..." value={ghiChuDon} onChange={e=>setGhiChuDon(e.target.value)}/>
-            </div>
-
-            <div style={{display:'flex',gap:'10px'}}>
-              <button onClick={luuDon} disabled={loading} style={{flex:1,padding:'11px',borderRadius:'8px',border:'none',background:loading?'#9CA3AF':'var(--primary)',color:'white',fontWeight:700,fontSize:'14px',cursor:loading?'not-allowed':'pointer'}}>
-                {loading?'⏳ Đang lưu...':'✅ Tạo đơn đặt hàng'}
+            <div style={{display:'flex',gap:'10px',marginTop:'16px'}}>
+              <button onClick={luuDon} disabled={loading} style={{flex:1,padding:'12px',borderRadius:'8px',border:'none',background:loading?'#9CA3AF':'var(--primary)',color:'white',fontWeight:700,fontSize:'14px',cursor:loading?'not-allowed':'pointer'}}>
+                {loading?'⏳ Đang lưu...':editDon?'✅ Cập nhật đơn':'✅ Tạo đơn đặt hàng'}
               </button>
-              <button onClick={()=>{setShowModal(false);resetForm()}} style={{padding:'11px 16px',borderRadius:'8px',border:'1px solid var(--border)',background:'white',cursor:'pointer',fontSize:'14px'}}>Huỷ</button>
+              <button onClick={()=>{setShowModal(false);resetForm()}} style={{padding:'12px 18px',borderRadius:'8px',border:'1px solid var(--border)',background:'white',cursor:'pointer',fontSize:'14px'}}>Huỷ</button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Modal xác nhận xóa */}
+      {/* MODAL TẠO SP MỚI */}
+      {showNewSP&&(
+        <div className="ov" onClick={()=>setShowNewSP(false)}>
+          <div className="mk2" onClick={e=>e.stopPropagation()}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'16px'}}>
+              <h2 style={{fontSize:'16px',fontWeight:700,margin:0}}>✨ Tạo sản phẩm mới</h2>
+              <button onClick={()=>setShowNewSP(false)} style={{background:'none',border:'none',cursor:'pointer',fontSize:'20px',color:'#6B7280'}}>✕</button>
+            </div>
+            <div style={{display:'flex',flexDirection:'column',gap:'10px'}}>
+              <div style={{display:'grid',gridTemplateColumns:'1fr 2fr',gap:'10px'}}>
+                <div>
+                  <label style={{fontSize:'11px',fontWeight:600,display:'block',marginBottom:'3px'}}>Mã SP (tự động)</label>
+                  <input className="input" placeholder="SP-xxx" value={newMaSP} onChange={e=>setNewMaSP(e.target.value)}/>
+                </div>
+                <div>
+                  <label style={{fontSize:'11px',fontWeight:600,display:'block',marginBottom:'3px'}}>Tên sản phẩm *</label>
+                  <input className="input" placeholder="Tên SP..." value={newTenSP} onChange={e=>setNewTenSP(e.target.value)} autoFocus/>
+                </div>
+              </div>
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:'10px'}}>
+                <div>
+                  <label style={{fontSize:'11px',fontWeight:600,display:'block',marginBottom:'3px'}}>Loại SP</label>
+                  <select className="input" value={newLoai} onChange={e=>setNewLoai(e.target.value)}>
+                    <option>Phổ thông</option><option>Theo yêu cầu</option>
+                  </select>
+                </div>
+                <div>
+                  <label style={{fontSize:'11px',fontWeight:600,display:'block',marginBottom:'3px'}}>Đơn vị tính</label>
+                  <input className="input" value={newDonVi} onChange={e=>setNewDonVi(e.target.value)} placeholder="Cái/Bộ/Chiếc..."/>
+                </div>
+                <div>
+                  <label style={{fontSize:'11px',fontWeight:600,display:'block',marginBottom:'3px'}}>Giá bán buôn (đ)</label>
+                  <input className="input" type="text" inputMode="numeric"
+                    value={newGia?newGia.toLocaleString('vi-VN'):''}  placeholder="0"
+                    onChange={e=>{const v=Number(e.target.value.replace(/\./g,'').replace(/,/g,''));if(!isNaN(v))setNewGia(v)}}/>
+                </div>
+              </div>
+              <div>
+                <label style={{fontSize:'11px',fontWeight:600,display:'block',marginBottom:'3px'}}>Ghi chú</label>
+                <input className="input" placeholder="Ghi chú..." value={newGhiChu} onChange={e=>setNewGhiChu(e.target.value)}/>
+              </div>
+              <div style={{display:'flex',gap:'10px',marginTop:'4px'}}>
+                <button onClick={luuSPMoi} disabled={savingSP} style={{flex:1,padding:'11px',borderRadius:'8px',border:'none',background:savingSP?'#9CA3AF':'#7C3AED',color:'white',fontWeight:700,fontSize:'14px',cursor:savingSP?'not-allowed':'pointer'}}>
+                  {savingSP?'⏳ Đang lưu...':'✅ Lưu sản phẩm mới'}
+                </button>
+                <button onClick={()=>setShowNewSP(false)} style={{padding:'11px 16px',borderRadius:'8px',border:'1px solid var(--border)',background:'white',cursor:'pointer',fontSize:'14px'}}>Huỷ</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal xóa */}
       {xoaItem&&(
         <div className="ov" onClick={()=>setXoaItem(null)}>
           <div style={{background:'white',borderRadius:'12px',padding:'24px',width:'100%',maxWidth:'340px',textAlign:'center'}} onClick={e=>e.stopPropagation()}>
             <div style={{fontSize:'32px',marginBottom:'8px'}}>🗑️</div>
             <h2 style={{fontSize:'15px',fontWeight:700,margin:'0 0 8px'}}>Xác nhận xóa đơn?</h2>
-            <p style={{fontSize:'13px',color:'#6B7280',margin:'0 0 16px'}}>Xóa tất cả dòng của đơn <strong>{(xoaItem['Mã đặt hàng']||'').replace(/-\d+$/,'')}</strong>?</p>
+            <p style={{fontSize:'13px',color:'#6B7280',margin:'0 0 16px'}}>Xóa toàn bộ đơn <strong>{(xoaItem['Mã đặt hàng']||'').replace(/-\d+$/,'')||xoaItem['Mã đặt hàng']}</strong>?</p>
             <div style={{display:'flex',gap:'10px'}}>
               <button onClick={xacNhanXoa} style={{flex:1,padding:'10px',borderRadius:'8px',border:'none',background:'#DC2626',color:'white',fontWeight:700,cursor:'pointer'}}>Xóa</button>
               <button onClick={()=>setXoaItem(null)} style={{flex:1,padding:'10px',borderRadius:'8px',border:'1px solid var(--border)',background:'white',cursor:'pointer',fontWeight:600}}>Huỷ</button>

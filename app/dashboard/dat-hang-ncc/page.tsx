@@ -9,7 +9,7 @@ export default async function DatHangNCCPage() {
   const [donDH, ncc, sanPham] = await Promise.all([
     getRecords(TABLES.DAT_HANG_NCC, {
       limit: 500, sort: '-Id',
-      fields: 'Id,Mã đặt hàng,Ngày đặt,Mã NCC,Mã SP,Số lượng đặt,Giá nhập dự kiến,Ngày dự kiến về,Trạng thái,Ghi chú',
+      fields: 'Id,Mã đặt hàng,Ngày đặt,Mã NCC,Mã SP,Số lượng đặt,Giá nhập dự kiến,Ngày hàng về,Trạng thái,Ghi chú',
     }),
     getRecords(TABLES.NHA_CUNG_CAP, {
       limit: 200,
