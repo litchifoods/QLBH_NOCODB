@@ -323,6 +323,12 @@ export default function DatHangNCCClient({donDHList,nccList,sanPhamList,user}:{
                           </select>
                         </div>
                       })}
+                      {grp.length>1&&grp.some(d=>d['Trạng thái']!=='Đã xác nhận')&&(
+                        <button onClick={()=>doiTrangThai(grp,'Đã xác nhận')}
+                          style={{marginTop:'4px',width:'100%',padding:'3px 6px',borderRadius:'6px',border:'1px solid #065F46',background:'#D1FAE5',color:'#065F46',fontSize:'10px',fontWeight:700,cursor:'pointer'}}>
+                          ✅ Xác nhận tất cả
+                        </button>
+                      )}
                     </td>
                     <td style={{textAlign:'center',verticalAlign:'middle'}}>
                       <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'4px',width:'100px'}}>
