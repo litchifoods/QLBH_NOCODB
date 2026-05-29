@@ -5,16 +5,19 @@ import { getSession } from '@/lib/auth'
 
 async function taoMaDH(): Promise<string> {
   try {
-    const r = await getRecords(TABLES.DAT_HANG_NCC, { limit:100, sort:'-Id', fields:'Mã đặt hàng' })
+    const r = await getRecords(TABLES.DAT_HANG_NCC, { limit:500, sort:'-Id', fields:'Mã đặt hàng' })
     const list = r.list || []
-    // Lấy tất cả mã gốc (bỏ suffix -1,-2,...), tìm số lớn nhất
     let maxSo = 0
     for (const item of list) {
-      const ma = (item['Mã đặt hàng'] as string || '').replace(/-\d+$/, '')
-      // Format: DH-NCC-XXX
+      const ma = (item['Mã đặt hàng'] as string || '')
+      // Tìm số ở cuối chuỗi DH-NCC-XXX hoặc DH-NCC-XXX-Y
+      // Lấy phần số thứ 3 (index 2) sau split '-'
       const parts = ma.split('-')
-      const so = parseInt(parts[parts.length-1] || '0')
-      if (!isNaN(so) && so > maxSo) maxSo = so
+      // parts[0]=DH, parts[1]=NCC, parts[2]=số đơn, parts[3]=số SP (nếu có)
+      if (parts.length >= 3) {
+        const so = parseInt(parts[2] || '0')
+        if (!isNaN(so) && so > maxSo) maxSo = so
+      }
     }
     return `DH-NCC-${String(maxSo + 1).padStart(3,'0')}`
   } catch { 

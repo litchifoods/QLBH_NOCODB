@@ -80,9 +80,11 @@ export default function DatHangNCCClient({donDHList,nccList,sanPhamList,user}:{
     const g:Record<string,any[]>={}
     r.forEach(d=>{
       const full = d['Mã đặt hàng']||''
-      // Group key: lấy phần DH-NCC-XXX (3 phần đầu ngăn bởi -)
+      // Group key: DH-NCC-XXX — lấy phần số thứ 3 làm key
       const parts = full.split('-')
-      const ma = parts.length >= 3 ? parts.slice(0,3).join('-') : full
+      // Format: DH-NCC-001 (3 parts) hoặc DH-NCC-001-1 (4 parts)
+      // Key nhóm luôn là DH-NCC-{số} (parts 0,1,2)
+      const ma = parts.length >= 3 ? `DH-NCC-${parts[2]}` : full
       if(!g[ma]) g[ma]=[]
       g[ma].push(d)
     })
