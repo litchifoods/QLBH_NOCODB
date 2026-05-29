@@ -478,7 +478,7 @@ export default function DatHangNCCClient({donDHList,nccList,sanPhamList,user}:{
       {/* MODAL TẠO SP MỚI — giống SanPhamClient */}
       {showNewSP&&(
         <div className="ov" onClick={()=>setShowNewSP(false)}>
-          <div style={{background:'white',borderRadius:'12px',padding:'24px',width:'100%',max-width:'600px',maxWidth:'600px'}} onClick={e=>e.stopPropagation()}>
+          <div style={{background:'white',borderRadius:'12px',padding:'24px',width:'100%',maxWidth:'600px'}} onClick={e=>e.stopPropagation()}>
             <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'16px'}}>
               <h2 style={{fontSize:'16px',fontWeight:700,margin:0}}>✨ Thêm sản phẩm mới</h2>
               <button onClick={()=>setShowNewSP(false)} style={{background:'none',border:'none',cursor:'pointer',fontSize:'20px',color:'#6B7280'}}>✕</button>
