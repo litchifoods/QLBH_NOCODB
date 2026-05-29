@@ -55,6 +55,8 @@ export default function DatHangNCCClient({donDHList,nccList,sanPhamList,user}:{
   const [savingSP,  setSavingSP] = useState(false)
   const [newTonKho, setNewTonKho] = useState(0)
   const [newNguong, setNewNguong] = useState(5)
+  const [newGiaLe,  setNewGiaLe]  = useState(0)
+  const [newThongSo,setNewThongSo]= useState('')
   const [trungSP,   setTrungSP]  = useState<{idx:number, idxCu:number, tenSP:string}|null>(null)
 
   function showMsg2(t:string,ok=true){setMsg(t);setMsgOk(ok);setTimeout(()=>setMsg(''),5000)}
@@ -213,13 +215,13 @@ export default function DatHangNCCClient({donDHList,nccList,sanPhamList,user}:{
     setSavingSP(true)
     try {
       const res=await fetch('/api/san-pham',{method:'POST',headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({'Mã SP':newMaSP.trim()||undefined,'Tên sản phẩm':newTenSP.trim(),'Loại SP':newLoai,'Đơn vị tính':newDonVi,'Giá bán buôn':newGia,'Tồn kho':newTonKho,'Ngưỡng cảnh báo':newNguong,'Ghi chú':newGhiChu})})
+        body:JSON.stringify({'Mã SP':newMaSP.trim()||undefined,'Tên sản phẩm':newTenSP.trim(),'Loại SP':newLoai,'Đơn vị tính':newDonVi,'Giá bán buôn':newGia,'Giá bán lẻ':newGiaLe,'Tồn kho':newTonKho,'Ngưỡng cảnh báo':newNguong,'Thông số kỹ thuật':newThongSo,'Ghi chú':newGhiChu})})
       const d=await res.json()
       if (!res.ok) throw new Error(d.message)
       const newSP={...d.data,'Mã SP':d.data?.['Mã SP']||newMaSP}
       setSpLocal(p=>[newSP,...p])
       showMsg2(`✅ Đã thêm SP: ${newTenSP}`)
-      setShowNewSP(false);setNewTenSP('');setNewMaSP('');setNewLoai('Theo yêu cầu');setNewDonVi('Cái');setNewGia(0);setNewGhiChu('');setNewTonKho(0);setNewNguong(5)
+      setShowNewSP(false);setNewTenSP('');setNewMaSP('');setNewLoai('Theo yêu cầu');setNewDonVi('Cái');setNewGia(0);setNewGiaLe(0);setNewGhiChu('');setNewThongSo('');setNewTonKho(0);setNewNguong(5)
     } catch(e:any){showMsg2('❌ '+(e.message||'Lỗi'),false)}
     finally{setSavingSP(false)}
   }
@@ -541,7 +543,9 @@ export default function DatHangNCCClient({donDHList,nccList,sanPhamList,user}:{
                 </div>
                 <div>
                   <label style={{fontSize:'11px',fontWeight:600,display:'block',marginBottom:'3px'}}>Đơn vị tính</label>
-                  <input className="input" value={newDonVi} onChange={e=>setNewDonVi(e.target.value)} placeholder="Cái / Bộ / Chiếc..."/>
+                  <select className="input" value={newDonVi} onChange={e=>setNewDonVi(e.target.value)}>
+                    <option>Cái</option><option>Chiếc</option><option>Bộ</option>
+                  </select>
                 </div>
               </div>
               <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'10px'}}>
@@ -552,8 +556,20 @@ export default function DatHangNCCClient({donDHList,nccList,sanPhamList,user}:{
                     onChange={e=>{const v=Number(e.target.value.replace(/\./g,'').replace(/,/g,''));if(!isNaN(v))setNewGia(v)}}/>
                 </div>
                 <div>
-                  <label style={{fontSize:'11px',fontWeight:600,display:'block',marginBottom:'3px'}}>Thông số kỹ thuật</label>
-                  <input className="input" placeholder="Kích thước, màu sắc..." value={newGhiChu} onChange={e=>setNewGhiChu(e.target.value)}/>
+                  <label style={{fontSize:'11px',fontWeight:600,display:'block',marginBottom:'3px'}}>🏷️ Giá bán lẻ (đ)</label>
+                  <input className="input" type="text" inputMode="numeric" placeholder="0"
+                    value={newGiaLe?newGiaLe.toLocaleString('vi-VN'):''}
+                    onChange={e=>{const v=Number(e.target.value.replace(/\./g,'').replace(/,/g,''));if(!isNaN(v))setNewGiaLe(v)}}/>
+                </div>
+              </div>
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'10px'}}>
+                <div>
+                  <label style={{fontSize:'11px',fontWeight:600,display:'block',marginBottom:'3px'}}>📐 Thông số kỹ thuật</label>
+                  <input className="input" placeholder="VD: 120x60x75cm" value={newThongSo} onChange={e=>setNewThongSo(e.target.value)}/>
+                </div>
+                <div>
+                  <label style={{fontSize:'11px',fontWeight:600,display:'block',marginBottom:'3px'}}>📝 Ghi chú</label>
+                  <input className="input" placeholder="Ghi chú thêm..." value={newGhiChu} onChange={e=>setNewGhiChu(e.target.value)}/>
                 </div>
               </div>
               <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'10px'}}>
