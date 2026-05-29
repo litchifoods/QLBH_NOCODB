@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 // components/TaoDonHangForm.tsx — v2.4
 // Sửa lỗi 404: đọc maDon từ json.maDon (API đã query lại sau khi tạo)
 
@@ -536,3 +536,4 @@ export default function TaoDonHangForm({
     </div>
   )
 }
+
