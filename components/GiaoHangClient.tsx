@@ -6,6 +6,7 @@ import { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { UserSession } from '@/lib/auth'
+import { useMeta } from '@/hooks/useMeta'
 
 function fVND(n: any) { return Number(n||0).toLocaleString('vi-VN')+'đ' }
 function boDau(s: string) {
@@ -21,7 +22,7 @@ interface SPGiao {
   maChiTiet:string; tenSP:string; soLuongDon:number
   daGiao:number; soLuongGiao:number; checked:boolean; ghiChu:string
 }
-const VAI_TRO_CHUYEN = ['Vận chuyển+Lắp','Vận chuyển','Lắp đặt']
+// VAI_TRO_CHUYEN đọc động từ NocoDB
 const NGUOI_MAC_DINH: Nguoi = {
   id:'1', hinhThuc:'NV cửa hàng', maNV:'', tenNV:'',
   vaiTroNocoDB:'', vaiTroChuyen:'Vận chuyển+Lắp',
@@ -42,6 +43,8 @@ export default function GiaoHangClient({
   khachHangMap:Record<string,any>; user:UserSession
 }) {
   const router = useRouter()
+  const { opts } = useMeta(['vai-tro-chuyen'])
+  const VAI_TRO_CHUYEN = opts('vai-tro-chuyen', ['Vận chuyển+Lắp','Vận chuyển','Lắp đặt'])
   const [trang,    setTrang]    = useState(1)
   const [showForm, setShowForm] = useState(false)
   const [editNgayDon,  setEditNgayDon]  = useState<string|null>(null)
