@@ -186,7 +186,7 @@ export default function DatHangNCCClient({donDHList,nccList,sanPhamList,user}:{
       <div class="box">
         <div style="font-weight:bold;margin-bottom:6px;color:#1e3a5f">🏪 Bên đặt hàng</div>
         <div><b>Nội Thất Tính Tuyết</b></div>
-        <div>Người đặt: ${user.hoTen||user.username||'—'}</div>
+        <div>Người đặt: ${user.hoTen||user.tenDangNhap||'—'}</div>
         <div>Ngày đặt: ${ngay}</div>
         ${items[0]['Ghi chú']?`<div>Ghi chú: ${items[0]['Ghi chú']}</div>`:''}
       </div>
