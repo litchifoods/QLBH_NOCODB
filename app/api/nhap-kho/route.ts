@@ -112,3 +112,12 @@ export async function DELETE(req: NextRequest) {
     return NextResponse.json({ success:true })
   } catch(e:any) { return NextResponse.json({message:e.message},{status:500}) }
 }
+
+export async function GET(req: NextRequest) {
+  try {
+    const session = await getSession()
+    if (!session) return NextResponse.json({message:'Chua dang nhap'},{status:401})
+    const r = await getRecords(TABLES.NHAP_KHO, { limit:500, sort:'-Id' })
+    return NextResponse.json(r)
+  } catch(e:any) { return NextResponse.json({message:e.message},{status:500}) }
+}
