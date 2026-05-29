@@ -147,7 +147,7 @@ export default function DatHangNCCClient({donDHList,nccList,sanPhamList,user}:{
         if (!res.ok) throw new Error(d.message)
         showMsg2(`✅ Đã tạo ${d.maDH} — ${d.soSP} SP`)
       }
-      setShowModal(false);resetForm();router.refresh()
+      setShowModal(false);resetForm();window.location.reload()
     } catch(e:any){showMsg2('❌ '+(e.message||'Lỗi'),false)}
     finally{setLoading(false)}
   }
@@ -381,7 +381,7 @@ export default function DatHangNCCClient({donDHList,nccList,sanPhamList,user}:{
                     <div className="db">
                       {nccList.filter(n=>{
                         const q=boDau(searchNCC)
-                        return !q||boDau(n['Tên NCC']||''). includes(q)||boDau(n['Mã NCC']||''). includes(q)||boDau(n['Địa chỉ']||''). includes(q)||boDau(n['Số điện thoại']||''). includes(q)
+                        return !q||boDau(n['Tên NCC']||'').includes(q)||boDau(n['Mã NCC']||'').includes(q)||boDau(n['Địa chỉ']||'').includes(q)||boDau(n['Số điện thoại']||'').includes(q)
                       }).map(n=>(
                         <div key={n['Mã NCC']} className="di" onMouseDown={e=>{e.preventDefault();setMaNCC(n['Mã NCC']);setSearchNCC(n['Tên NCC']);setShowNCC(false)}}>
                           <div style={{fontWeight:600}}>{n['Tên NCC']} <span style={{fontSize:'11px',color:'#6B7280'}}>{n['Mã NCC']}</span></div>
