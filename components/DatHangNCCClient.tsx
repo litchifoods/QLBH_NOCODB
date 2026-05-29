@@ -1,6 +1,6 @@
 'use client'
 // components/DatHangNCCClient.tsx v2
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { UserSession } from '@/lib/auth'
 
@@ -15,12 +15,14 @@ const TT_COLOR: Record<string,{bg:string,c:string}> = {
 }
 const SO_DONG = 10
 
-interface SPItem { maSP:string; tenSP:string; donVi:string; soLuong:number; giaNhap:number; ngayVe:string; ghiChu:string }
+interface SPItem { _id:number; maSP:string; tenSP:string; donVi:string; soLuong:number; giaNhap:number; ngayVe:string; ghiChu:string }
 
 export default function DatHangNCCClient({donDHList,nccList,sanPhamList,user}:{
   donDHList:any[]; nccList:any[]; sanPhamList:any[]; user:UserSession
 }) {
   const router = useRouter()
+  const _idRef = useRef(0)
+  const nextId = () => ++_idRef.current
   const [local, setLocal]        = useState(donDHList)
   const [spLocal, setSpLocal]    = useState(sanPhamList)
   const [search, setSearch]      = useState('')
@@ -37,7 +39,7 @@ export default function DatHangNCCClient({donDHList,nccList,sanPhamList,user}:{
   const [maNCC,     setMaNCC]    = useState('')
   const [ngayDat,   setNgayDat]  = useState(new Date().toISOString().split('T')[0])
   const [ghiChuDon, setGhiChuDon]= useState('')
-  const [items, setItems]        = useState<SPItem[]>([{maSP:'',tenSP:'',donVi:'',soLuong:1,giaNhap:0,ngayVe:'',ghiChu:''}])
+  const [items, setItems]        = useState<SPItem[]>([{_id:1,maSP:'',tenSP:'',donVi:'',soLuong:1,giaNhap:0,ngayVe:'',ghiChu:''}])
   const [searchNCC,  setSearchNCC] = useState('')
   const [showNCC,    setShowNCC]   = useState(false)
   const [searchSP,  setSearchSP] = useState<Record<number,string>>({})
@@ -91,16 +93,16 @@ export default function DatHangNCCClient({donDHList,nccList,sanPhamList,user}:{
   const nccDanhSach= useMemo(()=>[...new Set(local.map(d=>d['Mã NCC']).filter(Boolean))].map(ma=>({ma,ten:nccMap[ma]?.['Tên NCC']||ma})),[local,nccMap])
   const chuaXN     = local.filter(d=>d['Trạng thái']==='Chờ xác nhận').length
 
-  function addItem(){setItems(p=>[...p,{maSP:'',tenSP:'',donVi:'',soLuong:1,giaNhap:0,ngayVe:'',ghiChu:''}])}
-  function removeItem(i:number){setItems(p=>p.filter((_,idx)=>idx!==i))}
-  function updItem(i:number,k:keyof SPItem,v:any){setItems(p=>p.map((it,idx)=>idx===i?{...it,[k]:v}:it))}
-  function chonSP(i:number,sp:any){
-    updItem(i,'maSP',sp['Mã SP']||'')
-    updItem(i,'tenSP',sp['Tên sản phẩm']||'')
-    updItem(i,'donVi',sp['Đơn vị tính']||'')
-    updItem(i,'giaNhap',Number(sp['Giá bán buôn']||0))
-    setSearchSP(p=>({...p,[i]:sp['Tên sản phẩm']||''}))
-    setShowSP(p=>({...p,[i]:false}))
+  function addItem(){setItems(p=>[...p,{_id:nextId(),maSP:'',tenSP:'',donVi:'',soLuong:1,giaNhap:0,ngayVe:'',ghiChu:''}])}
+  function removeItem(id:number){setItems(p=>p.filter(it=>it._id!==id))}
+  function updItem(id:number,k:keyof SPItem,v:any){setItems(p=>p.map(it=>it._id===id?{...it,[k]:v}:it))}
+  function chonSP(id:number,sp:any){
+    updItem(id,'maSP',sp['Mã SP']||'')
+    updItem(id,'tenSP',sp['Tên sản phẩm']||'')
+    updItem(id,'donVi',sp['Đơn vị tính']||'')
+    updItem(id,'giaNhap',Number(sp['Giá bán buôn']||0))
+    setSearchSP(p=>({...p,[id]:sp['Tên sản phẩm']||''}))
+    setShowSP(p=>({...p,[id]:false}))
   }
   const tongTien = items.reduce((s,it)=>s+Number(it.soLuong||0)*Number(it.giaNhap||0),0)
 
@@ -111,7 +113,8 @@ export default function DatHangNCCClient({donDHList,nccList,sanPhamList,user}:{
     setMaNCC(first['Mã NCC']||'')
     setNgayDat(first['Ngày đặt']?.split('T')[0]||new Date().toISOString().split('T')[0])
     setGhiChuDon(first['Ghi chú']||'')
-    setItems(grp.map(d=>({
+    setItems(grp.map((d,i)=>({
+      _id:i+1,
       maSP:d['Mã SP']||'', tenSP:spMap[d['Mã SP']]?.['Tên sản phẩm']||d['Mã SP']||'',
       donVi:spMap[d['Mã SP']]?.['Đơn vị tính']||'',
       soLuong:Number(d['Số lượng đặt']||1), giaNhap:Number(d['Giá nhập dự kiến']||0),
@@ -120,7 +123,7 @@ export default function DatHangNCCClient({donDHList,nccList,sanPhamList,user}:{
     setSearchSP(Object.fromEntries(grp.map((d,i)=>[i,spMap[d['Mã SP']]?.['Tên sản phẩm']||d['Mã SP']||''])))
     setShowModal(true)
   }
-  function resetForm(){setMaNCC('');setSearchNCC('');setNgayDat(new Date().toISOString().split('T')[0]);setGhiChuDon('');setItems([{maSP:'',tenSP:'',donVi:'',soLuong:1,giaNhap:0,ngayVe:'',ghiChu:''}]);setSearchSP({});setShowSP({})}
+  function resetForm(){setMaNCC('');setSearchNCC('');_idRef.current=0;setNgayDat(new Date().toISOString().split('T')[0]);setGhiChuDon('');setItems([{maSP:'',tenSP:'',donVi:'',soLuong:1,giaNhap:0,ngayVe:'',ghiChu:''}]);setSearchSP({});setShowSP({})}
 
   async function luuDon(){
     if (!maNCC){showMsg2('Chọn nhà cung cấp',false);return}
@@ -421,19 +424,19 @@ export default function DatHangNCCClient({donDHList,nccList,sanPhamList,user}:{
             <div style={{display:'grid',gridTemplateColumns:'2fr 70px 80px 110px 130px 100px 1fr 32px',gap:'8px',padding:'4px 10px',fontSize:'11px',color:'#6B7280',fontWeight:600}}>
               <div>Sản phẩm</div><div>SL</div><div>ĐVT</div><div>Giá nhập (đ)</div><div>Thành tiền</div><div>Ngày về</div><div>Ghi chú</div><div></div>
             </div>
-            {items.map((it,i)=>(
-              <div key={i} className="sp-row">
+            {items.map((it)=>(
+              <div key={it._id} className="sp-row">
                 {/* SP */}
                 <div style={{position:'relative'}}>
-                  <input className="input" placeholder="Tìm tên hoặc mã SP..." value={searchSP[i]??it.tenSP}
-                    onChange={e=>{setSearchSP(p=>({...p,[i]:e.target.value}));updItem(i,'tenSP',e.target.value);updItem(i,'maSP','');setShowSP(p=>({...p,[i]:true}))}}
-                    onFocus={()=>setShowSP(p=>({...p,[i]:true}))}
-                    onBlur={()=>setTimeout(()=>setShowSP(p=>({...p,[i]:false})),200)}
+                  <input className="input" placeholder="Tìm tên hoặc mã SP..." value={searchSP[it._id]??it.tenSP}
+                    onChange={e=>{setSearchSP(p=>({...p,[it._id]:e.target.value}));updItem(it._id,'tenSP',e.target.value);updItem(it._id,'maSP','');setShowSP(p=>({...p,[it._id]:true}))}}
+                    onFocus={()=>setShowSP(p=>({...p,[it._id]:true}))}
+                    onBlur={()=>setTimeout(()=>setShowSP(p=>({...p,[it._id]:false})),200)}
                     style={{fontSize:'12px'}}/>
-                  {showSP[i]&&(
+                  {showSP[it._id]&&(
                     <div className="db">
-                      {spLocal.filter(sp=>{const q=boDau(searchSP[i]||'').slice(0,20);return !q||boDau(sp['Tên sản phẩm']||'').includes(q)||boDau(sp['Mã SP']||'').includes(q)}).slice(0,10).map((sp,j)=>(
-                        <div key={j} className="di" onMouseDown={e=>{e.preventDefault();chonSP(i,sp)}}>
+                      {spLocal.filter(sp=>{const q=boDau(searchSP[it._id]||'').slice(0,20);return !q||boDau(sp['Tên sản phẩm']||'').includes(q)||boDau(sp['Mã SP']||'').includes(q)}).slice(0,10).map((sp,j)=>(
+                        <div key={j} className="di" onMouseDown={e=>{e.preventDefault();chonSP(it._id,sp)}}>
                           <span style={{fontWeight:600}}>{sp['Tên sản phẩm']}</span>
                           <span style={{fontSize:'11px',color:'#6B7280',marginLeft:'8px'}}>{sp['Mã SP']}</span>
                         </div>
@@ -442,24 +445,24 @@ export default function DatHangNCCClient({donDHList,nccList,sanPhamList,user}:{
                   )}
                 </div>
                 {/* SL */}
-                <input className="input" type="number" min="1" value={it.soLuong||''} onChange={e=>updItem(i,'soLuong',Number(e.target.value))} style={{fontSize:'12px',textAlign:'center'}}/>
+                <input className="input" type="number" min="1" value={it.soLuong||''} onChange={e=>updItem(it._id,'soLuong',Number(e.target.value))} style={{fontSize:'12px',textAlign:'center'}}/>
                 {/* ĐVT */}
-                <input className="input" value={it.donVi} onChange={e=>updItem(i,'donVi',e.target.value)} style={{fontSize:'12px'}}/>
+                <input className="input" value={it.donVi} onChange={e=>updItem(it._id,'donVi',e.target.value)} style={{fontSize:'12px'}}/>
                 {/* Giá nhập */}
                 <input className="input" type="text" inputMode="numeric"
                   value={it.giaNhap?it.giaNhap.toLocaleString('vi-VN'):''}  placeholder="0"
-                  onChange={e=>{const v=Number(e.target.value.replace(/\./g,'').replace(/,/g,''));if(!isNaN(v))updItem(i,'giaNhap',v)}}
+                  onChange={e=>{const v=Number(e.target.value.replace(/\./g,'').replace(/,/g,''));if(!isNaN(v))updItem(it._id,'giaNhap',v)}}
                   style={{fontSize:'12px'}}/>
                 {/* Thành tiền */}
                 <div style={{padding:'8px 6px',fontSize:'12px',fontWeight:600,color:'var(--primary)',alignSelf:'center'}}>
                   {(Number(it.soLuong||0)*Number(it.giaNhap||0)).toLocaleString('vi-VN')}đ
                 </div>
                 {/* Ngày về */}
-                <input className="input" type="date" value={it.ngayVe} onChange={e=>updItem(i,'ngayVe',e.target.value)} style={{fontSize:'12px'}}/>
+                <input className="input" type="date" value={it.ngayVe} onChange={e=>updItem(it._id,'ngayVe',e.target.value)} style={{fontSize:'12px'}}/>
                 {/* Ghi chú */}
-                <input className="input" placeholder="Ghi chú..." value={it.ghiChu} onChange={e=>updItem(i,'ghiChu',e.target.value)} style={{fontSize:'12px'}}/>
+                <input className="input" placeholder="Ghi chú..." value={it.ghiChu} onChange={e=>updItem(it._id,'ghiChu',e.target.value)} style={{fontSize:'12px'}}/>
                 {/* Xóa */}
-                {items.length>1&&<button onClick={()=>removeItem(i)} style={{padding:'6px',borderRadius:'5px',border:'none',background:'#FEE2E2',color:'#DC2626',cursor:'pointer',fontSize:'14px',alignSelf:'center'}}>✕</button>}
+                {items.length>1&&<button onClick={()=>removeItem(it._id)} style={{padding:'6px',borderRadius:'5px',border:'none',background:'#FEE2E2',color:'#DC2626',cursor:'pointer',fontSize:'14px',alignSelf:'center'}}>✕</button>}
               </div>
             ))}
             {tongTien>0&&<div style={{textAlign:'right',fontWeight:700,fontSize:'14px',color:'var(--primary)',marginTop:'8px',paddingRight:'8px'}}>Tổng dự kiến: {fVND(tongTien)}đ</div>}

@@ -5,11 +5,18 @@ import { getSession } from '@/lib/auth'
 
 async function taoMaDH(): Promise<string> {
   try {
+    const nam = new Date().getFullYear().toString().slice(-2)
     const r = await getRecords(TABLES.DAT_HANG_NCC, { limit:1, sort:'-Id', fields:'Mã đặt hàng' })
     const cuoi = r.list?.[0]?.['Mã đặt hàng'] as string||''
-    const so = parseInt(cuoi.split('-').pop()||'0')
-    return `DH-NCC-${String((isNaN(so)?0:so)+1).padStart(3,'0')}`
-  } catch { return `DH-NCC-${Date.now().toString().slice(-4)}` }
+    // Lấy số cuối từ format DH-NCC-XXX
+    const parts = cuoi.split('-')
+    const so = parseInt(parts[parts.length-1]||'0')
+    const soMoi = (isNaN(so)?0:so)+1
+    return `DH-NCC-${String(soMoi).padStart(3,'0')}`
+  } catch { 
+    // Fallback dùng timestamp tránh trùng
+    return `DH-NCC-${Date.now().toString().slice(-5)}` 
+  }
 }
 
 export async function GET(req: NextRequest) {
