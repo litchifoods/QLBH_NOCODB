@@ -53,6 +53,9 @@ export default function DatHangNCCClient({donDHList,nccList,sanPhamList,user}:{
   const [newGia,    setNewGia]   = useState(0)
   const [newGhiChu, setNewGhiChu]= useState('')
   const [savingSP,  setSavingSP] = useState(false)
+  const [newTonKho, setNewTonKho] = useState(0)
+  const [newNguong, setNewNguong] = useState(5)
+  const [trungSP,   setTrungSP]  = useState<{idx:number, idxCu:number, tenSP:string}|null>(null)
 
   function showMsg2(t:string,ok=true){setMsg(t);setMsgOk(ok);setTimeout(()=>setMsg(''),5000)}
 
@@ -102,12 +105,26 @@ export default function DatHangNCCClient({donDHList,nccList,sanPhamList,user}:{
   function removeItem(id:number){setItems(p=>p.filter(it=>it._id!==id))}
   function updItem(id:number,k:keyof SPItem,v:any){setItems(p=>p.map(it=>it._id===id?{...it,[k]:v}:it))}
   function chonSP(id:number,sp:any){
+    // Kiểm tra SP đã có trong danh sách chưa
+    const existing = items.find(it=>it._id!==id && it.maSP===sp['Mã SP'])
+    if (existing) {
+      setTrungSP({idx:id, idxCu:existing._id, tenSP:sp['Tên sản phẩm']||''})
+      return
+    }
     updItem(id,'maSP',sp['Mã SP']||'')
     updItem(id,'tenSP',sp['Tên sản phẩm']||'')
     updItem(id,'donVi',sp['Đơn vị tính']||'')
     updItem(id,'giaNhap',Number(sp['Giá bán buôn']||0))
     setSearchSP(p=>({...p,[id]:sp['Tên sản phẩm']||''}))
     setShowSP(p=>({...p,[id]:false}))
+  }
+  function xacNhanGopSP(){
+    if (!trungSP) return
+    // Tăng số lượng SP cũ
+    setItems(p=>p.map(it=>it._id===trungSP.idxCu?{...it,soLuong:it.soLuong+1}:it))
+    // Xóa dòng SP mới (trùng)
+    setItems(p=>p.filter(it=>it._id!==trungSP.idx))
+    setTrungSP(null)
   }
   const tongTien = items.reduce((s,it)=>s+Number(it.soLuong||0)*Number(it.giaNhap||0),0)
 
@@ -196,13 +213,13 @@ export default function DatHangNCCClient({donDHList,nccList,sanPhamList,user}:{
     setSavingSP(true)
     try {
       const res=await fetch('/api/san-pham',{method:'POST',headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({'Mã SP':newMaSP.trim()||undefined,'Tên sản phẩm':newTenSP.trim(),'Loại SP':newLoai,'Đơn vị tính':newDonVi,'Giá bán buôn':newGia,'Ghi chú':newGhiChu})})
+        body:JSON.stringify({'Mã SP':newMaSP.trim()||undefined,'Tên sản phẩm':newTenSP.trim(),'Loại SP':newLoai,'Đơn vị tính':newDonVi,'Giá bán buôn':newGia,'Tồn kho':newTonKho,'Ngưỡng cảnh báo':newNguong,'Ghi chú':newGhiChu})})
       const d=await res.json()
       if (!res.ok) throw new Error(d.message)
       const newSP={...d.data,'Mã SP':d.data?.['Mã SP']||newMaSP}
       setSpLocal(p=>[newSP,...p])
       showMsg2(`✅ Đã thêm SP: ${newTenSP}`)
-      setShowNewSP(false);setNewTenSP('');setNewMaSP('');setNewLoai('Theo yêu cầu');setNewDonVi('Cái');setNewGia(0);setNewGhiChu('')
+      setShowNewSP(false);setNewTenSP('');setNewMaSP('');setNewLoai('Theo yêu cầu');setNewDonVi('Cái');setNewGia(0);setNewGhiChu('');setNewTonKho(0);setNewNguong(5)
     } catch(e:any){showMsg2('❌ '+(e.message||'Lỗi'),false)}
     finally{setSavingSP(false)}
   }
@@ -539,6 +556,16 @@ export default function DatHangNCCClient({donDHList,nccList,sanPhamList,user}:{
                   <input className="input" placeholder="Kích thước, màu sắc..." value={newGhiChu} onChange={e=>setNewGhiChu(e.target.value)}/>
                 </div>
               </div>
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'10px'}}>
+                <div>
+                  <label style={{fontSize:'11px',fontWeight:600,display:'block',marginBottom:'3px'}}>📦 Tồn kho ban đầu</label>
+                  <input className="input" type="number" min="0" placeholder="0" value={newTonKho||''} onChange={e=>setNewTonKho(Number(e.target.value))}/>
+                </div>
+                <div>
+                  <label style={{fontSize:'11px',fontWeight:600,display:'block',marginBottom:'3px'}}>⚠️ Ngưỡng cảnh báo</label>
+                  <input className="input" type="number" min="0" placeholder="5" value={newNguong||''} onChange={e=>setNewNguong(Number(e.target.value))}/>
+                </div>
+              </div>
               <div style={{padding:'8px 12px',background:'#F5F3FF',borderRadius:'6px',fontSize:'12px',color:'#7C3AED'}}>
                 💡 Sản phẩm mới sẽ được thêm vào danh sách sản phẩm và có thể chọn ngay trong đơn đặt hàng này.
               </div>
@@ -553,7 +580,24 @@ export default function DatHangNCCClient({donDHList,nccList,sanPhamList,user}:{
         </div>
       )}
 
-      {/* Modal xóa */}
+      {/* Modal cảnh báo SP trùng */}
+      {trungSP&&(
+        <div className="ov" onClick={()=>setTrungSP(null)}>
+          <div style={{background:'white',borderRadius:'12px',padding:'24px',width:'100%',maxWidth:'380px',textAlign:'center'}} onClick={e=>e.stopPropagation()}>
+            <div style={{fontSize:'32px',marginBottom:'8px'}}>⚠️</div>
+            <h2 style={{fontSize:'15px',fontWeight:700,margin:'0 0 8px'}}>Sản phẩm đã có trong đơn</h2>
+            <p style={{fontSize:'13px',color:'#6B7280',margin:'0 0 16px'}}>
+              <strong>{trungSP.tenSP}</strong> đã có trong danh sách.<br/>Bạn có muốn tăng số lượng lên không?
+            </p>
+            <div style={{display:'flex',gap:'10px'}}>
+              <button onClick={xacNhanGopSP} style={{flex:1,padding:'10px',borderRadius:'8px',border:'none',background:'var(--primary)',color:'white',fontWeight:700,cursor:'pointer'}}>✅ Tăng số lượng</button>
+              <button onClick={()=>setTrungSP(null)} style={{flex:1,padding:'10px',borderRadius:'8px',border:'1px solid var(--border)',background:'white',cursor:'pointer',fontWeight:600}}>Giữ riêng</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal xóa */}}
       {xoaItem&&(
         <div className="ov" onClick={()=>setXoaItem(null)}>
           <div style={{background:'white',borderRadius:'12px',padding:'24px',width:'100%',maxWidth:'340px',textAlign:'center'}} onClick={e=>e.stopPropagation()}>
