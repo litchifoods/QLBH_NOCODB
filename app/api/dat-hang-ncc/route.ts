@@ -37,12 +37,11 @@ export async function POST(req: NextRequest) {
     // Hỗ trợ tạo nhiều SP cùng lúc (mảng items)
     const items = body.items as any[]
     if (!items?.length) return NextResponse.json({message:'Thiếu sản phẩm'},{status:400})
-    const maDH = await taoMaDH()
+    const maDH = body.forceMaDH || await taoMaDH()
     const ngayDat = body.ngayDat || new Date().toISOString().split('T')[0]
-    const results = []
     for (let i = 0; i < items.length; i++) {
       const item = items[i]
-      const r = await createRecord(TABLES.DAT_HANG_NCC, {
+      await createRecord(TABLES.DAT_HANG_NCC, {
         'Mã đặt hàng': items.length > 1 ? `${maDH}-${i+1}` : maDH,
         'Ngày đặt': ngayDat,
         'Mã NCC': body.maNCC,
@@ -53,7 +52,6 @@ export async function POST(req: NextRequest) {
         'Trạng thái': 'Chờ xác nhận',
         'Ghi chú': item.ghiChu||body.ghiChu||'',
       })
-      results.push(r)
     }
     return NextResponse.json({ success:true, maDH, soSP:items.length })
   } catch(e:any) { return NextResponse.json({message:e.message},{status:500}) }

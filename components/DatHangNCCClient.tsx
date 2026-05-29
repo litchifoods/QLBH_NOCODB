@@ -123,7 +123,13 @@ export default function DatHangNCCClient({donDHList,nccList,sanPhamList,user}:{
     setSearchSP(Object.fromEntries(grp.map((d,i)=>[i,spMap[d['Mã SP']]?.['Tên sản phẩm']||d['Mã SP']||''])))
     setShowModal(true)
   }
-  function resetForm(){setMaNCC('');setSearchNCC('');_idRef.current=0;setNgayDat(new Date().toISOString().split('T')[0]);setGhiChuDon('');setItems([{_id:1,maSP:'',tenSP:'',donVi:'',soLuong:1,giaNhap:0,ngayVe:'',ghiChu:''}]);setSearchSP({});setShowSP({})}
+  function resetForm(){
+    setMaNCC('');setSearchNCC('');_idRef.current=1
+    setNgayDat(new Date().toISOString().split('T')[0])
+    setGhiChuDon('')
+    setItems([{_id:1,maSP:'',tenSP:'',donVi:'',soLuong:1,giaNhap:0,ngayVe:'',ghiChu:''}])
+    setSearchSP({});setShowSP({})
+  }
 
   async function luuDon(){
     if (!maNCC){showMsg2('Chọn nhà cung cấp',false);return}
