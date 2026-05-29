@@ -237,7 +237,7 @@ export default function KhachHangClient({ khachHang, donHuyCanHoan, congNoMap, d
         method: 'PATCH', headers: {'Content-Type':'application/json'},
         body: JSON.stringify({ id: donNoChon['Id']||donNoChon['id'], 'Còn phải thu': conMoi }),
       })
-      showMsg(`✅ Đã thu ${tongThu.toLocaleString('vi-VN')}đ từ ${popupNoKH['Tên khách hàng']}`, true)
+      setMsgModal(`✅ Đã thu ${tongThu.toLocaleString('vi-VN')}đ từ ${popupNoKH['Tên khách hàng']}`, true)
       setPopupNoKH(null); setDonNoChon(null); setTienMatThu(0); setCkThu(0)
       // Refresh để cập nhật số liệu
       window.location.reload()
@@ -572,6 +572,7 @@ export default function KhachHangClient({ khachHang, donHuyCanHoan, congNoMap, d
                     </button>
                   </div>
                 )}
+                {msgModal&&<div style={{padding:'8px 12px',borderRadius:'8px',marginBottom:'8px',fontSize:'13px',background:msgModalOk?'#D1FAE5':'#FEE2E2',color:msgModalOk?'#065F46':'#991B1B'}}>{msgModal}</div>}
                 <div style={{display:'flex',gap:'10px'}}>
                   <button onClick={luuThuNo} disabled={dangThuNo||((tienMatThu||0)+(ckThu||0))<=0}
                     style={{flex:1,padding:'11px',borderRadius:'8px',border:'none',background:(dangThuNo||((tienMatThu||0)+(ckThu||0))<=0)?'#9CA3AF':'#16A34A',color:'white',fontWeight:700,fontSize:'14px',cursor:(dangThuNo||((tienMatThu||0)+(ckThu||0))<=0)?'not-allowed':'pointer'}}>

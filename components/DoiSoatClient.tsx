@@ -43,6 +43,8 @@ export default function DoiSoatClient({
   const [loading,   setLoading]  = useState(false)
   const [msg,       setMsg]      = useState('')
   const [msgOk,     setMsgOk]    = useState(true)
+  const [msgModal,  setMsgModal] = useState('')
+  const [msgModalOk,setMsgModalOk]=useState(true)
 
   const [tienMat,      setTienMat]      = useState(0)
   const [chuyenKhoan,  setChuyenKhoan]  = useState(0)
@@ -141,7 +143,7 @@ export default function DoiSoatClient({
       setMsg('✅ Đã lưu đối soát'); setMsgOk(true)
       setModalGH(null); router.refresh()
     } catch(err:any) {
-      setMsg('❌ '+(err.message||'Lỗi')); setMsgOk(false)
+      setMsgModal('❌ '+(err.message||'Lỗi')); setMsgModalOk(false); setTimeout(()=>setMsgModal(''),5000)
     } finally {
       setLoading(false); setTimeout(()=>setMsg(''),4000)
     }
@@ -461,6 +463,7 @@ export default function DoiSoatClient({
               <div style={{padding:'8px 12px',background:'#F0F9FF',borderRadius:'8px',border:'1px solid #BAE6FD',fontSize:'12px',color:'#0369A1'}}>
                 💡 Trạng thái đơn hàng tự động cập nhật dựa trên SP đã giao và thanh toán
               </div>
+              {msgModal&&<div style={{padding:'8px 12px',borderRadius:'8px',marginBottom:'12px',fontSize:'13px',background:msgModalOk?'#D1FAE5':'#FEE2E2',color:msgModalOk?'#065F46':'#991B1B'}}>{msgModal}</div>}
               <div style={{display:'flex',gap:'10px'}}>
                 <button onClick={luuDoiSoat} disabled={loading} style={{flex:1,padding:'11px',borderRadius:'8px',border:'none',background:loading?'#9CA3AF':'var(--primary)',color:'white',fontWeight:700,fontSize:'14px',cursor:loading?'not-allowed':'pointer'}}>
                   {loading?'⏳ Đang lưu...':'✅ Xác nhận đối soát'}

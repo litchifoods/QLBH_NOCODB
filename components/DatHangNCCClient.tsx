@@ -183,7 +183,7 @@ export default function DatHangNCCClient({donDHList,nccList,sanPhamList,user}:{
         showMsg2(`✅ Đã tạo ${d.maDH} — ${d.soSP} SP`)
       }
       setShowModal(false);resetForm();window.location.reload()
-    } catch(e:any){showMsg2('❌ '+(e.message||'Lỗi'),false)}
+    } catch(e:any){setMsg('❌ '+(e.message||'Lỗi'));setMsgOk(false);setTimeout(()=>setMsg(''),5000)}
     finally{setLoading(false)}
   }
 
@@ -505,6 +505,7 @@ export default function DatHangNCCClient({donDHList,nccList,sanPhamList,user}:{
             {tongTien>0&&<div style={{textAlign:'right',fontWeight:700,fontSize:'14px',color:'var(--primary)',marginTop:'8px',paddingRight:'8px'}}>Tổng dự kiến: {fVND(tongTien)}đ</div>}
             <button onClick={addItem} style={{marginTop:'8px',width:'100%',padding:'8px',borderRadius:'7px',border:'2px dashed var(--border)',background:'white',color:'var(--text-secondary)',fontSize:'13px',fontWeight:600,cursor:'pointer'}}>+ Thêm sản phẩm</button>
 
+            {msg&&<div style={{padding:'8px 12px',borderRadius:'8px',marginBottom:'8px',fontSize:'13px',background:msgOk?'#D1FAE5':'#FEE2E2',color:msgOk?'#065F46':'#991B1B'}}>{msg}</div>}
             <div style={{display:'flex',gap:'10px',marginTop:'16px'}}>
               <button onClick={luuDon} disabled={loading} style={{flex:1,padding:'12px',borderRadius:'8px',border:'none',background:loading?'#9CA3AF':'var(--primary)',color:'white',fontWeight:700,fontSize:'14px',cursor:loading?'not-allowed':'pointer'}}>
                 {loading?'⏳ Đang lưu...':editDon?'✅ Cập nhật đơn':'✅ Tạo đơn đặt hàng'}

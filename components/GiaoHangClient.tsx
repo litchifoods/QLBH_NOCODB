@@ -52,6 +52,8 @@ const VAI_TRO_CHUYEN = ['Vận chuyển+Lắp','Vận chuyển','Lắp đặt']
   const [loading,  setLoading]  = useState(false)
   const [msg,      setMsg]      = useState('')
   const [msgOk,    setMsgOk]    = useState(true)
+  const [msgModal, setMsgModal] = useState('')
+  const [msgModalOk,setMsgModalOk]=useState(true)
 
   // Form tạo chuyến
   const [searchDon,     setSearchDon]     = useState('')
@@ -167,6 +169,8 @@ const VAI_TRO_CHUYEN = ['Vận chuyển+Lắp','Vận chuyển','Lắp đặt']
   function updN(id:string,k:keyof Nguoi,v:any) { setDanhSachNguoi(prev=>prev.map(n=>n.id===id?{...n,[k]:v}:n)) }
   function chonNguoi(nid:string,nv:any) { setDanhSachNguoi(prev=>prev.map(n=>n.id===nid?{...n,maNV:nv['Mã NV']||'',tenNV:nv['Họ tên']||'',vaiTroNocoDB:nv['Vai trò']||'',hinhThuc:(nv['Mã NV']||'').startsWith('DT-')?'Đối tác':'NV cửa hàng',searchText:nv['Họ tên']||'',showSearch:false}:n)) }
   function updSP(idx:number,k:keyof SPGiao,v:any) { setDanhSachSP(prev=>prev.map((sp,i)=>i===idx?{...sp,[k]:v}:sp)) }
+  function showMsgModal2(t:string,ok=true){setMsgModal(t);setMsgModalOk(ok);setTimeout(()=>setMsgModal(''),5000)}
+
   function resetForm() {
     setSearchDon('');setDonChon(null);setGhiChuChuyen('')
     setNgayGiao(new Date().toISOString().slice(0,16))
@@ -192,7 +196,7 @@ const VAI_TRO_CHUYEN = ['Vận chuyển+Lắp','Vận chuyển','Lắp đặt']
       if (!res.ok) throw new Error(data.message||'Lỗi')
       setMsg(`✅ Đã tạo chuyến — ${data.soNguoi} người, ${data.soSP} SP`);setMsgOk(true)
       resetForm();setShowForm(false);router.refresh()
-    } catch(err:any) { setMsg('❌ '+(err.message||'Lỗi'));setMsgOk(false) }
+    } catch(err:any) { showMsgModal2('❌ '+(err.message||'Lỗi'),false) }
     finally { setLoading(false);setTimeout(()=>setMsg(''),6000) }
   }
 
@@ -547,6 +551,7 @@ const VAI_TRO_CHUYEN = ['Vận chuyển+Lắp','Vận chuyển','Lắp đặt']
               })}
             </div>
 
+            {msgModal&&<div style={{padding:'8px 12px',borderRadius:'8px',marginBottom:'12px',fontSize:'13px',background:msgModalOk?'#D1FAE5':'#FEE2E2',color:msgModalOk?'#065F46':'#991B1B'}}>{msgModal}</div>}
             <div style={{padding:'10px 14px',background:'#EFF6FF',borderRadius:'8px',border:'1px solid #BFDBFE',marginBottom:'14px',fontSize:'12px',color:'#1E40AF'}}>
               💡 Chi phí và thưởng nhập lúc đối soát sau khi hoàn thành giao hàng.
             </div>

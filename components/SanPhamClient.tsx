@@ -34,6 +34,8 @@ export default function SanPhamClient({ danhSach, user }:{ danhSach:any[]; user:
   const [trang,    setTrang]    = useState(1)
   const [msg,      setMsg]      = useState('')
   const [msgOk,    setMsgOk]    = useState(true)
+  const [msgModal, setMsgModal] = useState('')
+  const [msgModalOk,setMsgModalOk]=useState(true)
   const [showModal,setShowModal]= useState(false)
   const [editSP,   setEditSP]   = useState<any>(null)
   const [loading,  setLoading]  = useState(false)
@@ -113,7 +115,7 @@ export default function SanPhamClient({ danhSach, user }:{ danhSach:any[]; user:
         showMsg2(`✅ Đã thêm: ${tenSP.trim()}`)
       }
       reset();setShowModal(false)
-    } catch(e:any){showMsg2('❌ '+(e.message||'Lỗi'),false)}
+    } catch(e:any){setMsgModal('❌ '+(e.message||'Lỗi'));setMsgModalOk(false);setTimeout(()=>setMsgModal(''),5000)}
     finally{setLoading(false)}
   }
 
@@ -399,6 +401,7 @@ export default function SanPhamClient({ danhSach, user }:{ danhSach:any[]; user:
                 <label style={{fontSize:'11px',fontWeight:600,display:'block',marginBottom:'3px'}}>Ghi chú</label>
                 <input className="input" placeholder="Ghi chú thêm..." value={ghiChu} onChange={e=>setGhiChu(e.target.value)}/>
               </div>
+              {msgModal&&<div style={{padding:'8px 12px',borderRadius:'8px',marginBottom:'8px',fontSize:'13px',background:msgModalOk?'#D1FAE5':'#FEE2E2',color:msgModalOk?'#065F46':'#991B1B'}}>{msgModal}</div>}
               <div style={{display:'flex',gap:'10px',marginTop:'4px'}}>
                 <button onClick={luuSP} disabled={loading} style={{flex:1,padding:'11px',borderRadius:'8px',border:'none',background:loading?'#9CA3AF':'var(--primary)',color:'white',fontWeight:700,fontSize:'14px',cursor:loading?'not-allowed':'pointer'}}>
                   {loading?'⏳ Đang lưu...':editSP?'✅ Cập nhật':'✅ Lưu sản phẩm'}
