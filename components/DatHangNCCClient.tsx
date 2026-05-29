@@ -38,6 +38,8 @@ export default function DatHangNCCClient({donDHList,nccList,sanPhamList,user}:{
   const [ngayDat,   setNgayDat]  = useState(new Date().toISOString().split('T')[0])
   const [ghiChuDon, setGhiChuDon]= useState('')
   const [items, setItems]        = useState<SPItem[]>([{maSP:'',tenSP:'',donVi:'',soLuong:1,giaNhap:0,ngayVe:'',ghiChu:''}])
+  const [searchNCC,  setSearchNCC] = useState('')
+  const [showNCC,    setShowNCC]   = useState(false)
   const [searchSP,  setSearchSP] = useState<Record<number,string>>({})
   const [showSP,    setShowSP]   = useState<Record<number,boolean>>({})
   // Modal tao SP moi
@@ -118,7 +120,7 @@ export default function DatHangNCCClient({donDHList,nccList,sanPhamList,user}:{
     setSearchSP(Object.fromEntries(grp.map((d,i)=>[i,spMap[d['Mã SP']]?.['Tên sản phẩm']||d['Mã SP']||''])))
     setShowModal(true)
   }
-  function resetForm(){setMaNCC('');setNgayDat(new Date().toISOString().split('T')[0]);setGhiChuDon('');setItems([{maSP:'',tenSP:'',donVi:'',soLuong:1,giaNhap:0,ngayVe:'',ghiChu:''}]);setSearchSP({});setShowSP({})}
+  function resetForm(){setMaNCC('');setSearchNCC('');setNgayDat(new Date().toISOString().split('T')[0]);setGhiChuDon('');setItems([{maSP:'',tenSP:'',donVi:'',soLuong:1,giaNhap:0,ngayVe:'',ghiChu:''}]);setSearchSP({});setShowSP({})}
 
   async function luuDon(){
     if (!maNCC){showMsg2('Chọn nhà cung cấp',false);return}
@@ -227,7 +229,7 @@ export default function DatHangNCCClient({donDHList,nccList,sanPhamList,user}:{
         .ncc-t th,.ncc-t td{padding:7px 10px;vertical-align:top;}
         .ncc-t tbody tr:hover td{background:#F0F4FF!important;}
         .ov{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;display:flex;align-items:center;justify-content:center;padding:16px;overflow-y:auto;}
-        .mk{background:white;border-radius:12px;padding:28px;width:100%;max-width:960px;max-height:95vh;overflow-y:auto;}
+        .mk{background:white;border-radius:12px;padding:28px;width:100%;max-width:1200px;max-height:95vh;overflow-y:auto;}
         .mk2{background:white;border-radius:12px;padding:24px;width:100%;max-width:460px;}
         .sp-row{display:grid;grid-template-columns:2fr 70px 80px 110px 130px 100px 1fr 32px;gap:8px;padding:10px;border:1px solid #E5E7EB;border-radius:8px;margin-bottom:6px;background:#FAFBFD;align-items:start;}
         .db{position:absolute;top:calc(100%+3px);left:0;right:0;z-index:70;background:white;border:1px solid var(--border);border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.12);max-height:200px;overflow-y:auto;}
@@ -367,12 +369,27 @@ export default function DatHangNCCClient({donDHList,nccList,sanPhamList,user}:{
             {/* Thông tin chung */}
             <div style={{background:'#F8FAFC',borderRadius:'8px',padding:'14px',marginBottom:'14px',border:'1px solid #E5E7EB'}}>
               <div style={{display:'grid',gridTemplateColumns:'2fr 1fr 1fr',gap:'12px'}}>
-                <div>
+                <div style={{position:'relative'}}>
                   <label style={{fontSize:'11px',fontWeight:600,display:'block',marginBottom:'3px'}}>Nhà cung cấp *</label>
-                  <select className="input" value={maNCC} onChange={e=>setMaNCC(e.target.value)}>
-                    <option value="">-- Chọn NCC --</option>
-                    {nccList.map(n=><option key={n['Mã NCC']} value={n['Mã NCC']}>{n['Tên NCC']} ({n['Mã NCC']})</option>)}
-                  </select>
+                  <input className="input" placeholder="Tìm tên, mã, địa chỉ NCC..."
+                    value={searchNCC}
+                    onChange={e=>{setSearchNCC(e.target.value);setMaNCC('');setShowNCC(true)}}
+                    onFocus={()=>setShowNCC(true)}
+                    onBlur={()=>setTimeout(()=>setShowNCC(false),200)}/>
+                  {maNCC&&nccMap[maNCC]&&<div style={{fontSize:'11px',color:'var(--primary)',fontWeight:600,marginTop:'3px'}}>✅ {nccMap[maNCC]['Tên NCC']} — {maNCC}</div>}
+                  {showNCC&&(
+                    <div className="db">
+                      {nccList.filter(n=>{
+                        const q=boDau(searchNCC)
+                        return !q||boDau(n['Tên NCC']||''). includes(q)||boDau(n['Mã NCC']||''). includes(q)||boDau(n['Địa chỉ']||''). includes(q)||boDau(n['Số điện thoại']||''). includes(q)
+                      }).map(n=>(
+                        <div key={n['Mã NCC']} className="di" onMouseDown={e=>{e.preventDefault();setMaNCC(n['Mã NCC']);setSearchNCC(n['Tên NCC']);setShowNCC(false)}}>
+                          <div style={{fontWeight:600}}>{n['Tên NCC']} <span style={{fontSize:'11px',color:'#6B7280'}}>{n['Mã NCC']}</span></div>
+                          {n['Số điện thoại']&&<div style={{fontSize:'11px',color:'#6B7280'}}>📞 {n['Số điện thoại']} {n['Địa chỉ']&&'· 📍 '+n['Địa chỉ']}</div>}
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
                 <div>
                   <label style={{fontSize:'11px',fontWeight:600,display:'block',marginBottom:'3px'}}>Ngày đặt</label>
@@ -446,6 +463,7 @@ export default function DatHangNCCClient({donDHList,nccList,sanPhamList,user}:{
               </div>
             ))}
             {tongTien>0&&<div style={{textAlign:'right',fontWeight:700,fontSize:'14px',color:'var(--primary)',marginTop:'8px',paddingRight:'8px'}}>Tổng dự kiến: {fVND(tongTien)}đ</div>}
+            <button onClick={addItem} style={{marginTop:'8px',width:'100%',padding:'8px',borderRadius:'7px',border:'2px dashed var(--border)',background:'white',color:'var(--text-secondary)',fontSize:'13px',fontWeight:600,cursor:'pointer'}}>+ Thêm sản phẩm</button>
 
             <div style={{display:'flex',gap:'10px',marginTop:'16px'}}>
               <button onClick={luuDon} disabled={loading} style={{flex:1,padding:'12px',borderRadius:'8px',border:'none',background:loading?'#9CA3AF':'var(--primary)',color:'white',fontWeight:700,fontSize:'14px',cursor:loading?'not-allowed':'pointer'}}>
