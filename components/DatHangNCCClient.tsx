@@ -50,6 +50,8 @@ export default function DatHangNCCClient({donDHList,nccList,sanPhamList,user}:{
   const [newMaSP,   setNewMaSP]  = useState('')
   const [newLoai,   setNewLoai]  = useState('Theo yêu cầu')
   const [newDonVi,  setNewDonVi] = useState('Cái')
+  const [newGiaNhapNCC, setNewGiaNhapNCC] = useState(0)
+  const [newCpvcKho,    setNewCpvcKho]   = useState(0)
   const [newGia,    setNewGia]   = useState(0)
   const [newGhiChu, setNewGhiChu]= useState('')
   const [savingSP,  setSavingSP] = useState(false)
@@ -116,7 +118,9 @@ export default function DatHangNCCClient({donDHList,nccList,sanPhamList,user}:{
     updItem(id,'maSP',sp['Mã SP']||'')
     updItem(id,'tenSP',sp['Tên sản phẩm']||'')
     updItem(id,'donVi',sp['Đơn vị tính']||'')
-    updItem(id,'giaNhap',Number(sp['Giá nhập NCC']||0)+Number(sp['CPVC về kho']||0)||Number(sp['Giá bán buôn']||0))
+    const giaNCC = Number(sp['Giá nhập NCC']||0)
+    const cpvc   = Number(sp['CPVC về kho']||0)
+    updItem(id,'giaNhap', giaNCC+cpvc > 0 ? giaNCC+cpvc : 0)
     setSearchSP(p=>({...p,[id]:sp['Tên sản phẩm']||''}))
     setShowSP(p=>({...p,[id]:false}))
   }
@@ -218,7 +222,7 @@ export default function DatHangNCCClient({donDHList,nccList,sanPhamList,user}:{
         body:JSON.stringify({'Mã SP':newMaSP.trim()||undefined,'Tên sản phẩm':newTenSP.trim(),'Loại SP':newLoai,'Đơn vị tính':newDonVi,'Giá bán buôn':newGia,'Giá bán lẻ':newGiaLe,'Tồn kho':newTonKho,'Ngưỡng cảnh báo':newNguong,'Thông số kỹ thuật':newThongSo,'Ghi chú':newGhiChu})})
       const d=await res.json()
       if (!res.ok) throw new Error(d.message)
-      const newSP={...d.data,'Mã SP':d.data?.['Mã SP']||newMaSP}
+      const newSP={...d.data,'Mã SP':d.data?.['Mã SP']||newMaSP,'Giá nhập NCC':newGiaNhapNCC,'CPVC về kho':newCpvcKho}
       setSpLocal(p=>[newSP,...p])
       showMsg2(`✅ Đã thêm SP: ${newTenSP}`)
       setShowNewSP(false);setNewTenSP('');setNewMaSP('');setNewLoai('Theo yêu cầu');setNewDonVi('Cái');setNewGia(0);setNewGiaLe(0);setNewGhiChu('');setNewThongSo('');setNewTonKho(0);setNewNguong(5)
@@ -271,7 +275,7 @@ export default function DatHangNCCClient({donDHList,nccList,sanPhamList,user}:{
         .ov{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;display:flex;align-items:center;justify-content:center;padding:16px;overflow-y:auto;}
         .mk{background:white;border-radius:12px;padding:28px;width:100%;max-width:1200px;max-height:95vh;overflow-y:auto;}
         .mk2{background:white;border-radius:12px;padding:24px;width:100%;max-width:460px;}
-        .sp-row{display:grid;grid-template-columns:24px 2fr 60px 80px 110px 110px 100px 1fr 32px;gap:8px;padding:10px;border:1px solid #E5E7EB;border-radius:8px;margin-bottom:6px;background:#FAFBFD;align-items:start;}
+        .sp-row{display:grid;grid-template-columns:2fr 60px 80px 110px 110px 100px 1fr 32px;gap:8px;padding:10px;border:1px solid #E5E7EB;border-radius:8px;margin-bottom:6px;background:#FAFBFD;align-items:start;}
         .db{position:absolute;top:calc(100%+3px);left:0;right:0;z-index:70;background:white;border:1px solid var(--border);border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.12);max-height:200px;overflow-y:auto;}
         .di{padding:8px 12px;cursor:pointer;border-bottom:1px solid #F3F4F6;font-size:13px;}
         .di:hover{background:#F0F9FF;}
@@ -459,7 +463,7 @@ export default function DatHangNCCClient({donDHList,nccList,sanPhamList,user}:{
             </div>
             {/* Header cột */}
             <div style={{display:'grid',gridTemplateColumns:'2fr 70px 80px 110px 130px 100px 1fr 32px',gap:'8px',padding:'4px 10px',fontSize:'11px',color:'#6B7280',fontWeight:600}}>
-              <div>Sản phẩm</div><div>SL</div><div>ĐVT</div><div>Giá nhập (đ)</div><div>Thành tiền</div><div>Ngày về</div><div>Ghi chú</div><div></div>
+              <div>Sản phẩm</div><div style={{textAlign:'center'}}>SL</div><div>ĐVT</div><div>Giá nhập (đ)</div><div>Thành tiền</div><div>Ngày về</div><div>Ghi chú</div><div></div>
             </div>
             {items.map((it)=>(
               <div key={it._id} className="sp-row">
@@ -553,10 +557,10 @@ export default function DatHangNCCClient({donDHList,nccList,sanPhamList,user}:{
               </div>
               <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'10px'}}>
                 <div>
-                  <label style={{fontSize:'11px',fontWeight:600,display:'block',marginBottom:'3px'}}>💵 Giá bán buôn (đ)</label>
+                  <label style={{fontSize:'11px',fontWeight:600,display:'block',marginBottom:'3px'}}>📦 Giá nhập NCC (đ)</label>
                   <input className="input" type="text" inputMode="numeric" placeholder="0"
-                    value={newGia?newGia.toLocaleString('vi-VN'):''}
-                    onChange={e=>{const v=Number(e.target.value.replace(/\./g,'').replace(/,/g,''));if(!isNaN(v))setNewGia(v)}}/>
+                    value={newGiaNhapNCC?newGiaNhapNCC.toLocaleString('vi-VN'):''}
+                    onChange={e=>{const v=e.target.value.replace(/\./g,'');const n=Number(v);if(!isNaN(n))setNewGiaNhapNCC(n)}}/>
                 </div>
                 <div>
                   <label style={{fontSize:'11px',fontWeight:600,display:'block',marginBottom:'3px'}}>🏷️ Giá bán lẻ (đ)</label>
