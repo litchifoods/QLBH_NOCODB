@@ -191,7 +191,7 @@ export default function NhapKhoClient({nhapKhoList,nccList,sanPhamList,datHangLi
     })))
   }
 
-  function tinhTinhTrang(sl, slDat, loi, choiPK) {
+  function tinhTinhTrang(sl:number, slDat:number, loi:number, choiPK:number):string {
     if(loi>0||choiPK>0) return 'Lỗi'
     if(sl<slDat) return 'Thiếu'
     if(sl>slDat) return 'Thừa'
