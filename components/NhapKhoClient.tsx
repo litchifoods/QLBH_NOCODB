@@ -1,6 +1,6 @@
 'use client'
 // components/NhapKhoClient.tsx
-import { useState, useMemo, useRef, useEffect } from 'react'
+import { useState, useMemo, useRef, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { UserSession } from '@/lib/auth'
 
@@ -78,6 +78,7 @@ export default function NhapKhoClient({nhapKhoList,nccList,sanPhamList,datHangLi
   const [showNCC,     setShowNCC]     = useState(false)
   const [maSP,        setMaSP]        = useState('')
   const [searchSP,    setSearchSP]    = useState('')
+  const spInputRef = useRef<HTMLInputElement>(null)
   const [showSPDrop,  setShowSPDrop]  = useState(false)
   const [maDatHang,   setMaDatHang]   = useState('')
   const [ngayNhap,    setNgayNhap]    = useState(new Date().toISOString().split('T')[0])
@@ -181,7 +182,7 @@ export default function NhapKhoClient({nhapKhoList,nccList,sanPhamList,datHangLi
   const nccMap = useMemo(()=>{const m:Record<string,any>={};nccList.forEach(n=>{m[n['Mã NCC']||'']=n});return m},[nccList])
   const spMap  = useMemo(()=>{const m:Record<string,any>={};spLocal.forEach(s=>{m[s['Mã SP']||'']=s});return m},[spLocal])
 
-  const tongNhap = slThucNhan * giaNhapTT
+  const tongNhap = slThucNhan * (giaNhapTT + cpVC)
 
   const filtered = useMemo(()=>{
     let r = local
@@ -629,7 +630,7 @@ export default function NhapKhoClient({nhapKhoList,nccList,sanPhamList,datHangLi
                     <label style={{fontSize:'11px',fontWeight:600}}>Sản phẩm *</label>
                     <button onMouseDown={e=>e.preventDefault()} onClick={()=>setShowNewSP(true)} style={{padding:'2px 8px',borderRadius:'5px',border:'1px solid #8B5CF6',background:'#F5F3FF',color:'#7C3AED',fontSize:'10px',fontWeight:600,cursor:'pointer'}}>✨ Thêm SP mới</button>
                   </div>
-                  <input className="input" placeholder="Tìm tên hoặc mã SP..." value={searchSP}
+                  <input ref={spInputRef} className="input" placeholder="Tìm tên hoặc mã SP..." defaultValue={searchSP}
                     onChange={e=>{setSearchSP(e.target.value);setMaSP('');setShowSPDrop(true)}}
                     onFocus={()=>setShowSPDrop(true)}
                     onMouseDown={e=>e.stopPropagation()}/>
@@ -672,7 +673,7 @@ export default function NhapKhoClient({nhapKhoList,nccList,sanPhamList,datHangLi
                 <div style={{padding:'8px 12px',background:'#EFF6FF',borderRadius:'8px',border:'1px solid #BFDBFE',display:'flex',flexDirection:'column',justifyContent:'center'}}>
                   <div style={{fontSize:'11px',color:'#6B7280'}}>Tổng tiền hàng</div>
                   <div style={{fontSize:'16px',fontWeight:800,color:'var(--primary)'}}>{fVND(tongNhap)}đ</div>
-                  {cpVC>0&&<div style={{fontSize:'11px',color:'#6B7280'}}>+ {fVND(cpVC)}đ VC = <strong>{fVND(tongNhap+cpVC)}đ</strong></div>}
+                  <div style={{fontSize:'11px',color:'#6B7280'}}>{fVND(giaNhapTT)}đ × {slThucNhan} + {fVND(cpVC)}đ VC</div>
                 </div>
               </div>
             </div>
