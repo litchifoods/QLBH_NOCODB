@@ -44,14 +44,15 @@ export default function NhapKhoClient({nhapKhoList,nccList,sanPhamList,datHangLi
 
   // Xử lý phiếu Lỗi/Thừa - đổi trạng thái + trừ tồn kho nếu trả hàng
   async function xuLyPhieu(item:any, coTraHang:boolean){
+    const slCanTru = Number(item['Số lượng lỗi']||0)+Number(item['Số lượng chờ phụ kiện']||0)
     try{
       const res=await fetch('/api/nhap-kho',{method:'PATCH',headers:{'Content-Type':'application/json'},
         body:JSON.stringify({id:Number(item['Id']||item['id']),
-          slThucNhanCu: coTraHang ? Number(item['Số lượng thực nhận']||0) : 0,
+          slThucNhanCu: coTraHang ? slCanTru : 0,
           'Mã SP': item['Mã SP'],
           'Tình trạng hàng':'Đã xử lý',
-          'Ghi chú':(item['Ghi chú']||'')+(coTraHang?' | Đã trả hàng cho NCC':'| Đã xử lý'),
-          'Số lượng thực nhận': coTraHang ? 0 : Number(item['Số lượng thực nhận']||0),
+          'Ghi chú':(item['Ghi chú']||'')+(coTraHang?` | Đã trả ${slCanTru} SP lỗi/thiếu PK cho NCC`:' | Đã xử lý'),
+          'Số lượng thực nhận': Number(item['Số lượng thực nhận']||0),
         })})
       if(!res.ok)throw new Error((await res.json()).message)
       setLocal(prev=>prev.map(d=>(d['Id']||d['id'])===(item['Id']||item['id'])
@@ -104,6 +105,8 @@ export default function NhapKhoClient({nhapKhoList,nccList,sanPhamList,datHangLi
   const [giaNhapNCC, setGiaNhapNCC] = useState<number>(0)
   const [cpvcKho,    setCpvcKho]    = useState<number>(0)
   const [tinhTrang,  setTinhTrang]  = useState('Đủ')
+  const [slLoi,      setSlLoi]      = useState<number>(0)
+  const [slChoiPK,   setSlChoiPK]   = useState<number>(0)
   // Danh sách SP nhập trực tiếp (nhiều SP)
   const [dsSP, setDsSP] = useState<any[]>([])
 
@@ -191,7 +194,8 @@ export default function NhapKhoClient({nhapKhoList,nccList,sanPhamList,datHangLi
   function addSPToList(){
     if(!maSP){showMsgM('Chọn sản phẩm trước',false);return}
     if(slThucNhan<=0){showMsgM('Nhập số lượng > 0',false);return}
-    setDsSP(p=>[...p,{maSP,tenSP,slThucNhan,giaNhapNCC,cpvcKho,tinhTrang,ghiChu:'',_id:Date.now()}])
+    const tt=tinhTinhTrang(slThucNhan,slThucNhan,slLoi,slChoiPK)
+    setDsSP(p=>[...p,{maSP,tenSP,slThucNhan,giaNhapNCC,cpvcKho,tinhTrang:tt,slLoi,slChoiPK,ghiChu:'',_id:Date.now()}])
     // Reset ô SP để nhập tiếp
     setMaSP('');setTenSP('');setQSP('');setSlThucNhan(0);setGiaNhapNCC(0);setCpvcKho(0);setTinhTrang('Đủ')
     showMsgM('✅ Đã thêm SP vào danh sách',true)
@@ -221,7 +225,7 @@ export default function NhapKhoClient({nhapKhoList,nccList,sanPhamList,datHangLi
     setNgayNhap(new Date().toISOString().split('T')[0])
     setGhiChu('')
     setMaSP('');setTenSP('');setQSP('');setDsSP([])
-    setSlThucNhan(0);setGiaNhapNCC(0);setCpvcKho(0);setTinhTrang('Đủ')
+    setSlThucNhan(0);setGiaNhapNCC(0);setCpvcKho(0);setTinhTrang('Đủ');setSlLoi(0);setSlChoiPK(0)
     setMaDonChon('');setSpItems([])
     setShowNCC(false);setShowSP(false)
     setMsgModal('')
@@ -288,7 +292,7 @@ export default function NhapKhoClient({nhapKhoList,nccList,sanPhamList,datHangLi
         for(const sp of allSP){
           const res=await fetch('/api/nhap-kho',{method:'POST',headers:{'Content-Type':'application/json'},
             body:JSON.stringify({maNCC,maSP:sp.maSP,maDatHang:'',ngayNhap,slDat:0,
-              slThucNhan:sp.slThucNhan,giaNhapTT:sp.giaNhapNCC,cpVC:sp.cpvcKho,
+              slThucNhan:sp.slThucNhan,giaNhapTT:sp.giaNhapNCC,cpVC:sp.cpvcKho,slLoi:sp.slLoi||0,slChoiPK:sp.slChoiPK||0,
               tinhTrang:sp.tinhTrang,ghiChu:sp.ghiChu||ghiChu,nguoiNhap:user.hoTen||user.tenDangNhap})})
           const d=await res.json()
           if(res.ok){
@@ -530,6 +534,8 @@ export default function NhapKhoClient({nhapKhoList,nccList,sanPhamList,datHangLi
                     <td style={{textAlign:'center'}}>
                       <span style={{fontWeight:700,fontSize:'14px'}}>{item['Số lượng thực nhận']||0}</span>
                       {Number(item['Số lượng đặt']||0)>0&&<div style={{fontSize:'10px',color:'#9CA3AF'}}>/{item['Số lượng đặt']} đặt</div>}
+                      {Number(item['Số lượng lỗi']||0)>0&&<div style={{fontSize:'10px',color:'#DC2626'}}>🔴 {item['Số lượng lỗi']} lỗi</div>}
+                      {Number(item['Số lượng chờ phụ kiện']||0)>0&&<div style={{fontSize:'10px',color:'#D97706'}}>🟡 {item['Số lượng chờ phụ kiện']} chờ PK</div>}
                     </td>
                     <td style={{textAlign:'right',fontSize:'12px'}}>{Number(item['Giá nhập thực tế']||0)>0?fVND(item['Giá nhập thực tế'])+'đ':'—'}</td>
                     <td style={{textAlign:'right',fontWeight:700,whiteSpace:'nowrap'}}>
@@ -695,7 +701,7 @@ export default function NhapKhoClient({nhapKhoList,nccList,sanPhamList,datHangLi
                   </div>
                 </div>}
                 {/* Form nhập SP - hàng 1: SP + SL */}
-                <div style={{display:'grid',gridTemplateColumns:'2fr 100px 100px',gap:'10px',marginBottom:'8px'}}>
+                <div style={{display:'grid',gridTemplateColumns:'2fr 80px 80px 90px 90px',gap:'10px',marginBottom:'8px'}}>
                   <div>
                     <label className="lbl">Sản phẩm *</label>
                     <SPInput spList={spLocal} value={qSP} maSP={maSP}
@@ -709,6 +715,16 @@ export default function NhapKhoClient({nhapKhoList,nccList,sanPhamList,datHangLi
                     <label className="lbl">Số lượng nhập</label>
                     <input className="input" type="number" min="0" value={slThucNhan||''} placeholder="0" onChange={e=>setSlThucNhan(Number(e.target.value)||0)}/>
                     <div style={{fontSize:'10px',color:'#6B7280',marginTop:'2px',minHeight:'14px'}}>&nbsp;</div>
+                  </div>
+                  <div>
+                    <label className="lbl">🔴 Số lượng lỗi</label>
+                    <input className="input" type="number" min="0" value={slLoi||''} placeholder="0" onChange={e=>{const v=Number(e.target.value)||0;setSlLoi(v);setTinhTrang(tinhTinhTrang(slThucNhan,slThucNhan,v,slChoiPK))}}/>
+                    <div style={{fontSize:'10px',color:'#DC2626',marginTop:'2px',minHeight:'14px'}}>{slLoi>0?`Trừ ${slLoi} khỏi tồn kho`:''}</div>
+                  </div>
+                  <div>
+                    <label className="lbl">🟡 Chờ phụ kiện</label>
+                    <input className="input" type="number" min="0" value={slChoiPK||''} placeholder="0" onChange={e=>{const v=Number(e.target.value)||0;setSlChoiPK(v);setTinhTrang(tinhTinhTrang(slThucNhan,slThucNhan,slLoi,v))}}/>
+                    <div style={{fontSize:'10px',color:'#D97706',marginTop:'2px',minHeight:'14px'}}>{slChoiPK>0?`Chờ PK: ${slChoiPK} SP`:''}</div>
                   </div>
                   <div>
                     <label className="lbl">Tình trạng hàng</label>
@@ -876,7 +892,10 @@ export default function NhapKhoClient({nhapKhoList,nccList,sanPhamList,datHangLi
             </div>
             <div style={{background:'#F8FAFC',borderRadius:'8px',padding:'12px',marginBottom:'16px',fontSize:'13px'}}>
               <div><strong>{popupXuLy['Mã phiếu nhập']}</strong> — {spMap[popupXuLy['Mã SP']]?.['Tên sản phẩm']||popupXuLy['Mã SP']}</div>
-              <div style={{color:'#6B7280',marginTop:'4px'}}>Số lượng: {popupXuLy['Số lượng thực nhận']} · Tình trạng: <strong style={{color:TT_COLOR[popupXuLy['Tình trạng hàng']]?.c}}>{popupXuLy['Tình trạng hàng']}</strong></div>
+              <div style={{color:'#6B7280',marginTop:'4px'}}>SL nhận: <strong>{popupXuLy['Số lượng thực nhận']}</strong>
+                {Number(popupXuLy['Số lượng lỗi']||0)>0&&<span style={{color:'#DC2626',marginLeft:'8px'}}>🔴 Lỗi: {popupXuLy['Số lượng lỗi']}</span>}
+                {Number(popupXuLy['Số lượng chờ phụ kiện']||0)>0&&<span style={{color:'#D97706',marginLeft:'8px'}}>🟡 Chờ PK: {popupXuLy['Số lượng chờ phụ kiện']}</span>}
+              </div>
             </div>
             <div style={{display:'flex',flexDirection:'column',gap:'10px'}}>
               <button onClick={()=>{xuLyPhieu(popupXuLy,false);setPopupXuLy(null)}}
@@ -884,11 +903,13 @@ export default function NhapKhoClient({nhapKhoList,nccList,sanPhamList,datHangLi
                 ✅ Đã xử lý (giữ hàng trong kho)
                 <div style={{fontSize:'11px',fontWeight:400,marginTop:'2px',color:'#6B7280'}}>Đổi trạng thái → Đã xử lý, tồn kho không thay đổi</div>
               </button>
-              <button onClick={()=>{xuLyPhieu(popupXuLy,true);setPopupXuLy(null)}}
-                style={{padding:'12px',borderRadius:'8px',border:'1px solid #DC2626',background:'#FEF2F2',color:'#DC2626',fontWeight:700,cursor:'pointer',fontSize:'13px',textAlign:'left'}}>
-                🔄 Đã trả hàng cho NCC
-                <div style={{fontSize:'11px',fontWeight:400,marginTop:'2px',color:'#6B7280'}}>Đổi trạng thái → Đã xử lý, trừ {popupXuLy['Số lượng thực nhận']} khỏi tồn kho</div>
-              </button>
+              {(Number(popupXuLy['Số lượng lỗi']||0)+Number(popupXuLy['Số lượng chờ phụ kiện']||0))>0&&(
+                <button onClick={()=>{xuLyPhieu(popupXuLy,true);setPopupXuLy(null)}}
+                  style={{padding:'12px',borderRadius:'8px',border:'1px solid #DC2626',background:'#FEF2F2',color:'#DC2626',fontWeight:700,cursor:'pointer',fontSize:'13px',textAlign:'left'}}>
+                  🔄 Trả lại {Number(popupXuLy['Số lượng lỗi']||0)+Number(popupXuLy['Số lượng chờ phụ kiện']||0)} SP cho NCC
+                  <div style={{fontSize:'11px',fontWeight:400,marginTop:'2px',color:'#6B7280'}}>Đổi trạng thái → Đã xử lý, trừ {Number(popupXuLy['Số lượng lỗi']||0)+Number(popupXuLy['Số lượng chờ phụ kiện']||0)} khỏi tồn kho</div>
+                </button>
+              )}
               <button onClick={()=>setPopupXuLy(null)} style={{padding:'10px',borderRadius:'8px',border:'1px solid var(--border)',background:'white',cursor:'pointer',fontSize:'13px',fontWeight:600}}>Huỷ</button>
             </div>
           </div>

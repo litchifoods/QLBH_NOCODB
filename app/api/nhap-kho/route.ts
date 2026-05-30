@@ -42,15 +42,20 @@ export async function POST(req: NextRequest) {
     })
     if (!r) return NextResponse.json({message:'Lỗi tạo phiếu nhập'},{status:500})
 
-    // Cập nhật tồn kho SP
+    // Cập nhật tồn kho SP: chỉ cộng hàng tốt (trừ lỗi và chờ phụ kiện)
     if (body.maSP && Number(body.slThucNhan||0) > 0) {
-      const spResult = await getRecords(TABLES.SAN_PHAM, {
-        where: `(Mã SP,eq,${body.maSP})`, limit:1, fields:'Id,Tồn kho'
-      })
-      const sp = spResult.list?.[0]
-      if (sp) {
-        const tonMoi = Number(sp['Tồn kho']||0) + Number(body.slThucNhan||0)
-        await updateRecord(TABLES.SAN_PHAM, Number(sp['Id']||sp['id']), {'Tồn kho': tonMoi})
+      const slLoi = Number(body.slLoi||0)
+      const slChoiPK = Number(body.slChoiPK||0)
+      const slTot = Number(body.slThucNhan||0) - slLoi - slChoiPK
+      if (slTot > 0) {
+        const spResult = await getRecords(TABLES.SAN_PHAM, {
+          where: `(Mã SP,eq,${body.maSP})`, limit:1, fields:'Id,Tồn kho'
+        })
+        const sp = spResult.list?.[0]
+        if (sp) {
+          const tonMoi = Number(sp['Tồn kho']||0) + slTot
+          await updateRecord(TABLES.SAN_PHAM, Number(sp['Id']||sp['id']), {'Tồn kho': tonMoi})
+        }
       }
     }
     return NextResponse.json({ success:true, maPhieu, data:r })
@@ -110,14 +115,5 @@ export async function DELETE(req: NextRequest) {
       }
     }
     return NextResponse.json({ success:true })
-  } catch(e:any) { return NextResponse.json({message:e.message},{status:500}) }
-}
-
-export async function GET(req: NextRequest) {
-  try {
-    const session = await getSession()
-    if (!session) return NextResponse.json({message:'Chua dang nhap'},{status:401})
-    const r = await getRecords(TABLES.NHAP_KHO, { limit:500, sort:'-Id' })
-    return NextResponse.json(r)
   } catch(e:any) { return NextResponse.json({message:e.message},{status:500}) }
 }
