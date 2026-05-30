@@ -155,7 +155,7 @@ export default function NhapKhoClient({nhapKhoList,nccList,sanPhamList,datHangLi
     setSavingSP(true)
     try {
       const res=await fetch('/api/san-pham',{method:'POST',headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({'Mã SP':newMaSP.trim()||undefined,'Tên sản phẩm':newTenSP.trim(),'Loại SP':newLoai,'Đơn vị tính':newDonVi,'Giá nhập NCC':newGiaBuon,'CPVC về kho':newGiaLe,'Giá bán buôn':newGiaBuon,'Giá bán lẻ':newGiaLe,'Tồn kho':newTonKho,'Ngưỡng cảnh báo':newNguong,'Thông số kỹ thuật':newThongSo,'Ghi chú':newGhiChu})})
+        body:JSON.stringify({'Mã SP':newMaSP.trim()||undefined,'Tên sản phẩm':newTenSP.trim(),'Loại SP':newLoai,'Đơn vị tính':newDonVi,'Giá nhập NCC':newGiaBuon,'CPVC về kho':newGiaLe,'Giá bán buôn':newGiaBuon,'Giá bán lẻ':newGiaLe,'Tồn kho':0,'Ngưỡng cảnh báo':1,'Thông số kỹ thuật':'','Ghi chú':''})})
       const d=await res.json()
       if (!res.ok) throw new Error(d.message)
       const newSP={...d.data,'Mã SP':d.data?.['Mã SP']||newMaSP,'Tên sản phẩm':newTenSP}
