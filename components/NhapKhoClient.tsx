@@ -44,7 +44,10 @@ export default function NhapKhoClient({nhapKhoList,nccList,sanPhamList,datHangLi
 
   // Xử lý phiếu Lỗi/Thừa - đổi trạng thái + trừ tồn kho nếu trả hàng
   async function xuLyPhieu(item:any, coTraHang:boolean){
-    const slCanTru = Number(item['Số lượng lỗi']||0)+Number(item['Số lượng chờ phụ kiện']||0)
+    // Nếu có _slTraThua thì trừ theo số thừa, không thì trừ lỗi+PK
+    const slCanTru = item['_slTraThua']
+      ? Number(item['_slTraThua'])
+      : Number(item['Số lượng lỗi']||0)+Number(item['Số lượng chờ phụ kiện']||0)
     try{
       const res=await fetch('/api/nhap-kho',{method:'PATCH',headers:{'Content-Type':'application/json'},
         body:JSON.stringify({id:Number(item['Id']||item['id']),
@@ -189,13 +192,6 @@ export default function NhapKhoClient({nhapKhoList,nccList,sanPhamList,datHangLi
       ghiChu:'',
       checked:true,
     })))
-  }
-
-  function tinhTinhTrang(sl:number, slDat:number, loi:number, choiPK:number):string {
-    if(loi>0||choiPK>0) return 'Lỗi'
-    if(sl<slDat) return 'Thiếu'
-    if(sl>slDat) return 'Thừa'
-    return 'Đủ'
   }
 
   function addSPToList(){
@@ -560,8 +556,8 @@ export default function NhapKhoClient({nhapKhoList,nccList,sanPhamList,datHangLi
                           <button onClick={()=>xuatPDF(item)} style={{padding:'5px',borderRadius:'5px',border:'1px solid #BBF7D0',background:'#F0FDF4',color:'#16A34A',fontSize:'11px',cursor:'pointer',fontWeight:600}}>📄 PDF</button>
                           {isOwner&&<button onClick={()=>setXoaItem(item)} style={{padding:'5px',borderRadius:'5px',border:'1px solid #FCA5A5',background:'#FEF2F2',color:'#DC2626',fontSize:'11px',cursor:'pointer',fontWeight:600}}>🗑️ Xóa</button>}
                         </div>
-                        {tt==='Thiếu'&&<button onClick={()=>taoDonBu(item)} style={{padding:'5px',borderRadius:'5px',border:'1px solid #6D28D9',background:'#EDE9FE',color:'#6D28D9',fontSize:'11px',cursor:'pointer',fontWeight:600,textAlign:'center'}}>📋 Tạo đơn bù</button>}
-                        {(tt==='Lỗi'||tt==='Thừa')&&<button onClick={()=>setPopupXuLy(item)} style={{padding:'5px',borderRadius:'5px',border:'1px solid #D97706',background:'#FEF3C7',color:'#92400E',fontSize:'11px',cursor:'pointer',fontWeight:600,textAlign:'center'}}>⚙️ Xử lý</button>}
+                        {(tt==='Thiếu'||(tt==='Lỗi'&&Number(item['Số lượng đặt']||0)>Number(item['Số lượng thực nhận']||0)))&&<button onClick={()=>taoDonBu(item)} style={{padding:'5px',borderRadius:'5px',border:'1px solid #6D28D9',background:'#EDE9FE',color:'#6D28D9',fontSize:'11px',cursor:'pointer',fontWeight:600,textAlign:'center'}}>📋 Tạo đơn bù</button>}
+                        {(tt==='Lỗi'||tt==='Thừa'||tt==='Thiếu')&&tt!=='Đã xử lý'&&<button onClick={()=>setPopupXuLy(item)} style={{padding:'5px',borderRadius:'5px',border:'1px solid #D97706',background:'#FEF3C7',color:'#92400E',fontSize:'11px',cursor:'pointer',fontWeight:600,textAlign:'center'}}>⚙️ Xử lý</button>}
                       </div>
                     </td>
                   </tr>
@@ -724,12 +720,12 @@ export default function NhapKhoClient({nhapKhoList,nccList,sanPhamList,datHangLi
                     <div style={{fontSize:'10px',color:'#6B7280',marginTop:'2px',minHeight:'14px'}}>&nbsp;</div>
                   </div>
                   <div>
-                    <label className="lbl">🔴 Số lượng lỗi</label>
+                    <label className="lbl">🔴 SL lỗi</label>
                     <input className="input" type="number" min="0" value={slLoi||''} placeholder="0" onChange={e=>{const v=Number(e.target.value)||0;setSlLoi(v);setTinhTrang(tinhTinhTrang(slThucNhan,slThucNhan,v,slChoiPK))}}/>
                     <div style={{fontSize:'10px',color:'#DC2626',marginTop:'2px',minHeight:'14px'}}>{slLoi>0?`Trừ ${slLoi} khỏi tồn kho`:''}</div>
                   </div>
                   <div>
-                    <label className="lbl">🟡 Chờ phụ kiện</label>
+                    <label className="lbl">🟡 Chờ PK</label>
                     <input className="input" type="number" min="0" value={slChoiPK||''} placeholder="0" onChange={e=>{const v=Number(e.target.value)||0;setSlChoiPK(v);setTinhTrang(tinhTinhTrang(slThucNhan,slThucNhan,slLoi,v))}}/>
                     <div style={{fontSize:'10px',color:'#D97706',marginTop:'2px',minHeight:'14px'}}>{slChoiPK>0?`Chờ PK: ${slChoiPK} SP`:''}</div>
                   </div>
@@ -889,39 +885,96 @@ export default function NhapKhoClient({nhapKhoList,nccList,sanPhamList,datHangLi
         </div>
       )}
 
-      {/* ══ MODAL XỬ LÝ LỖI/THỪA ══ */}
-      {popupXuLy&&(
-        <div className="ov">
-          <div style={{background:'white',borderRadius:'12px',padding:'24px',width:'100%',maxWidth:'420px'}}>
-            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'14px'}}>
-              <h2 style={{fontSize:'16px',fontWeight:700,margin:0}}>⚙️ Xử lý phiếu {popupXuLy['Tình trạng hàng']}</h2>
-              <button onClick={()=>setPopupXuLy(null)} style={{background:'none',border:'none',cursor:'pointer',fontSize:'20px',color:'#6B7280'}}>✕</button>
-            </div>
-            <div style={{background:'#F8FAFC',borderRadius:'8px',padding:'12px',marginBottom:'16px',fontSize:'13px'}}>
-              <div><strong>{popupXuLy['Mã phiếu nhập']}</strong> — {spMap[popupXuLy['Mã SP']]?.['Tên sản phẩm']||popupXuLy['Mã SP']}</div>
-              <div style={{color:'#6B7280',marginTop:'4px'}}>SL nhận: <strong>{popupXuLy['Số lượng thực nhận']}</strong>
-                {Number(popupXuLy['Số lượng lỗi']||0)>0&&<span style={{color:'#DC2626',marginLeft:'8px'}}>🔴 Lỗi: {popupXuLy['Số lượng lỗi']}</span>}
-                {Number(popupXuLy['Số lượng chờ phụ kiện']||0)>0&&<span style={{color:'#D97706',marginLeft:'8px'}}>🟡 Chờ PK: {popupXuLy['Số lượng chờ phụ kiện']}</span>}
+      {/* ══ MODAL XỬ LÝ ══ */}
+      {popupXuLy&&(()=>{
+        const slNhan  = Number(popupXuLy['Số lượng thực nhận']||0)
+        const slDat   = Number(popupXuLy['Số lượng đặt']||0)
+        const slLoi2  = Number(popupXuLy['Số lượng lỗi']||0)
+        const slPK    = Number(popupXuLy['Số lượng chờ phụ kiện']||0)
+        const slThua  = slNhan > slDat ? slNhan - slDat : 0
+        const slThieu = slNhan < slDat ? slDat - slNhan : 0
+        const slTraNCC= slLoi2 + slPK
+        const spTen   = spMap[popupXuLy['Mã SP']]?.['Tên sản phẩm']||popupXuLy['Mã SP']
+        const donVi   = spMap[popupXuLy['Mã SP']]?.['Đơn vị tính']||'cái'
+        return (
+          <div className="ov">
+            <div style={{background:'white',borderRadius:'12px',padding:'24px',width:'100%',maxWidth:'480px'}}>
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'14px'}}>
+                <h2 style={{fontSize:'16px',fontWeight:700,margin:0}}>⚙️ Xử lý phiếu nhập kho</h2>
+                <button onClick={()=>setPopupXuLy(null)} style={{background:'none',border:'none',cursor:'pointer',fontSize:'20px',color:'#6B7280'}}>✕</button>
+              </div>
+
+              {/* Thông tin phiếu */}
+              <div style={{background:'#F8FAFC',borderRadius:'8px',padding:'12px',marginBottom:'14px',fontSize:'13px'}}>
+                <div style={{fontWeight:600,marginBottom:'8px'}}>{popupXuLy['Mã phiếu nhập']} — {spTen}</div>
+                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'6px',fontSize:'12px'}}>
+                  {slDat>0&&<div style={{padding:'6px 10px',background:'white',borderRadius:'6px',border:'1px solid #E5E7EB'}}>
+                    <div style={{color:'#6B7280',fontSize:'11px'}}>SL đặt hàng</div>
+                    <div style={{fontWeight:700,fontSize:'16px'}}>{slDat} <span style={{fontSize:'11px',fontWeight:400}}>{donVi}</span></div>
+                  </div>}
+                  <div style={{padding:'6px 10px',background:'white',borderRadius:'6px',border:'1px solid #E5E7EB'}}>
+                    <div style={{color:'#6B7280',fontSize:'11px'}}>SL thực nhận</div>
+                    <div style={{fontWeight:700,fontSize:'16px'}}>{slNhan} <span style={{fontSize:'11px',fontWeight:400}}>{donVi}</span></div>
+                  </div>
+                  {slLoi2>0&&<div style={{padding:'6px 10px',background:'#FEF2F2',borderRadius:'6px',border:'1px solid #FCA5A5'}}>
+                    <div style={{color:'#DC2626',fontSize:'11px'}}>🔴 Số lượng lỗi</div>
+                    <div style={{fontWeight:700,fontSize:'16px',color:'#DC2626'}}>{slLoi2} <span style={{fontSize:'11px',fontWeight:400}}>{donVi}</span></div>
+                  </div>}
+                  {slPK>0&&<div style={{padding:'6px 10px',background:'#FEF3C7',borderRadius:'6px',border:'1px solid #FCD34D'}}>
+                    <div style={{color:'#D97706',fontSize:'11px'}}>🟡 Chờ phụ kiện</div>
+                    <div style={{fontWeight:700,fontSize:'16px',color:'#D97706'}}>{slPK} <span style={{fontSize:'11px',fontWeight:400}}>{donVi}</span></div>
+                  </div>}
+                  {slThua>0&&<div style={{padding:'6px 10px',background:'#DBEAFE',borderRadius:'6px',border:'1px solid #93C5FD'}}>
+                    <div style={{color:'#1E40AF',fontSize:'11px'}}>🔵 Số lượng thừa</div>
+                    <div style={{fontWeight:700,fontSize:'16px',color:'#1E40AF'}}>{slThua} <span style={{fontSize:'11px',fontWeight:400}}>{donVi}</span></div>
+                  </div>}
+                  {slThieu>0&&<div style={{padding:'6px 10px',background:'#FEF3C7',borderRadius:'6px',border:'1px solid #FCD34D'}}>
+                    <div style={{color:'#92400E',fontSize:'11px'}}>⚠️ Số lượng thiếu</div>
+                    <div style={{fontWeight:700,fontSize:'16px',color:'#92400E'}}>{slThieu} <span style={{fontSize:'11px',fontWeight:400}}>{donVi}</span></div>
+                  </div>}
+                </div>
+              </div>
+
+              {/* Các lựa chọn xử lý */}
+              <div style={{display:'flex',flexDirection:'column',gap:'8px'}}>
+                {/* Giữ hàng - áp dụng mọi trường hợp */}
+                <button onClick={()=>{xuLyPhieu(popupXuLy,false);setPopupXuLy(null)}}
+                  style={{padding:'12px',borderRadius:'8px',border:'1px solid #16A34A',background:'#F0FDF4',color:'#065F46',fontWeight:700,cursor:'pointer',fontSize:'13px',textAlign:'left'}}>
+                  ✅ Giữ nguyên trong kho
+                  <div style={{fontSize:'11px',fontWeight:400,marginTop:'2px',color:'#6B7280'}}>
+                    Đổi trạng thái → Đã xử lý · Tồn kho không thay đổi
+                    {slThua>0&&` · Giữ ${slThua} ${donVi} thừa trong kho`}
+                  </div>
+                </button>
+
+                {/* Trả hàng lỗi/chờ PK */}
+                {slTraNCC>0&&(
+                  <button onClick={()=>{xuLyPhieu(popupXuLy,true);setPopupXuLy(null)}}
+                    style={{padding:'12px',borderRadius:'8px',border:'1px solid #DC2626',background:'#FEF2F2',color:'#DC2626',fontWeight:700,cursor:'pointer',fontSize:'13px',textAlign:'left'}}>
+                    🔄 Trả {slTraNCC} {donVi} {slLoi2>0?'lỗi':''}{slLoi2>0&&slPK>0?'+':''}{slPK>0?'chờ PK':''} cho NCC
+                    <div style={{fontSize:'11px',fontWeight:400,marginTop:'2px',color:'#6B7280'}}>
+                      Đổi trạng thái → Đã xử lý · Trừ {slTraNCC} {donVi} khỏi tồn kho
+                    </div>
+                  </button>
+                )}
+
+                {/* Trả hàng thừa */}
+                {slThua>0&&(
+                  <button onClick={()=>{xuLyPhieu({...popupXuLy,'_slTraThua':slThua},true);setPopupXuLy(null)}}
+                    style={{padding:'12px',borderRadius:'8px',border:'1px solid #1E40AF',background:'#EFF6FF',color:'#1E40AF',fontWeight:700,cursor:'pointer',fontSize:'13px',textAlign:'left'}}>
+                    🔄 Trả lại {slThua} {donVi} thừa cho NCC
+                    <div style={{fontSize:'11px',fontWeight:400,marginTop:'2px',color:'#6B7280'}}>
+                      Đổi trạng thái → Đã xử lý · Trừ {slThua} {donVi} khỏi tồn kho
+                    </div>
+                  </button>
+                )}
+
+                <button onClick={()=>setPopupXuLy(null)} style={{padding:'10px',borderRadius:'8px',border:'1px solid var(--border)',background:'white',cursor:'pointer',fontSize:'13px',fontWeight:600}}>Huỷ</button>
               </div>
             </div>
-            <div style={{display:'flex',flexDirection:'column',gap:'10px'}}>
-              <button onClick={()=>{xuLyPhieu(popupXuLy,false);setPopupXuLy(null)}}
-                style={{padding:'12px',borderRadius:'8px',border:'1px solid #D97706',background:'#FEF3C7',color:'#92400E',fontWeight:700,cursor:'pointer',fontSize:'13px',textAlign:'left'}}>
-                ✅ Đã xử lý (giữ hàng trong kho)
-                <div style={{fontSize:'11px',fontWeight:400,marginTop:'2px',color:'#6B7280'}}>Đổi trạng thái → Đã xử lý, tồn kho không thay đổi</div>
-              </button>
-              {(Number(popupXuLy['Số lượng lỗi']||0)+Number(popupXuLy['Số lượng chờ phụ kiện']||0))>0&&(
-                <button onClick={()=>{xuLyPhieu(popupXuLy,true);setPopupXuLy(null)}}
-                  style={{padding:'12px',borderRadius:'8px',border:'1px solid #DC2626',background:'#FEF2F2',color:'#DC2626',fontWeight:700,cursor:'pointer',fontSize:'13px',textAlign:'left'}}>
-                  🔄 Trả lại {Number(popupXuLy['Số lượng lỗi']||0)+Number(popupXuLy['Số lượng chờ phụ kiện']||0)} SP cho NCC
-                  <div style={{fontSize:'11px',fontWeight:400,marginTop:'2px',color:'#6B7280'}}>Đổi trạng thái → Đã xử lý, trừ {Number(popupXuLy['Số lượng lỗi']||0)+Number(popupXuLy['Số lượng chờ phụ kiện']||0)} khỏi tồn kho</div>
-                </button>
-              )}
-              <button onClick={()=>setPopupXuLy(null)} style={{padding:'10px',borderRadius:'8px',border:'1px solid var(--border)',background:'white',cursor:'pointer',fontSize:'13px',fontWeight:600}}>Huỷ</button>
-            </div>
           </div>
-        </div>
-      )}
+        )
+      })()}
 
       {/* ══ MODAL XÓA ══ */}
       {xoaItem&&(
