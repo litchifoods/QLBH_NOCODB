@@ -54,6 +54,12 @@ export default function NhapKhoClient({nhapKhoList,nccList,sanPhamList,datHangLi
   const [newDonVi,  setNewDonVi]  = useState('Cái')
   const [newGiaBuon,setNewGiaBuon]= useState(0)
   const [newGiaLe,  setNewGiaLe]  = useState(0)
+  const [newGiaBuon2,setNewGiaBuon2]= useState(0)
+  const [newGiaLe2,  setNewGiaLe2]  = useState(0)
+  const [newThongSo, setNewThongSo] = useState('')
+  const [newGhiChu,  setNewGhiChu]  = useState('')
+  const [newTonKho,  setNewTonKho]  = useState(0)
+  const [newNguong,  setNewNguong]  = useState(1)
   const [savingSP,  setSavingSP]  = useState(false)
 
   // Flow chọn đơn NCC
