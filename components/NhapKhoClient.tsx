@@ -54,6 +54,12 @@ export default function NhapKhoClient({nhapKhoList,nccList,sanPhamList,datHangLi
   const [newDonVi,  setNewDonVi]  = useState('Cái')
   const [newGiaBuon,setNewGiaBuon]= useState(0)
   const [newGiaLe,  setNewGiaLe]  = useState(0)
+  const [newGiaBuon2,setNewGiaBuon2]= useState(0)
+  const [newGiaLe2,  setNewGiaLe2]  = useState(0)
+  const [newTonKho,  setNewTonKho]  = useState(0)
+  const [newNguong,  setNewNguong]  = useState(1)
+  const [newThongSo, setNewThongSo] = useState('')
+  const [newGhiChu,  setNewGhiChu]  = useState('')
   const [savingSP,  setSavingSP]  = useState(false)
 
   // Flow chọn đơn NCC
@@ -155,7 +161,7 @@ export default function NhapKhoClient({nhapKhoList,nccList,sanPhamList,datHangLi
     setSavingSP(true)
     try {
       const res=await fetch('/api/san-pham',{method:'POST',headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({'Mã SP':newMaSP.trim()||undefined,'Tên sản phẩm':newTenSP.trim(),'Loại SP':newLoai,'Đơn vị tính':newDonVi,'Giá nhập NCC':newGiaBuon,'CPVC về kho':newGiaLe,'Giá bán buôn':newGiaBuon,'Giá bán lẻ':newGiaLe,'Tồn kho':0,'Ngưỡng cảnh báo':1,'Thông số kỹ thuật':'','Ghi chú':''})})
+        body:JSON.stringify({'Mã SP':newMaSP.trim()||undefined,'Tên sản phẩm':newTenSP.trim(),'Loại SP':newLoai,'Đơn vị tính':newDonVi,'Giá nhập NCC':newGiaBuon,'CPVC về kho':newGiaLe,'Giá bán buôn':newGiaBuon2,'Giá bán lẻ':newGiaLe2,'Tồn kho':newTonKho,'Ngưỡng cảnh báo':newNguong,'Thông số kỹ thuật':newThongSo,'Ghi chú':newGhiChu})})
       const d=await res.json()
       if (!res.ok) throw new Error(d.message)
       const newSP={...d.data,'Mã SP':d.data?.['Mã SP']||newMaSP,'Tên sản phẩm':newTenSP}
