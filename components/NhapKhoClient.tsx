@@ -156,7 +156,20 @@ export default function NhapKhoClient({nhapKhoList,nccList,sanPhamList,datHangLi
   function updDsSP(id:number,k:string,v:any){setDsSP(p=>p.map((it:any)=>it._id===id?{...it,[k]:v}:it))}
 
   function updItem(i:number,k:string,v:any){
-    setSpItems(p=>p.map((it,idx)=>idx===i?{...it,[k]:v}:it))
+    setSpItems(p=>p.map((it,idx)=>{
+      if(idx!==i) return it
+      const updated={...it,[k]:v}
+      // Tự động tình trạng khi đổi SL nhận
+      if(k==='sl'){
+        const sl=Number(v)||0
+        const slDat=Number(it.slDat)||0
+        if(sl===0) updated.tinhTrang='Đủ'
+        else if(sl===slDat) updated.tinhTrang='Đủ'
+        else if(sl<slDat) updated.tinhTrang='Thiếu'
+        else updated.tinhTrang='Thừa'
+      }
+      return updated
+    }))
   }
 
   function resetForm(){
@@ -214,6 +227,16 @@ export default function NhapKhoClient({nhapKhoList,nccList,sanPhamList,datHangLi
           }
         }
         showMsg2(`✅ Đã tạo ${soTao} phiếu nhập từ đơn ${maDonChon}`)
+        // Xóa các dòng đơn NCC đã nhập kho
+        if(soTao>0&&maDonChon){
+          const grp=donNCCGrouped[maDonChon]||[]
+          for(const d of grp){
+            const spNhap=spItems.find(it=>it.maSP===d['Mã SP']&&it.checked)
+            if(spNhap){
+              await fetch(`/api/dat-hang-ncc?id=${d['Id']||d['id']}`,{method:'DELETE'}).catch(()=>{})
+            }
+          }
+        }
       } else {
         // Nhập trực tiếp - tạo từ danh sách dsSP
         const allSP = dsSP.length > 0 ? dsSP : (maSP&&slThucNhan>0 ? [{maSP,tenSP,slThucNhan,giaNhapNCC,cpvcKho,tinhTrang,ghiChu,_id:0}] : [])
