@@ -39,7 +39,7 @@ export default function DatHangNCCClient({donDHList,nccList,sanPhamList,user}:{
   const [maNCC,     setMaNCC]    = useState('')
   const [ngayDat,   setNgayDat]  = useState(new Date().toISOString().split('T')[0])
   const [ghiChuDon, setGhiChuDon]= useState('')
-  const [items, setItems]        = useState<SPItem[]>([{_id:1,maSP:'',tenSP:'',donVi:'',soLuong:1,giaNhap:0,ngayVe:'',ghiChu:''}])
+  const [items, setItems]        = useState<SPItem[]>([{_id:1,maSP:'',tenSP:'',donVi:'Cái',soLuong:1,giaNhap:0,ngayVe:'',ghiChu:''}])
   const [searchNCC,  setSearchNCC] = useState('')
   const [showNCC,    setShowNCC]   = useState(false)
   const [searchSP,  setSearchSP] = useState<Record<number,string>>({})
@@ -103,7 +103,7 @@ export default function DatHangNCCClient({donDHList,nccList,sanPhamList,user}:{
   const nccDanhSach= useMemo(()=>[...new Set(local.map(d=>d['Mã NCC']).filter(Boolean))].map(ma=>({ma,ten:nccMap[ma]?.['Tên NCC']||ma})),[local,nccMap])
   const chuaXN     = local.filter(d=>d['Trạng thái']==='Chờ xác nhận').length
 
-  function addItem(){setItems(p=>[...p,{_id:nextId(),maSP:'',tenSP:'',donVi:'',soLuong:1,giaNhap:0,ngayVe:'',ghiChu:''}])}
+  function addItem(){setItems(p=>[...p,{_id:nextId(),maSP:'',tenSP:'',donVi:'Cái',soLuong:1,giaNhap:0,ngayVe:'',ghiChu:''}])}
   function removeItem(id:number){setItems(p=>p.filter(it=>it._id!==id))}
   function updItem(id:number,k:keyof SPItem,v:any){setItems(p=>p.map(it=>it._id===id?{...it,[k]:v}:it))}
   function chonSP(id:number,sp:any){
@@ -116,7 +116,7 @@ export default function DatHangNCCClient({donDHList,nccList,sanPhamList,user}:{
     updItem(id,'maSP',sp['Mã SP']||'')
     updItem(id,'tenSP',sp['Tên sản phẩm']||'')
     updItem(id,'donVi',sp['Đơn vị tính']||'')
-    updItem(id,'giaNhap',Number(sp['Giá bán buôn']||0))
+    updItem(id,'giaNhap',Number(sp['Giá nhập NCC']||0)+Number(sp['CPVC về kho']||0)||Number(sp['Giá bán buôn']||0))
     setSearchSP(p=>({...p,[id]:sp['Tên sản phẩm']||''}))
     setShowSP(p=>({...p,[id]:false}))
   }
@@ -151,7 +151,7 @@ export default function DatHangNCCClient({donDHList,nccList,sanPhamList,user}:{
     setMaNCC('');setSearchNCC('');_idRef.current=1
     setNgayDat(new Date().toISOString().split('T')[0])
     setGhiChuDon('')
-    setItems([{_id:1,maSP:'',tenSP:'',donVi:'',soLuong:1,giaNhap:0,ngayVe:'',ghiChu:''}])
+    setItems([{_id:1,maSP:'',tenSP:'',donVi:'Cái',soLuong:1,giaNhap:0,ngayVe:'',ghiChu:''}])
     setSearchSP({});setShowSP({})
   }
 
@@ -271,7 +271,7 @@ export default function DatHangNCCClient({donDHList,nccList,sanPhamList,user}:{
         .ov{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;display:flex;align-items:center;justify-content:center;padding:16px;overflow-y:auto;}
         .mk{background:white;border-radius:12px;padding:28px;width:100%;max-width:1200px;max-height:95vh;overflow-y:auto;}
         .mk2{background:white;border-radius:12px;padding:24px;width:100%;max-width:460px;}
-        .sp-row{display:grid;grid-template-columns:2fr 70px 80px 110px 130px 100px 1fr 32px;gap:8px;padding:10px;border:1px solid #E5E7EB;border-radius:8px;margin-bottom:6px;background:#FAFBFD;align-items:start;}
+        .sp-row{display:grid;grid-template-columns:24px 2fr 60px 80px 110px 110px 100px 1fr 32px;gap:8px;padding:10px;border:1px solid #E5E7EB;border-radius:8px;margin-bottom:6px;background:#FAFBFD;align-items:start;}
         .db{position:absolute;top:calc(100%+3px);left:0;right:0;z-index:70;background:white;border:1px solid var(--border);border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.12);max-height:200px;overflow-y:auto;}
         .di{padding:8px 12px;cursor:pointer;border-bottom:1px solid #F3F4F6;font-size:13px;}
         .di:hover{background:#F0F9FF;}
@@ -484,14 +484,16 @@ export default function DatHangNCCClient({donDHList,nccList,sanPhamList,user}:{
                 {/* SL */}
                 <input className="input" type="number" min="1" value={it.soLuong||''} onChange={e=>updItem(it._id,'soLuong',Number(e.target.value))} style={{fontSize:'12px',textAlign:'center'}}/>
                 {/* ĐVT */}
-                <input className="input" value={it.donVi} onChange={e=>updItem(it._id,'donVi',e.target.value)} style={{fontSize:'12px'}}/>
+                <select className="input" value={it.donVi} onChange={e=>updItem(it._id,'donVi',e.target.value)} style={{fontSize:'12px'}}>
+                  <option>Cái</option><option>Chiếc</option><option>Bộ</option>
+                </select>
                 {/* Giá nhập */}
                 <input className="input" type="text" inputMode="numeric"
                   value={it.giaNhap?it.giaNhap.toLocaleString('vi-VN'):''}  placeholder="0"
-                  onChange={e=>{const v=Number(e.target.value.replace(/\./g,'').replace(/,/g,''));if(!isNaN(v))updItem(it._id,'giaNhap',v)}}
+                  onChange={e=>{const v=e.target.value.replace(/\./g,'');const n=Number(v);if(!isNaN(n))updItem(it._id,'giaNhap',n)}}
                   style={{fontSize:'12px'}}/>
                 {/* Thành tiền */}
-                <div style={{padding:'8px 6px',fontSize:'12px',fontWeight:600,color:'var(--primary)',alignSelf:'center'}}>
+                <div style={{padding:'8px 4px',fontSize:'12px',fontWeight:600,color:'var(--primary)',alignSelf:'center'}}>
                   {(Number(it.soLuong||0)*Number(it.giaNhap||0)).toLocaleString('vi-VN')}đ
                 </div>
                 {/* Ngày về */}
