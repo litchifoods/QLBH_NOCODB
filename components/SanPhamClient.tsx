@@ -73,7 +73,7 @@ export default function SanPhamClient({ danhSach, user }:{ danhSach:any[]; user:
   const trangHT   = Math.min(trang,tongTrang)
   const dsTrang   = filtered.slice((trangHT-1)*SO_DONG, trangHT*SO_DONG)
 
-  function reset(){setMaSP('');setTenSP('');setLoaiSP('Phổ thông');setDonVi('Bộ');setGiaNhapNCC(0);setCpvcKho(0);setGiaBuon(0);setGiaLe(0);setTonKho(0);setCanhBao(5);setThongSo('');setGhiChu('');setEditSP(null)}
+  function reset(){setMaSP('');setTenSP('');setLoaiSP('Phổ thông');setDonVi('Bộ');setGiaNhapNCC(0);setCpvcKho(0);setGiaBuon(0);setGiaLe(0);setTonKho(0);setCanhBao(1);setThongSo('');setGhiChu('');setEditSP(null)}
   function moThem(){reset();setShowModal(true)}
   function moSua(sp:any){
     setEditSP(sp);setMaSP(sp['Mã SP']||'');setTenSP(sp['Tên sản phẩm']||'')
