@@ -13,6 +13,7 @@ const TT_COLOR:Record<string,{bg:string,c:string}> = {
   'Thiếu':  {bg:'#FEF3C7',c:'#92400E'},
   'Thừa':   {bg:'#DBEAFE',c:'#1E40AF'},
   'Lỗi':    {bg:'#FEE2E2',c:'#991B1B'},
+  'Đã xử lý':{bg:'#F3F4F6',c:'#6B7280'},
 }
 const SO_DONG = 10
 
@@ -34,6 +35,17 @@ export default function NhapKhoClient({nhapKhoList,nccList,sanPhamList,datHangLi
   const [xoaItem,   setXoaItem]   = useState<any>(null)
   const [msgModal,  setMsgModal]  = useState('')
   const [msgModalOk,setMsgModalOk]= useState(true)
+  // Tạo NCC mới
+  const [showNewNCC,  setShowNewNCC]  = useState(false)
+  const [newTenNCC,   setNewTenNCC]   = useState('')
+  const [newMaNCC2,   setNewMaNCC2]   = useState('')
+  const [newSdtNCC,   setNewSdtNCC]   = useState('')
+  const [newDiaChiNCC,setNewDiaChiNCC]= useState('')
+  const [newStkNCC,   setNewStkNCC]   = useState('')
+  const [newGhiChuNCC,setNewGhiChuNCC]= useState('')
+  const [savingNCC,   setSavingNCC]   = useState(false)
+  const [nccLocal,    setNccLocal]    = useState(nccList)
+
   // Tạo SP mới
   const [showNewSP, setShowNewSP] = useState(false)
   const [newTenSP,  setNewTenSP]  = useState('')
@@ -109,6 +121,26 @@ export default function NhapKhoClient({nhapKhoList,nccList,sanPhamList,datHangLi
   }
 
   const isOwner = user.vaiTro === 'Chủ cửa hàng'
+
+  async function luuNCC(){
+    if (!newTenNCC.trim()){showMsgM('Nhập tên nhà cung cấp',false);return}
+    setSavingNCC(true)
+    try {
+      const res=await fetch('/api/nha-cung-cap',{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({'Mã NCC':newMaNCC2.trim()||undefined,'Tên NCC':newTenNCC.trim(),'Số điện thoại':newSdtNCC,'Địa chỉ':newDiaChiNCC,'Số TK ngân hàng':newStkNCC,'Ghi chú':newGhiChuNCC})})
+      const d=await res.json()
+      if (!res.ok) throw new Error(d.message)
+      const nccMoi={...d.data,'Mã NCC':d.maNCC||newMaNCC2,'Tên NCC':newTenNCC}
+      setNccLocal(p=>[nccMoi,...p])
+      // Tự chọn NCC vừa tạo
+      setMaNCC(d.maNCC||newMaNCC2)
+      setSearchNCC(newTenNCC)
+      showMsg2(`✅ Đã thêm NCC: ${newTenNCC}`)
+      setShowNewNCC(false)
+      setNewTenNCC('');setNewMaNCC2('');setNewSdtNCC('');setNewDiaChiNCC('');setNewStkNCC('');setNewGhiChuNCC('')
+    } catch(e:any){showMsgM('❌ '+(e.message||'Lỗi'),false)}
+    finally{setSavingNCC(false)}
+  }
 
   async function luuSPMoi(){
     if (!newTenSP.trim()){showMsgM('Nhập tên SP',false);return}
@@ -360,7 +392,7 @@ export default function NhapKhoClient({nhapKhoList,nccList,sanPhamList,datHangLi
             {nccDS.map(n=><option key={n.ma} value={n.ma}>{n.ten}</option>)}
           </select>
           <div style={{display:'flex',gap:'6px'}}>
-            {['Tất cả','Đủ','Thiếu','Thừa','Lỗi'].map(tt=>{
+            {['Tất cả','Đủ','Thiếu','Thừa','Lỗi','Đã xử lý'].map(tt=>{
               const c=TT_COLOR[tt]||{bg:'#F3F4F6',c:'#374151'}
               return <button key={tt} onClick={()=>setFilterTT(tt)} style={{padding:'5px 12px',borderRadius:'20px',border:'1px solid',borderColor:filterTT===tt?c.c:'var(--border)',background:filterTT===tt?c.bg:'white',color:filterTT===tt?c.c:'var(--text-secondary)',fontWeight:filterTT===tt?700:400,fontSize:'12px',cursor:'pointer'}}>{tt}</button>
             })}
@@ -463,7 +495,7 @@ export default function NhapKhoClient({nhapKhoList,nccList,sanPhamList,datHangLi
               <div style={{display:'flex',gap:'8px',marginBottom:'14px'}}>
                 <button onClick={()=>{setChonTuDon(false);setSpItems([]);setMaDonChon('');setSearchDon('')}}
                   style={{flex:1,padding:'10px',borderRadius:'8px',border:'2px solid',borderColor:!chonTuDon?'var(--primary)':'var(--border)',background:!chonTuDon?'var(--primary-pale)':'white',color:!chonTuDon?'var(--primary)':'var(--text-secondary)',fontWeight:!chonTuDon?700:400,cursor:'pointer',fontSize:'13px'}}>
-                  📝 Nhập thủ công
+                  📝 Nhập trực tiếp
                 </button>
                 <button onClick={()=>setChonTuDon(true)}
                   style={{flex:1,padding:'10px',borderRadius:'8px',border:'2px solid',borderColor:chonTuDon?'var(--primary)':'var(--border)',background:chonTuDon?'var(--primary-pale)':'white',color:chonTuDon?'var(--primary)':'var(--text-secondary)',fontWeight:chonTuDon?700:400,cursor:'pointer',fontSize:'13px'}}>
@@ -516,7 +548,7 @@ export default function NhapKhoClient({nhapKhoList,nccList,sanPhamList,datHangLi
                     {maNCC&&<div style={{fontSize:'11px',color:'var(--primary)',fontWeight:600,marginTop:'2px'}}>✅ {nccMap[maNCC]?.['Tên NCC']||maNCC}</div>}
                     {showNCC&&(
                       <div className="db">
-                        {nccList.filter(n=>{const q=boDau(searchNCC);return !q||boDau(n['Tên NCC']||'').includes(q)||boDau(n['Mã NCC']||'').includes(q)}).map(n=>(
+                        {nccLocal.filter(n=>{const q=boDau(searchNCC);return !q||boDau(n['Tên NCC']||'').includes(q)||boDau(n['Mã NCC']||'').includes(q)}).map(n=>(
                           <div key={n['Mã NCC']} className="di" onMouseDown={e=>{e.preventDefault();setMaNCC(n['Mã NCC']);setSearchNCC(n['Tên NCC']);setShowNCC(false)}}>
                             <span style={{fontWeight:600}}>{n['Tên NCC']}</span> <span style={{fontSize:'11px',color:'#6B7280'}}>{n['Mã NCC']}</span>
                           </div>
@@ -559,7 +591,7 @@ export default function NhapKhoClient({nhapKhoList,nccList,sanPhamList,datHangLi
                     <select value={it.tinhTrang} disabled={!it.checked} onChange={e=>updSpItem(i,'tinhTrang',e.target.value)}
                       style={{padding:'4px 6px',border:'1px solid var(--border)',borderRadius:'5px',fontSize:'11px',width:'100%',
                         background:TT_COLOR[it.tinhTrang]?.bg||'white',color:TT_COLOR[it.tinhTrang]?.c||'#374151',fontWeight:600,opacity:it.checked?1:0.5}}>
-                      <option>Đủ</option><option>Thiếu</option><option>Thừa</option><option>Lỗi</option>
+                      <option>Đủ</option><option>Thiếu</option><option>Thừa</option><option>Lỗi</option><option>Đã xử lý</option>
                     </select>
                     <input type="text" value={it.ghiChu} disabled={!it.checked} placeholder="Ghi chú..."
                       onChange={e=>updSpItem(i,'ghiChu',e.target.value)}
@@ -604,7 +636,7 @@ export default function NhapKhoClient({nhapKhoList,nccList,sanPhamList,datHangLi
                 </FInput>
                 <FInput label="Tình trạng hàng">
                   <select className="input" value={tinhTrang} onChange={e=>setTinhTrang(e.target.value)}>
-                    <option>Đủ</option><option>Thiếu</option><option>Thừa</option><option>Lỗi</option>
+                    <option>Đủ</option><option>Thiếu</option><option>Thừa</option><option>Lỗi</option><option>Đã xử lý</option>
                   </select>
                 </FInput>
               </div>
@@ -640,6 +672,54 @@ export default function NhapKhoClient({nhapKhoList,nccList,sanPhamList,datHangLi
                 {loading?'⏳ Đang lưu...':editItem?'✅ Cập nhật phiếu':'✅ Tạo phiếu nhập kho'}
               </button>
               <button onClick={()=>{setShowModal(false);reset()}} style={{padding:'12px 18px',borderRadius:'8px',border:'1px solid var(--border)',background:'white',cursor:'pointer',fontSize:'14px'}}>Huỷ</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal tạo NCC mới */}
+      {showNewNCC&&(
+        <div className="ov" onClick={()=>setShowNewNCC(false)}>
+          <div style={{background:'white',borderRadius:'12px',padding:'24px',width:'100%',maxWidth:'520px'}} onClick={e=>e.stopPropagation()}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'16px'}}>
+              <h2 style={{fontSize:'16px',fontWeight:700,margin:0}}>+ Thêm nhà cung cấp mới</h2>
+              <button onClick={()=>setShowNewNCC(false)} style={{background:'none',border:'none',cursor:'pointer',fontSize:'20px',color:'#6B7280'}}>✕</button>
+            </div>
+            <div style={{display:'flex',flexDirection:'column',gap:'10px'}}>
+              <div style={{display:'grid',gridTemplateColumns:'1fr 2fr',gap:'10px'}}>
+                <div>
+                  <label style={{fontSize:'11px',fontWeight:600,display:'block',marginBottom:'3px'}}>Mã NCC (tự động)</label>
+                  <input className="input" placeholder="NCC-xxx" value={newMaNCC2} onChange={e=>setNewMaNCC2(e.target.value)}/>
+                </div>
+                <div>
+                  <label style={{fontSize:'11px',fontWeight:600,display:'block',marginBottom:'3px'}}>Tên nhà cung cấp *</label>
+                  <input className="input" placeholder="Tên NCC..." value={newTenNCC} onChange={e=>setNewTenNCC(e.target.value)} autoFocus/>
+                </div>
+              </div>
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'10px'}}>
+                <div>
+                  <label style={{fontSize:'11px',fontWeight:600,display:'block',marginBottom:'3px'}}>📞 Số điện thoại</label>
+                  <input className="input" placeholder="0xxx..." value={newSdtNCC} onChange={e=>setNewSdtNCC(e.target.value)}/>
+                </div>
+                <div>
+                  <label style={{fontSize:'11px',fontWeight:600,display:'block',marginBottom:'3px'}}>🏦 Số TK ngân hàng</label>
+                  <input className="input" placeholder="STK..." value={newStkNCC} onChange={e=>setNewStkNCC(e.target.value)}/>
+                </div>
+              </div>
+              <div>
+                <label style={{fontSize:'11px',fontWeight:600,display:'block',marginBottom:'3px'}}>📍 Địa chỉ</label>
+                <input className="input" placeholder="Địa chỉ NCC..." value={newDiaChiNCC} onChange={e=>setNewDiaChiNCC(e.target.value)}/>
+              </div>
+              <div>
+                <label style={{fontSize:'11px',fontWeight:600,display:'block',marginBottom:'3px'}}>Ghi chú</label>
+                <input className="input" placeholder="Ghi chú..." value={newGhiChuNCC} onChange={e=>setNewGhiChuNCC(e.target.value)}/>
+              </div>
+              <div style={{display:'flex',gap:'10px',marginTop:'4px'}}>
+                <button onClick={luuNCC} disabled={savingNCC} style={{flex:1,padding:'11px',borderRadius:'8px',border:'none',background:savingNCC?'#9CA3AF':'#16A34A',color:'white',fontWeight:700,fontSize:'14px',cursor:savingNCC?'not-allowed':'pointer'}}>
+                  {savingNCC?'⏳ Đang lưu...':'✅ Thêm nhà cung cấp'}
+                </button>
+                <button onClick={()=>setShowNewNCC(false)} style={{padding:'11px 16px',borderRadius:'8px',border:'1px solid var(--border)',background:'white',cursor:'pointer',fontSize:'14px',fontWeight:600}}>Huỷ</button>
+              </div>
             </div>
           </div>
         </div>
