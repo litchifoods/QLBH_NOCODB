@@ -60,6 +60,8 @@ export default function NhapKhoClient({nhapKhoList,nccList,sanPhamList,datHangLi
   const [giaNhapNCC, setGiaNhapNCC] = useState<number>(0)
   const [cpvcKho,    setCpvcKho]    = useState<number>(0)
   const [tinhTrang,  setTinhTrang]  = useState('Đủ')
+  // Danh sách SP nhập trực tiếp (nhiều SP)
+  const [dsSP, setDsSP] = useState<any[]>([])
 
   // ── FORM: nhập từ đơn NCC ────────────────────────────────
   const [maDonChon, setMaDonChon] = useState('')
@@ -142,6 +144,17 @@ export default function NhapKhoClient({nhapKhoList,nccList,sanPhamList,datHangLi
     })))
   }
 
+  function addSPToList(){
+    if(!maSP){showMsgM('Chọn sản phẩm trước',false);return}
+    if(slThucNhan<=0){showMsgM('Nhập số lượng > 0',false);return}
+    setDsSP(p=>[...p,{maSP,tenSP,slThucNhan,giaNhapNCC,cpvcKho,tinhTrang,ghiChu:'',_id:Date.now()}])
+    // Reset ô SP để nhập tiếp
+    setMaSP('');setTenSP('');setQSP('');setSlThucNhan(0);setGiaNhapNCC(0);setCpvcKho(0);setTinhTrang('Đủ')
+    showMsgM('✅ Đã thêm SP vào danh sách',true)
+  }
+  function removeSPFromList(id:number){setDsSP(p=>p.filter((it:any)=>it._id!==id))}
+  function updDsSP(id:number,k:string,v:any){setDsSP(p=>p.map((it:any)=>it._id===id?{...it,[k]:v}:it))}
+
   function updItem(i:number,k:string,v:any){
     setSpItems(p=>p.map((it,idx)=>idx===i?{...it,[k]:v}:it))
   }
@@ -151,7 +164,7 @@ export default function NhapKhoClient({nhapKhoList,nccList,sanPhamList,datHangLi
     setMaNCC('');setTenNCC('');setQNCC('')
     setNgayNhap(new Date().toISOString().split('T')[0])
     setGhiChu('')
-    setMaSP('');setTenSP('');setQSP('')
+    setMaSP('');setTenSP('');setQSP('');setDsSP([])
     setSlThucNhan(0);setGiaNhapNCC(0);setCpvcKho(0);setTinhTrang('Đủ')
     setMaDonChon('');setSpItems([])
     setShowNCC(false);setShowSP(false)
@@ -202,17 +215,23 @@ export default function NhapKhoClient({nhapKhoList,nccList,sanPhamList,datHangLi
         }
         showMsg2(`✅ Đã tạo ${soTao} phiếu nhập từ đơn ${maDonChon}`)
       } else {
-        if(!maSP){showMsgM('Vui lòng chọn sản phẩm',false);setLoading(false);return}
-        if(slThucNhan<=0){showMsgM('Nhập số lượng > 0',false);setLoading(false);return}
-        const res=await fetch('/api/nhap-kho',{method:'POST',headers:{'Content-Type':'application/json'},
-          body:JSON.stringify({maNCC,maSP,maDatHang:'',ngayNhap,slDat:0,
-            slThucNhan,giaNhapTT:giaNhapNCC,cpVC:cpvcKho,
-            tinhTrang,ghiChu,nguoiNhap:user.hoTen||user.tenDangNhap})})
-        const d=await res.json()
-        if(!res.ok)throw new Error(d.message)
-        setSpLocal(prev=>prev.map(s=>s['Mã SP']===maSP?{...s,'Tồn kho':Number(s['Tồn kho']||0)+slThucNhan}:s))
-        if(d.data)setLocal(prev=>[d.data,...prev])
-        showMsg2(`✅ Đã tạo phiếu ${d.maPhieu}`)
+        // Nhập trực tiếp - tạo từ danh sách dsSP
+        const allSP = dsSP.length > 0 ? dsSP : (maSP&&slThucNhan>0 ? [{maSP,tenSP,slThucNhan,giaNhapNCC,cpvcKho,tinhTrang,ghiChu,_id:0}] : [])
+        if(!allSP.length){showMsgM('Thêm ít nhất 1 sản phẩm',false);setLoading(false);return}
+        let soTao=0
+        for(const sp of allSP){
+          const res=await fetch('/api/nhap-kho',{method:'POST',headers:{'Content-Type':'application/json'},
+            body:JSON.stringify({maNCC,maSP:sp.maSP,maDatHang:'',ngayNhap,slDat:0,
+              slThucNhan:sp.slThucNhan,giaNhapTT:sp.giaNhapNCC,cpVC:sp.cpvcKho,
+              tinhTrang:sp.tinhTrang,ghiChu:sp.ghiChu||ghiChu,nguoiNhap:user.hoTen||user.tenDangNhap})})
+          const d=await res.json()
+          if(res.ok){
+            soTao++
+            setSpLocal(prev=>prev.map(s=>s['Mã SP']===sp.maSP?{...s,'Tồn kho':Number(s['Tồn kho']||0)+sp.slThucNhan}:s))
+            if(d.data)setLocal(prev=>[d.data,...prev])
+          }
+        }
+        showMsg2(`✅ Đã tạo ${soTao} phiếu nhập`)
       }
       setShowModal(false);resetForm()
     }catch(e:any){showMsgM('❌ '+(e.message||'Lỗi'),false)}
@@ -576,44 +595,78 @@ export default function NhapKhoClient({nhapKhoList,nccList,sanPhamList,datHangLi
             {/* Nhập trực tiếp hoặc sửa */}
             {(loaiNhap==='truc-tiep'||editItem)&&(
               <div style={{background:'#F8FAFC',borderRadius:'8px',padding:'14px',marginBottom:'14px',border:'1px solid #E5E7EB'}}>
-                <div style={{display:'grid',gridTemplateColumns:'2fr 1fr 1fr',gap:'12px',marginBottom:'12px'}}>
-                  {/* SP */}
+                {/* Header */}
+                {!editItem&&<div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'10px'}}>
+                  <label className="lbl" style={{margin:0,color:'var(--primary)',fontSize:'12px',textTransform:'uppercase'}}>📦 Sản phẩm nhập kho</label>
+                  <div style={{display:'flex',gap:'6px'}}>
+                    <button onClick={()=>setShowNewSP(true)} style={{padding:'4px 10px',borderRadius:'6px',border:'1px solid #8B5CF6',background:'#F5F3FF',color:'#7C3AED',fontSize:'11px',fontWeight:600,cursor:'pointer'}}>✨ Thêm SP mới</button>
+                  </div>
+                </div>}
+                {/* Form nhập SP */}
+                <div style={{display:'grid',gridTemplateColumns:'2fr 80px 80px 120px 120px 100px',gap:'8px',marginBottom:'8px',alignItems:'end'}}>
                   <div>
-                    <div style={{display:'flex',justifyContent:'space-between',marginBottom:'3px'}}>
-                      <label className="lbl" style={{margin:0}}>Sản phẩm *</label>
-                      {!editItem&&<button onClick={()=>setShowNewSP(true)} style={{padding:'2px 8px',borderRadius:'5px',border:'1px solid #8B5CF6',background:'#F5F3FF',color:'#7C3AED',fontSize:'10px',fontWeight:600,cursor:'pointer'}}>✨ Thêm SP mới</button>}
-                    </div>
+                    <label className="lbl">Sản phẩm *</label>
                     <SPInput spList={spLocal} value={qSP} maSP={maSP}
                       onSelect={(ma,ten,giaNCC,cpvc)=>{setMaSP(ma);setTenSP(ten);setQSP(ten);setGiaNhapNCC(giaNCC);setCpvcKho(cpvc)}}
                       onChange={v=>{setQSP(v);setMaSP('')}}/>
-                    {maSP&&<div style={{fontSize:'11px',color:'var(--primary)',fontWeight:600,marginTop:'2px'}}>✅ {tenSP||spMap[maSP]?.['Tên sản phẩm']||maSP} · Tồn: {spMap[maSP]?.['Tồn kho']||0}</div>}
+                    {maSP&&<div style={{fontSize:'10px',color:'var(--primary)',fontWeight:600,marginTop:'1px'}}>✅ {tenSP} · Tồn: {spMap[maSP]?.['Tồn kho']||0}</div>}
                   </div>
                   <div>
-                    <label className="lbl">Số lượng nhập *</label>
+                    <label className="lbl">SL nhập</label>
                     <input className="input" type="number" min="0" value={slThucNhan||''} placeholder="0" onChange={e=>setSlThucNhan(Number(e.target.value)||0)}/>
                   </div>
                   <div>
                     <label className="lbl">Tình trạng</label>
-                    <select className="input" value={tinhTrang} onChange={e=>setTinhTrang(e.target.value)}>
+                    <select className="input" value={tinhTrang} onChange={e=>setTinhTrang(e.target.value)} style={{fontSize:'11px'}}>
                       {Object.keys(TT_COLOR).map(t=><option key={t}>{t}</option>)}
                     </select>
                   </div>
-                </div>
-                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:'12px'}}>
                   <div>
-                    <label className="lbl">📦 Giá nhập NCC (đ)</label>
-                    <input className="input" type="number" min="0" placeholder="0" value={giaNhapNCC||''} onChange={e=>setGiaNhapNCC(Number(e.target.value)||0)}/>
+                    <label className="lbl">Giá nhập NCC (đ)</label>
+                    <input className="input" type="number" min="0" value={giaNhapNCC||''} placeholder="0" onChange={e=>setGiaNhapNCC(Number(e.target.value)||0)}/>
+                    {giaNhapNCC>0&&<div style={{fontSize:'10px',color:'#6B7280'}}>{fVND(giaNhapNCC)}đ</div>}
                   </div>
                   <div>
-                    <label className="lbl">🚚 CPVC về kho (đ)</label>
-                    <input className="input" type="number" min="0" placeholder="0" value={cpvcKho||''} onChange={e=>setCpvcKho(Number(e.target.value)||0)}/>
+                    <label className="lbl">CPVC về kho (đ)</label>
+                    <input className="input" type="number" min="0" value={cpvcKho||''} placeholder="0" onChange={e=>setCpvcKho(Number(e.target.value)||0)}/>
+                    {cpvcKho>0&&<div style={{fontSize:'10px',color:'#6B7280'}}>{fVND(cpvcKho)}đ</div>}
                   </div>
-                  <div style={{padding:'8px 12px',background:'#EFF6FF',borderRadius:'8px',border:'1px solid #BFDBFE',display:'flex',flexDirection:'column',justifyContent:'center'}}>
-                    <div style={{fontSize:'11px',color:'#6B7280'}}>Tổng tiền hàng</div>
-                    <div style={{fontSize:'16px',fontWeight:800,color:'var(--primary)'}}>{fVND(tongNhap)}đ</div>
-                    <div style={{fontSize:'11px',color:'#6B7280'}}>{fVND(giaNhapNCC)}đ × {slThucNhan} + {fVND(cpvcKho)}đ VC</div>
-                  </div>
+                  {!editItem&&<button onClick={addSPToList} style={{padding:'8px',borderRadius:'6px',border:'1px solid var(--primary)',background:'var(--primary)',color:'white',fontWeight:600,cursor:'pointer',fontSize:'12px',whiteSpace:'nowrap'}}>+ Thêm SP</button>}
                 </div>
+
+                {/* Danh sách SP đã thêm */}
+                {dsSP.length>0&&(
+                  <div style={{marginTop:'10px',border:'1px solid #E5E7EB',borderRadius:'8px',overflow:'hidden'}}>
+                    <div style={{background:'#F0F4FF',padding:'6px 10px',fontSize:'11px',fontWeight:600,color:'var(--primary)',display:'flex',justifyContent:'space-between'}}>
+                      <span>DANH SÁCH SẢN PHẨM ({dsSP.length})</span>
+                      <span>Tổng: {fVND(dsSP.reduce((s:number,it:any)=>s+it.slThucNhan*(it.giaNhapNCC+it.cpvcKho),0))}đ</span>
+                    </div>
+                    {dsSP.map((it:any,i:number)=>(
+                      <div key={it._id} style={{display:'grid',gridTemplateColumns:'2fr 60px 120px 120px 100px 28px',gap:'6px',padding:'8px 10px',borderTop:i>0?'1px solid #F0F0F0':'none',alignItems:'center',background:i%2===0?'white':'#FAFBFD'}}>
+                        <div>
+                          <div style={{fontWeight:600,fontSize:'12px'}}>{it.tenSP}</div>
+                          <div style={{fontSize:'10px',color:'#6B7280'}}>{it.maSP}</div>
+                        </div>
+                        <div style={{textAlign:'center',fontWeight:700}}>{it.slThucNhan}</div>
+                        <div style={{fontSize:'12px',color:'#374151'}}>{fVND(it.giaNhapNCC)}đ</div>
+                        <div style={{fontWeight:700,color:'var(--primary)',fontSize:'12px'}}>{fVND(it.slThucNhan*(it.giaNhapNCC+it.cpvcKho))}đ</div>
+                        <span style={{padding:'2px 8px',borderRadius:'10px',fontSize:'11px',fontWeight:600,background:TT_COLOR[it.tinhTrang]?.bg||'#F3F4F6',color:TT_COLOR[it.tinhTrang]?.c||'#374151'}}>{it.tinhTrang}</span>
+                        <button onClick={()=>removeSPFromList(it._id)} style={{padding:'3px 6px',borderRadius:'4px',border:'none',background:'#FEE2E2',color:'#DC2626',cursor:'pointer',fontSize:'12px'}}>✕</button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Nút Thêm sản phẩm ở dưới */}
+                {!editItem&&<button onClick={addSPToList} style={{marginTop:'8px',width:'100%',padding:'8px',borderRadius:'7px',border:'2px dashed var(--border)',background:'white',color:'var(--text-secondary)',fontSize:'13px',fontWeight:600,cursor:'pointer'}}>+ Thêm sản phẩm vào danh sách</button>}
+
+                {/* Tổng khi chỉ có 1 SP (chưa thêm vào list) */}
+                {dsSP.length===0&&maSP&&slThucNhan>0&&(
+                  <div style={{marginTop:'8px',padding:'8px 12px',background:'#EFF6FF',borderRadius:'6px',display:'flex',justifyContent:'space-between',fontSize:'12px'}}>
+                    <span style={{color:'#6B7280'}}>{tenSP} × {slThucNhan}</span>
+                    <span style={{fontWeight:700,color:'var(--primary)'}}>{fVND(slThucNhan*(giaNhapNCC+cpvcKho))}đ</span>
+                  </div>
+                )}
               </div>
             )}
 
