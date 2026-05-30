@@ -191,6 +191,13 @@ export default function NhapKhoClient({nhapKhoList,nccList,sanPhamList,datHangLi
     })))
   }
 
+  function tinhTinhTrang(sl, slDat, loi, choiPK) {
+    if(loi>0||choiPK>0) return 'Lỗi'
+    if(sl<slDat) return 'Thiếu'
+    if(sl>slDat) return 'Thừa'
+    return 'Đủ'
+  }
+
   function addSPToList(){
     if(!maSP){showMsgM('Chọn sản phẩm trước',false);return}
     if(slThucNhan<=0){showMsgM('Nhập số lượng > 0',false);return}
