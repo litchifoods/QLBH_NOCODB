@@ -1,6 +1,6 @@
 'use client'
 // components/NhapKhoClient.tsx
-import { useState, useMemo, useRef } from 'react'
+import { useState, useMemo, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { UserSession } from '@/lib/auth'
 
@@ -68,6 +68,7 @@ export default function NhapKhoClient({nhapKhoList,nccList,sanPhamList,datHangLi
   // Form fields
   const [maNCC,       setMaNCC]       = useState('')
   const [searchNCC,   setSearchNCC]   = useState('')
+  const showNCCRef = useRef(false)
   const [showNCC,     setShowNCC]     = useState(false)
   const [maSP,        setMaSP]        = useState('')
   const [searchSP,    setSearchSP]    = useState('')
@@ -509,12 +510,11 @@ export default function NhapKhoClient({nhapKhoList,nccList,sanPhamList,datHangLi
               {chonTuDon&&!editItem?(
                 <div style={{display:'grid',gridTemplateColumns:'2fr 1fr',gap:'12px'}}>
                   {/* Chọn đơn NCC */}
-                  <div style={{position:'relative'}}>
+                  <div style={{position:'relative'}} onBlur={e=>{if(!e.currentTarget.contains(e.relatedTarget as Node))setShowDonDrop(false)}}>
                     <label style={{fontSize:'11px',fontWeight:600,display:'block',marginBottom:'3px'}}>Chọn đơn đặt hàng NCC *</label>
                     <input className="input" placeholder="Tìm mã đơn, NCC..." value={searchDon}
                       onChange={e=>{setSearchDon(e.target.value);setMaDonChon('');setSpItems([]);setShowDonDrop(true)}}
-                      onFocus={()=>setShowDonDrop(true)}
-                    onBlur={e=>{if(!e.currentTarget.parentElement?.contains(e.relatedTarget as Node))setTimeout(()=>setShowDonDrop(false),150)}}/>
+                      onFocus={()=>setShowDonDrop(true)}/>
                     {maDonChon&&<div style={{fontSize:'11px',color:'var(--primary)',fontWeight:600,marginTop:'2px'}}>✅ {maDonChon} — {nccMap[maNCC]?.['Tên NCC']||maNCC}</div>}
                     {showDonDrop&&(
                       <div className="db">
@@ -541,11 +541,11 @@ export default function NhapKhoClient({nhapKhoList,nccList,sanPhamList,datHangLi
                 </div>
               ):(
                 <div style={{display:'grid',gridTemplateColumns:chonTuDon?'2fr 1fr 1fr':'2fr 1fr',gap:'12px'}}>
-                  <div style={{position:'relative'}}>
+                  <div style={{position:'relative'}} onBlur={e=>{if(!e.currentTarget.contains(e.relatedTarget as Node))setShowNCC(false)}}>
                     <label style={{fontSize:'11px',fontWeight:600,display:'block',marginBottom:'3px'}}>Nhà cung cấp *</label>
                     <input className="input" placeholder="Tìm tên, mã NCC..." value={searchNCC}
                       onChange={e=>{setSearchNCC(e.target.value);setMaNCC('');setShowNCC(true)}}
-                      onFocus={()=>setShowNCC(true)} onBlur={()=>setTimeout(()=>setShowNCC(false),300)}/>
+                      onFocus={()=>setShowNCC(true)}/>
                     {maNCC&&<div style={{fontSize:'11px',color:'var(--primary)',fontWeight:600,marginTop:'2px'}}>✅ {nccMap[maNCC]?.['Tên NCC']||maNCC}</div>}
                     {showNCC&&(
                       <div className="db">
@@ -610,15 +610,14 @@ export default function NhapKhoClient({nhapKhoList,nccList,sanPhamList,datHangLi
             <div style={{background:'#F8FAFC',borderRadius:'8px',padding:'14px',marginBottom:'14px',border:'1px solid #E5E7EB'}}>
               <div style={{display:'grid',gridTemplateColumns:chonTuDon?'2fr 1fr 1fr 1fr':'2fr 1fr 1fr',gap:'12px',marginBottom:'12px'}}>
                 {/* SP */}
-                <div style={{position:'relative'}}>
+                <div style={{position:'relative'}} onBlur={e=>{if(!e.currentTarget.contains(e.relatedTarget as Node))setShowSPDrop(false)}}>
                   <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'3px'}}>
                     <label style={{fontSize:'11px',fontWeight:600}}>Sản phẩm *</label>
-                    <button onClick={()=>setShowNewSP(true)} style={{padding:'2px 8px',borderRadius:'5px',border:'1px solid #8B5CF6',background:'#F5F3FF',color:'#7C3AED',fontSize:'10px',fontWeight:600,cursor:'pointer'}}>✨ Thêm SP mới</button>
+                    <button onMouseDown={e=>e.preventDefault()} onClick={()=>setShowNewSP(true)} style={{padding:'2px 8px',borderRadius:'5px',border:'1px solid #8B5CF6',background:'#F5F3FF',color:'#7C3AED',fontSize:'10px',fontWeight:600,cursor:'pointer'}}>✨ Thêm SP mới</button>
                   </div>
                   <input className="input" placeholder="Tìm tên hoặc mã SP..." value={searchSP}
                     onChange={e=>{setSearchSP(e.target.value);setMaSP('');setShowSPDrop(true)}}
-                    onFocus={()=>setShowSPDrop(true)}
-                    onBlur={e=>{if(!e.currentTarget.parentElement?.contains(e.relatedTarget as Node))setTimeout(()=>setShowSPDrop(false),150)}}/>
+                    onFocus={()=>setShowSPDrop(true)}/>
                   {maSP&&<div style={{fontSize:'11px',color:'var(--primary)',fontWeight:600,marginTop:'2px'}}>✅ {spMap[maSP]?.['Tên sản phẩm']||maSP}</div>}
                   {showSPDrop&&(
                     <div className="db">
