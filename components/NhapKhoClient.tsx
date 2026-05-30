@@ -161,10 +161,9 @@ export default function NhapKhoClient({nhapKhoList,nccList,sanPhamList,datHangLi
       const updated={...it,[k]:v}
       // Tự động tình trạng khi đổi SL nhận
       if(k==='sl'){
-        const sl=Number(v)||0
+        const sl=Number(v)  // KHÔNG dùng ||0 để phân biệt 0 với rỗng
         const slDat=Number(it.slDat)||0
-        if(sl===0) updated.tinhTrang='Đủ'
-        else if(sl===slDat) updated.tinhTrang='Đủ'
+        if(sl===slDat) updated.tinhTrang='Đủ'
         else if(sl<slDat) updated.tinhTrang='Thiếu'
         else updated.tinhTrang='Thừa'
       }
@@ -590,8 +589,8 @@ export default function NhapKhoClient({nhapKhoList,nccList,sanPhamList,datHangLi
                           <div style={{fontSize:'10px',color:'#6B7280'}}>{it.maSP} · {it.donVi}</div>
                         </div>
                         <div style={{textAlign:'center',fontSize:'12px',color:'#6B7280'}}>{it.slDat}</div>
-                        <input type="number" min="0" value={it.sl||''} disabled={!it.checked}
-                          onChange={e=>updItem(i,'sl',Number(e.target.value)||0)}
+                        <input type="number" min="0" value={it.sl===0?'0':it.sl||''} disabled={!it.checked}
+                          onChange={e=>updItem(i,'sl',e.target.value===''?0:Number(e.target.value))}
                           style={{padding:'4px 6px',border:'1px solid var(--border)',borderRadius:'5px',fontSize:'12px',textAlign:'center',width:'100%',opacity:it.checked?1:0.5}}/>
                         <input type="number" min="0" value={it.giaNCC||''} disabled={!it.checked}
                           onChange={e=>updItem(i,'giaNCC',Number(e.target.value)||0)}
