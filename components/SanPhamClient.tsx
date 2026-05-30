@@ -375,28 +375,20 @@ export default function SanPhamClient({ danhSach, user }:{ danhSach:any[]; user:
               </div>
               <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr 1fr',gap:'10px'}}>
                 <div>
-                  <label style={{fontSize:'11px',fontWeight:600,display:'block',marginBottom:'3px'}}>📦 Giá nhập NCC NCC (đ)</label>
-                  <input className="input" type="text" inputMode="numeric" placeholder="0"
-                    value={giaNhapNCC?giaNhapNCC.toLocaleString('vi-VN'):''}
-                    onChange={e=>{const v=e.target.value.replace(/\./g,'');const n=Number(v);if(!isNaN(n))setGiaNhapNCC(n)}}/>
+                  <label style={{fontSize:'11px',fontWeight:600,display:'block',marginBottom:'3px'}}>📦 Giá nhập NCC (đ)</label>
+                  <input className="input" type="number" min="0" placeholder="0" value={giaNhapNCC||''} onChange={e=>{setGiaNhapNCC(Number(e.target.value)||0)}}/>
                 </div>
                 <div>
                   <label style={{fontSize:'11px',fontWeight:600,display:'block',marginBottom:'3px'}}>🚚 CPVC về kho (đ)</label>
-                  <input className="input" type="text" inputMode="numeric" placeholder="0"
-                    value={cpvcKho?cpvcKho.toLocaleString('vi-VN'):''}
-                    onChange={e=>{const v=e.target.value.replace(/\./g,'');const n=Number(v);if(!isNaN(n))setCpvcKho(n)}}/>
+                  <input className="input" type="number" min="0" placeholder="0" value={cpvcKho||''} onChange={e=>{setCpvcKho(Number(e.target.value)||0)}}/>
                 </div>
                 <div>
                   <label style={{fontSize:'11px',fontWeight:600,display:'block',marginBottom:'3px'}}>💵 Giá bán buôn (đ)</label>
-                  <input className="input" type="text" inputMode="numeric" placeholder="0"
-                    value={giaBuon?giaBuon.toLocaleString('vi-VN'):''}
-                    onChange={e=>{const v=e.target.value.replace(/\./g,'');const n=Number(v);if(!isNaN(n))setGiaBuon(n)}}/>
+                  <input className="input" type="number" min="0" placeholder="0" value={giaBuon||''} onChange={e=>{setGiaBuon(Number(e.target.value)||0)}}/>
                 </div>
                 <div>
                   <label style={{fontSize:'11px',fontWeight:600,display:'block',marginBottom:'3px'}}>🏷️ Giá bán lẻ (đ)</label>
-                  <input className="input" type="text" inputMode="numeric" placeholder="0"
-                    value={giaLe?giaLe.toLocaleString('vi-VN'):''}
-                    onChange={e=>{const v=e.target.value.replace(/\./g,'');const n=Number(v);if(!isNaN(n))setGiaLe(n)}}/>
+                  <input className="input" type="number" min="0" placeholder="0" value={giaLe||''} onChange={e=>{setGiaLe(Number(e.target.value)||0)}}/>
                 </div>
               </div>
               <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'10px'}}>
