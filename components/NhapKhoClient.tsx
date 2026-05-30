@@ -1,6 +1,6 @@
 'use client'
 // components/NhapKhoClient.tsx
-import { useState, useMemo, useRef, useCallback } from 'react'
+import { useState, useMemo, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { UserSession } from '@/lib/auth'
 
@@ -53,12 +53,6 @@ export default function NhapKhoClient({nhapKhoList,nccList,sanPhamList,datHangLi
   const [newLoai,   setNewLoai]   = useState('Phổ thông')
   const [newDonVi,  setNewDonVi]  = useState('Cái')
   const [newGiaBuon,setNewGiaBuon]= useState(0)
-  const [newGiaBuon2,setNewGiaBuon2]= useState(0)
-  const [newGiaLe2,  setNewGiaLe2]  = useState(0)
-  const [newTonKho,  setNewTonKho]  = useState(0)
-  const [newNguong,  setNewNguong]  = useState(1)
-  const [newThongSo, setNewThongSo] = useState('')
-  const [newGhiChu,  setNewGhiChu]  = useState('')
   const [newGiaLe,  setNewGiaLe]  = useState(0)
   const [savingSP,  setSavingSP]  = useState(false)
 
@@ -128,6 +122,13 @@ export default function NhapKhoClient({nhapKhoList,nccList,sanPhamList,datHangLi
   }
 
   const isOwner = user.vaiTro === 'Chủ cửa hàng'
+
+  // Đóng tất cả dropdown khi click ra ngoài
+  useEffect(()=>{
+    const handler = ()=>{setShowNCC(false);setShowSPDrop(false);setShowDonDrop(false)}
+    document.addEventListener('mousedown', handler)
+    return ()=>document.removeEventListener('mousedown', handler)
+  },[])
 
   async function luuNCC(){
     if (!newTenNCC.trim()){showMsgM('Nhập tên nhà cung cấp',false);return}
@@ -516,11 +517,12 @@ export default function NhapKhoClient({nhapKhoList,nccList,sanPhamList,datHangLi
               {chonTuDon&&!editItem?(
                 <div style={{display:'grid',gridTemplateColumns:'2fr 1fr',gap:'12px'}}>
                   {/* Chọn đơn NCC */}
-                  <div style={{position:'relative'}} onBlur={e=>{if(!e.currentTarget.contains(e.relatedTarget as Node))setShowDonDrop(false)}}>
+                  <div style={{position:'relative'}} >
                     <label style={{fontSize:'11px',fontWeight:600,display:'block',marginBottom:'3px'}}>Chọn đơn đặt hàng NCC *</label>
                     <input className="input" placeholder="Tìm mã đơn, NCC..." value={searchDon}
                       onChange={e=>{setSearchDon(e.target.value);setMaDonChon('');setSpItems([]);setShowDonDrop(true)}}
-                      onFocus={()=>setShowDonDrop(true)}/>
+                      onFocus={()=>setShowDonDrop(true)}
+                      onMouseDown={e=>e.stopPropagation()}/>
                     {maDonChon&&<div style={{fontSize:'11px',color:'var(--primary)',fontWeight:600,marginTop:'2px'}}>✅ {maDonChon} — {nccMap[maNCC]?.['Tên NCC']||maNCC}</div>}
                     {showDonDrop&&(
                       <div className="db">
@@ -532,7 +534,7 @@ export default function NhapKhoClient({nhapKhoList,nccList,sanPhamList,datHangLi
                           const grp=donNCCGrouped[ma]
                           const nccTen=nccMap[grp[0]['Mã NCC']]?.['Tên NCC']||grp[0]['Mã NCC']||'—'
                           return (
-                            <div key={ma} className="di" onMouseDown={e=>{e.preventDefault();chonDonNCC(ma)}}>
+                            <div key={ma} className="di" onMouseDown={e=>{e.stopPropagation();e.preventDefault();chonDonNCC(ma)}}>
                               <div style={{fontWeight:600}}>{ma} <span style={{fontSize:'11px',color:'#6B7280'}}>— {nccTen}</span></div>
                               <div style={{fontSize:'11px',color:'#6B7280'}}>{grp.length} SP · {grp.map(d=>spMap[d['Mã SP']]?.['Tên sản phẩm']||d['Mã SP']).join(', ').slice(0,50)}</div>
                             </div>
@@ -547,7 +549,7 @@ export default function NhapKhoClient({nhapKhoList,nccList,sanPhamList,datHangLi
                 </div>
               ):(
                 <div style={{display:'grid',gridTemplateColumns:chonTuDon?'2fr 1fr 1fr':'2fr 1fr',gap:'12px'}}>
-                  <div style={{position:'relative'}} onBlur={e=>{if(!e.currentTarget.contains(e.relatedTarget as Node))setShowNCC(false)}}>
+                  <div style={{position:'relative'}} >
                     <label style={{fontSize:'11px',fontWeight:600,display:'block',marginBottom:'3px'}}>Nhà cung cấp *</label>
                     <input className="input" placeholder="Tìm tên, mã NCC..." value={searchNCC}
                       onChange={e=>{setSearchNCC(e.target.value);setMaNCC('');setShowNCC(true)}}
@@ -616,14 +618,15 @@ export default function NhapKhoClient({nhapKhoList,nccList,sanPhamList,datHangLi
             <div style={{background:'#F8FAFC',borderRadius:'8px',padding:'14px',marginBottom:'14px',border:'1px solid #E5E7EB'}}>
               <div style={{display:'grid',gridTemplateColumns:chonTuDon?'2fr 1fr 1fr 1fr':'2fr 1fr 1fr',gap:'12px',marginBottom:'12px'}}>
                 {/* SP */}
-                <div style={{position:'relative'}} onBlur={e=>{if(!e.currentTarget.contains(e.relatedTarget as Node))setShowSPDrop(false)}}>
+                <div style={{position:'relative'}} >
                   <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'3px'}}>
                     <label style={{fontSize:'11px',fontWeight:600}}>Sản phẩm *</label>
                     <button onMouseDown={e=>e.preventDefault()} onClick={()=>setShowNewSP(true)} style={{padding:'2px 8px',borderRadius:'5px',border:'1px solid #8B5CF6',background:'#F5F3FF',color:'#7C3AED',fontSize:'10px',fontWeight:600,cursor:'pointer'}}>✨ Thêm SP mới</button>
                   </div>
                   <input className="input" placeholder="Tìm tên hoặc mã SP..." value={searchSP}
                     onChange={e=>{setSearchSP(e.target.value);setMaSP('');setShowSPDrop(true)}}
-                    onFocus={()=>setShowSPDrop(true)}/>
+                    onFocus={()=>setShowSPDrop(true)}
+                    onMouseDown={e=>e.stopPropagation()}/>
                   {maSP&&<div style={{fontSize:'11px',color:'var(--primary)',fontWeight:600,marginTop:'2px'}}>✅ {spMap[maSP]?.['Tên sản phẩm']||maSP}</div>}
                   {showSPDrop&&(
                     <div className="db">
