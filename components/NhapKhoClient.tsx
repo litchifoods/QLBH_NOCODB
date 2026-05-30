@@ -607,7 +607,7 @@ export default function NhapKhoClient({nhapKhoList,nccList,sanPhamList,datHangLi
 
             {/* SP và số lượng */}
             <div style={{background:'#F8FAFC',borderRadius:'8px',padding:'14px',marginBottom:'14px',border:'1px solid #E5E7EB'}}>
-              <div style={{display:'grid',gridTemplateColumns:'2fr 1fr 1fr 1fr',gap:'12px',marginBottom:'12px'}}>
+              <div style={{display:'grid',gridTemplateColumns:chonTuDon?'2fr 1fr 1fr 1fr':'2fr 1fr 1fr',gap:'12px',marginBottom:'12px'}}>
                 {/* SP */}
                 <div style={{position:'relative'}}>
                   <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'3px'}}>
@@ -628,30 +628,30 @@ export default function NhapKhoClient({nhapKhoList,nccList,sanPhamList,datHangLi
                     </div>
                   )}
                 </div>
-                <FInput label="SL đặt">
-                  <input className="input" type="number" min="0" value={slDat||''} placeholder="0" onChange={e=>setSlDat(Number(e.target.value))}/>
-                </FInput>
-                <FInput label="SL thực nhận *">
+                {chonTuDon&&(
+                  <FInput label="SL đặt">
+                    <input className="input" type="number" min="0" value={slDat||''} placeholder="0" onChange={e=>setSlDat(Number(e.target.value))}/>
+                  </FInput>
+                )}
+                <FInput label="Số lượng nhập *">
                   <input className="input" type="number" min="1" value={slThucNhan||''} placeholder="0" onChange={e=>setSlThucNhan(Number(e.target.value))}/>
                 </FInput>
-                <FInput label="Tình trạng hàng">
+                <FInput label="Tình trạng">
                   <select className="input" value={tinhTrang} onChange={e=>setTinhTrang(e.target.value)}>
                     <option>Đủ</option><option>Thiếu</option><option>Thừa</option><option>Lỗi</option><option>Đã xử lý</option>
                   </select>
                 </FInput>
               </div>
               <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:'12px'}}>
-                <FInput label="💵 Giá nhập thực tế (đ)">
-                  <input className="input" type="number" min="0" placeholder="0"
-                    value={giaNhapTT||''}
-                    onChange={e=>setGiaNhapTT(Number(e.target.value)||0)}/>
-                  {giaNhapTT>0&&<div style={{fontSize:'11px',color:'var(--primary)',marginTop:'2px'}}>{giaNhapTT.toLocaleString('vi-VN')}đ</div>}
+                <FInput label="📦 Giá nhập NCC (đ)">
+                  <input className="input" type="text" inputMode="numeric" placeholder="0"
+                    value={giaNhapTT?giaNhapTT.toLocaleString('vi-VN'):''}
+                    onChange={e=>{const v=e.target.value.replace(/\./g,'');const n=Number(v);if(!isNaN(n))setGiaNhapTT(n)}}/>
                 </FInput>
-                <FInput label="🚚 CP vận chuyển về kho (đ)">
-                  <input className="input" type="number" min="0" placeholder="0"
-                    value={cpVC||''}
-                    onChange={e=>setCpVC(Number(e.target.value)||0)}/>
-                  {cpVC>0&&<div style={{fontSize:'11px',color:'#6B7280',marginTop:'2px'}}>{cpVC.toLocaleString('vi-VN')}đ</div>}
+                <FInput label="🚚 CPVC về kho (đ)">
+                  <input className="input" type="text" inputMode="numeric" placeholder="0"
+                    value={cpVC?cpVC.toLocaleString('vi-VN'):''}
+                    onChange={e=>{const v=e.target.value.replace(/\./g,'');const n=Number(v);if(!isNaN(n))setCpVC(n)}}/>
                 </FInput>
                 <div style={{padding:'8px 12px',background:'#EFF6FF',borderRadius:'8px',border:'1px solid #BFDBFE',display:'flex',flexDirection:'column',justifyContent:'center'}}>
                   <div style={{fontSize:'11px',color:'#6B7280'}}>Tổng tiền hàng</div>
