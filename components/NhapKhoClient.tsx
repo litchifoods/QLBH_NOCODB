@@ -568,12 +568,34 @@ export default function NhapKhoClient({nhapKhoList,nccList,sanPhamList,datHangLi
             {loaiNhap==='tu-don'&&!editItem&&(
               <div style={{background:'#F8FAFC',borderRadius:'8px',padding:'14px',marginBottom:'14px',border:'1px solid #E5E7EB'}}>
                 <label className="lbl">Chọn đơn đặt hàng NCC *</label>
-                <select className="input" value={maDonChon} onChange={e=>chonDon(e.target.value)} style={{marginBottom:'10px'}}>
+                <select className="input" value={maDonChon} onChange={e=>{
+                    const ma=e.target.value
+                    if(!ma){setMaDonChon('');setSpItems([]);return}
+                    const grp=donNCCGrouped[ma]||[]
+                    const nccDon=grp[0]?.['Mã NCC']||''
+                    // Nếu đã chọn NCC mà đơn thuộc NCC khác → cảnh báo, không cho chọn
+                    if(maNCC&&nccDon&&nccDon!==maNCC){
+                      showMsgM(`⚠️ Đơn "${ma}" thuộc "${nccMap[nccDon]?.['Tên NCC']||nccDon}" — không khớp NCC đã chọn!`,false)
+                      e.target.value=maDonChon // reset về giá trị cũ
+                      return
+                    }
+                    // Nếu chưa chọn NCC → tự điền
+                    if(!maNCC&&nccDon){
+                      setMaNCC(nccDon)
+                      setTenNCC(nccMap[nccDon]?.['Tên NCC']||nccDon)
+                      setQNCC(nccMap[nccDon]?.['Tên NCC']||nccDon)
+                    }
+                    chonDon(ma)
+                  }} style={{marginBottom:'10px'}}>
                   <option value="">-- Chọn đơn --</option>
                   {Object.keys(donNCCGrouped).map(ma=>{
                     const grp=donNCCGrouped[ma]
-                    const nccTen=nccMap[grp[0]['Mã NCC']]?.['Tên NCC']||grp[0]['Mã NCC']||'—'
-                    return <option key={ma} value={ma}>{ma} — {nccTen} ({grp.length} SP)</option>
+                    const nccDon=grp[0]?.['Mã NCC']||''
+                    const nccTen=nccMap[nccDon]?.['Tên NCC']||nccDon||'—'
+                    const khopNCC=!maNCC||nccDon===maNCC
+                    return <option key={ma} value={ma} disabled={!khopNCC} style={{color:khopNCC?'inherit':'#9CA3AF'}}>
+                      {ma} — {nccTen} ({grp.length} SP){!khopNCC?' ⚠️ Khác NCC':''}
+                    </option>
                   })}
                 </select>
                 {spItems.length>0&&(
