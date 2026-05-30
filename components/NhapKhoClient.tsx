@@ -54,12 +54,6 @@ export default function NhapKhoClient({nhapKhoList,nccList,sanPhamList,datHangLi
   const [newDonVi,  setNewDonVi]  = useState('Cái')
   const [newGiaBuon,setNewGiaBuon]= useState(0)
   const [newGiaLe,  setNewGiaLe]  = useState(0)
-  const [newGiaBuon2,setNewGiaBuon2]= useState(0)
-  const [newGiaLe2,  setNewGiaLe2]  = useState(0)
-  const [newThongSo, setNewThongSo] = useState('')
-  const [newGhiChu,  setNewGhiChu]  = useState('')
-  const [newTonKho,  setNewTonKho]  = useState(0)
-  const [newNguong,  setNewNguong]  = useState(1)
   const [savingSP,  setSavingSP]  = useState(false)
 
   // Flow chọn đơn NCC
@@ -519,7 +513,8 @@ export default function NhapKhoClient({nhapKhoList,nccList,sanPhamList,datHangLi
                     <label style={{fontSize:'11px',fontWeight:600,display:'block',marginBottom:'3px'}}>Chọn đơn đặt hàng NCC *</label>
                     <input className="input" placeholder="Tìm mã đơn, NCC..." value={searchDon}
                       onChange={e=>{setSearchDon(e.target.value);setMaDonChon('');setSpItems([]);setShowDonDrop(true)}}
-                      onFocus={()=>setShowDonDrop(true)} onBlur={()=>setTimeout(()=>setShowDonDrop(false),300)}/>
+                      onFocus={()=>setShowDonDrop(true)}
+                    onBlur={e=>{if(!e.currentTarget.parentElement?.contains(e.relatedTarget as Node))setTimeout(()=>setShowDonDrop(false),150)}}/>
                     {maDonChon&&<div style={{fontSize:'11px',color:'var(--primary)',fontWeight:600,marginTop:'2px'}}>✅ {maDonChon} — {nccMap[maNCC]?.['Tên NCC']||maNCC}</div>}
                     {showDonDrop&&(
                       <div className="db">
@@ -555,7 +550,7 @@ export default function NhapKhoClient({nhapKhoList,nccList,sanPhamList,datHangLi
                     {showNCC&&(
                       <div className="db">
                         {nccLocal.filter(n=>{const q=boDau(searchNCC);return !q||boDau(n['Tên NCC']||'').includes(q)||boDau(n['Mã NCC']||'').includes(q)}).map(n=>(
-                          <div key={n['Mã NCC']} className="di" onMouseDown={e=>{e.preventDefault();setMaNCC(n['Mã NCC']);setSearchNCC(n['Tên NCC']);setShowNCC(false)}}>
+                          <div key={n['Mã NCC']} className="di" tabIndex={-1} onMouseDown={e=>{e.preventDefault();setMaNCC(n['Mã NCC']);setSearchNCC(n['Tên NCC']);setShowNCC(false)}}>
                             <span style={{fontWeight:600}}>{n['Tên NCC']}</span> <span style={{fontSize:'11px',color:'#6B7280'}}>{n['Mã NCC']}</span>
                           </div>
                         ))}
@@ -622,12 +617,13 @@ export default function NhapKhoClient({nhapKhoList,nccList,sanPhamList,datHangLi
                   </div>
                   <input className="input" placeholder="Tìm tên hoặc mã SP..." value={searchSP}
                     onChange={e=>{setSearchSP(e.target.value);setMaSP('');setShowSPDrop(true)}}
-                    onFocus={()=>setShowSPDrop(true)} onBlur={()=>setTimeout(()=>setShowSPDrop(false),300)}/>
+                    onFocus={()=>setShowSPDrop(true)}
+                    onBlur={e=>{if(!e.currentTarget.parentElement?.contains(e.relatedTarget as Node))setTimeout(()=>setShowSPDrop(false),150)}}/>
                   {maSP&&<div style={{fontSize:'11px',color:'var(--primary)',fontWeight:600,marginTop:'2px'}}>✅ {spMap[maSP]?.['Tên sản phẩm']||maSP}</div>}
                   {showSPDrop&&(
                     <div className="db">
                       {spLocal.filter(s=>{const q=boDau(searchSP);return !q||boDau(s['Tên sản phẩm']||'').includes(q)||boDau(s['Mã SP']||'').includes(q)}).slice(0,10).map(s=>(
-                        <div key={s['Mã SP']} className="di" onMouseDown={e=>{e.preventDefault();setMaSP(s['Mã SP']);setSearchSP(s['Tên sản phẩm']);setShowSPDrop(false);setSlDat(0)}}>
+                        <div key={s['Mã SP']} className="di" tabIndex={-1} onMouseDown={e=>{e.preventDefault();setMaSP(s['Mã SP']);setSearchSP(s['Tên sản phẩm']);setShowSPDrop(false);setSlDat(0)}}>
                           <span style={{fontWeight:600}}>{s['Tên sản phẩm']}</span> <span style={{fontSize:'11px',color:'#6B7280'}}>{s['Mã SP']} · Tồn: {s['Tồn kho']||0}</span>
                         </div>
                       ))}
@@ -650,14 +646,14 @@ export default function NhapKhoClient({nhapKhoList,nccList,sanPhamList,datHangLi
               </div>
               <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:'12px'}}>
                 <FInput label="📦 Giá nhập NCC (đ)">
-                  <input className="input" type="text" inputMode="numeric" placeholder="0"
-                    value={giaNhapTT?giaNhapTT.toLocaleString('vi-VN'):''}
-                    onChange={e=>{const v=e.target.value.replace(/\./g,'');const n=Number(v);if(!isNaN(n))setGiaNhapTT(n)}}/>
+                  <input className="input" type="number" min="0" placeholder="0"
+                    value={giaNhapTT||''}
+                    onChange={e=>setGiaNhapTT(Number(e.target.value)||0)}/>
                 </FInput>
                 <FInput label="🚚 CPVC về kho (đ)">
-                  <input className="input" type="text" inputMode="numeric" placeholder="0"
-                    value={cpVC?cpVC.toLocaleString('vi-VN'):''}
-                    onChange={e=>{const v=e.target.value.replace(/\./g,'');const n=Number(v);if(!isNaN(n))setCpVC(n)}}/>
+                  <input className="input" type="number" min="0" placeholder="0"
+                    value={cpVC||''}
+                    onChange={e=>setCpVC(Number(e.target.value)||0)}/>
                 </FInput>
                 <div style={{padding:'8px 12px',background:'#EFF6FF',borderRadius:'8px',border:'1px solid #BFDBFE',display:'flex',flexDirection:'column',justifyContent:'center'}}>
                   <div style={{fontSize:'11px',color:'#6B7280'}}>Tổng tiền hàng</div>
@@ -767,26 +763,26 @@ export default function NhapKhoClient({nhapKhoList,nccList,sanPhamList,datHangLi
               <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr 1fr',gap:'10px'}}>
                 <div>
                   <label style={{fontSize:'11px',fontWeight:600,display:'block',marginBottom:'3px'}}>📦 Giá nhập NCC (đ)</label>
-                  <input className="input" type="text" inputMode="numeric" placeholder="0"
-                    value={newGiaBuon?newGiaBuon.toLocaleString('vi-VN'):''}
+                  <input className="input" type="number" min="0" placeholder="0"
+                    value={newGiaBuon||''}
                     onChange={e=>{const v=e.target.value.replace(/\./g,'');const n=Number(v);if(!isNaN(n))setNewGiaBuon(n)}}/>
                 </div>
                 <div>
                   <label style={{fontSize:'11px',fontWeight:600,display:'block',marginBottom:'3px'}}>🚚 CPVC về kho (đ)</label>
-                  <input className="input" type="text" inputMode="numeric" placeholder="0"
-                    value={newGiaLe?newGiaLe.toLocaleString('vi-VN'):''}
+                  <input className="input" type="number" min="0" placeholder="0"
+                    value={newGiaLe||''}
                     onChange={e=>{const v=e.target.value.replace(/\./g,'');const n=Number(v);if(!isNaN(n))setNewGiaLe(n)}}/>
                 </div>
                 <div>
                   <label style={{fontSize:'11px',fontWeight:600,display:'block',marginBottom:'3px'}}>💵 Giá bán buôn (đ)</label>
-                  <input className="input" type="text" inputMode="numeric" placeholder="0"
-                    value={newGiaBuon2?newGiaBuon2.toLocaleString('vi-VN'):''}
+                  <input className="input" type="number" min="0" placeholder="0"
+                    value={newGiaBuon2||''}
                     onChange={e=>{const v=e.target.value.replace(/\./g,'');const n=Number(v);if(!isNaN(n))setNewGiaBuon2(n)}}/>
                 </div>
                 <div>
                   <label style={{fontSize:'11px',fontWeight:600,display:'block',marginBottom:'3px'}}>🏷️ Giá bán lẻ (đ)</label>
-                  <input className="input" type="text" inputMode="numeric" placeholder="0"
-                    value={newGiaLe2?newGiaLe2.toLocaleString('vi-VN'):''}
+                  <input className="input" type="number" min="0" placeholder="0"
+                    value={newGiaLe2||''}
                     onChange={e=>{const v=e.target.value.replace(/\./g,'');const n=Number(v);if(!isNaN(n))setNewGiaLe2(n)}}/>
                 </div>
               </div>
