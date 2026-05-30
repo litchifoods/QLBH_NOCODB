@@ -221,7 +221,7 @@ export default function DatHangNCCClient({donDHList,nccList,sanPhamList,user}:{
     setSavingSP(true)
     try {
       const res=await fetch('/api/san-pham',{method:'POST',headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({'Mã SP':newMaSP.trim()||undefined,'Tên sản phẩm':newTenSP.trim(),'Loại SP':newLoai,'Đơn vị tính':newDonVi,'Giá bán buôn':newGia,'Giá bán lẻ':newGiaLe,'Tồn kho':newTonKho,'Ngưỡng cảnh báo':newNguong,'Thông số kỹ thuật':newThongSo,'Ghi chú':newGhiChu})})
+        body:JSON.stringify({'Mã SP':newMaSP.trim()||undefined,'Tên sản phẩm':newTenSP.trim(),'Loại SP':newLoai,'Đơn vị tính':newDonVi,'Giá nhập NCC':newGiaNhapNCC,'CPVC về kho':newCpvcKho,'Giá bán buôn':newGia,'Giá bán lẻ':newGiaLe,'Tồn kho':newTonKho,'Ngưỡng cảnh báo':newNguong,'Thông số kỹ thuật':newThongSo,'Ghi chú':newGhiChu})})
       const d=await res.json()
       if (!res.ok) throw new Error(d.message)
       const newSP={...d.data,'Mã SP':d.data?.['Mã SP']||newMaSP,'Giá nhập NCC':newGiaNhapNCC,'CPVC về kho':newCpvcKho}
@@ -530,15 +530,16 @@ export default function DatHangNCCClient({donDHList,nccList,sanPhamList,user}:{
         </div>
       )}
 
-      {/* MODAL TẠO SP MỚI — giống SanPhamClient */}
+      {/* MODAL TẠO SP MỚI — giống y SanPhamClient */}
       {showNewSP&&(
         <div className="ov" onClick={()=>setShowNewSP(false)}>
-          <div style={{background:'white',borderRadius:'12px',padding:'24px',width:'100%',maxWidth:'600px'}} onClick={e=>e.stopPropagation()}>
+          <div style={{background:'white',borderRadius:'12px',padding:'24px',width:'100%',maxWidth:'680px'}} onClick={e=>e.stopPropagation()}>
             <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'16px'}}>
-              <h2 style={{fontSize:'16px',fontWeight:700,margin:0}}>✨ Thêm sản phẩm mới</h2>
+              <h2 style={{fontSize:'16px',fontWeight:700,margin:0}}>+ Thêm sản phẩm mới</h2>
               <button onClick={()=>setShowNewSP(false)} style={{background:'none',border:'none',cursor:'pointer',fontSize:'20px',color:'#6B7280'}}>✕</button>
             </div>
-            <div style={{display:'flex',flexDirection:'column',gap:'12px'}}>
+            <div style={{display:'flex',flexDirection:'column',gap:'10px'}}>
+              {/* Hàng 1: Mã SP + Tên SP */}
               <div style={{display:'grid',gridTemplateColumns:'1fr 2fr',gap:'10px'}}>
                 <div>
                   <label style={{fontSize:'11px',fontWeight:600,display:'block',marginBottom:'3px'}}>Mã SP (tự động nếu trống)</label>
@@ -549,6 +550,7 @@ export default function DatHangNCCClient({donDHList,nccList,sanPhamList,user}:{
                   <input className="input" placeholder="Tên sản phẩm..." value={newTenSP} onChange={e=>setNewTenSP(e.target.value)} autoFocus/>
                 </div>
               </div>
+              {/* Hàng 2: Loại SP + ĐVT */}
               <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'10px'}}>
                 <div>
                   <label style={{fontSize:'11px',fontWeight:600,display:'block',marginBottom:'3px'}}>Loại SP</label>
@@ -563,7 +565,8 @@ export default function DatHangNCCClient({donDHList,nccList,sanPhamList,user}:{
                   </select>
                 </div>
               </div>
-              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'10px'}}>
+              {/* Hàng 3: Giá nhập NCC + CPVC về kho + Giá bán buôn + Giá bán lẻ */}
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr 1fr',gap:'10px'}}>
                 <div>
                   <label style={{fontSize:'11px',fontWeight:600,display:'block',marginBottom:'3px'}}>📦 Giá nhập NCC (đ)</label>
                   <input className="input" type="text" inputMode="numeric" placeholder="0"
@@ -571,38 +574,49 @@ export default function DatHangNCCClient({donDHList,nccList,sanPhamList,user}:{
                     onChange={e=>{const v=e.target.value.replace(/\./g,'');const n=Number(v);if(!isNaN(n))setNewGiaNhapNCC(n)}}/>
                 </div>
                 <div>
+                  <label style={{fontSize:'11px',fontWeight:600,display:'block',marginBottom:'3px'}}>🚚 CPVC về kho (đ)</label>
+                  <input className="input" type="text" inputMode="numeric" placeholder="0"
+                    value={newCpvcKho?newCpvcKho.toLocaleString('vi-VN'):''}
+                    onChange={e=>{const v=e.target.value.replace(/\./g,'');const n=Number(v);if(!isNaN(n))setNewCpvcKho(n)}}/>
+                </div>
+                <div>
+                  <label style={{fontSize:'11px',fontWeight:600,display:'block',marginBottom:'3px'}}>💵 Giá bán buôn (đ)</label>
+                  <input className="input" type="text" inputMode="numeric" placeholder="0"
+                    value={newGia?newGia.toLocaleString('vi-VN'):''}
+                    onChange={e=>{const v=e.target.value.replace(/\./g,'');const n=Number(v);if(!isNaN(n))setNewGia(n)}}/>
+                </div>
+                <div>
                   <label style={{fontSize:'11px',fontWeight:600,display:'block',marginBottom:'3px'}}>🏷️ Giá bán lẻ (đ)</label>
                   <input className="input" type="text" inputMode="numeric" placeholder="0"
                     value={newGiaLe?newGiaLe.toLocaleString('vi-VN'):''}
-                    onChange={e=>{const v=Number(e.target.value.replace(/\./g,'').replace(/,/g,''));if(!isNaN(v))setNewGiaLe(v)}}/>
+                    onChange={e=>{const v=e.target.value.replace(/\./g,'');const n=Number(v);if(!isNaN(n))setNewGiaLe(n)}}/>
                 </div>
               </div>
+              {/* Hàng 4: Tồn kho + Ngưỡng cảnh báo */}
               <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'10px'}}>
                 <div>
-                  <label style={{fontSize:'11px',fontWeight:600,display:'block',marginBottom:'3px'}}>📐 Thông số kỹ thuật</label>
-                  <input className="input" placeholder="VD: 120x60x75cm" value={newThongSo} onChange={e=>setNewThongSo(e.target.value)}/>
-                </div>
-                <div>
-                  <label style={{fontSize:'11px',fontWeight:600,display:'block',marginBottom:'3px'}}>📝 Ghi chú</label>
-                  <input className="input" placeholder="Ghi chú thêm..." value={newGhiChu} onChange={e=>setNewGhiChu(e.target.value)}/>
-                </div>
-              </div>
-              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'10px'}}>
-                <div>
-                  <label style={{fontSize:'11px',fontWeight:600,display:'block',marginBottom:'3px'}}>📦 Tồn kho ban đầu</label>
+                  <label style={{fontSize:'11px',fontWeight:600,display:'block',marginBottom:'3px'}}>📦 Tồn kho</label>
                   <input className="input" type="number" min="0" placeholder="0" value={newTonKho||''} onChange={e=>setNewTonKho(Number(e.target.value))}/>
                 </div>
                 <div>
                   <label style={{fontSize:'11px',fontWeight:600,display:'block',marginBottom:'3px'}}>⚠️ Ngưỡng cảnh báo</label>
-                  <input className="input" type="number" min="0" placeholder="5" value={newNguong||''} onChange={e=>setNewNguong(Number(e.target.value))}/>
+                  <input className="input" type="number" min="0" placeholder="1" value={newNguong||''} onChange={e=>setNewNguong(Number(e.target.value))}/>
                 </div>
               </div>
-              <div style={{padding:'8px 12px',background:'#F5F3FF',borderRadius:'6px',fontSize:'12px',color:'#7C3AED'}}>
-                💡 Sản phẩm mới sẽ được thêm vào danh sách sản phẩm và có thể chọn ngay trong đơn đặt hàng này.
+              {/* Hàng 5: Thông số + Ghi chú */}
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'10px'}}>
+                <div>
+                  <label style={{fontSize:'11px',fontWeight:600,display:'block',marginBottom:'3px'}}>Thông số kỹ thuật</label>
+                  <input className="input" placeholder="VD: 120x60x75cm, màu nâu gỗ..." value={newThongSo} onChange={e=>setNewThongSo(e.target.value)}/>
+                </div>
+                <div>
+                  <label style={{fontSize:'11px',fontWeight:600,display:'block',marginBottom:'3px'}}>Ghi chú</label>
+                  <input className="input" placeholder="Ghi chú thêm..." value={newGhiChu} onChange={e=>setNewGhiChu(e.target.value)}/>
+                </div>
               </div>
-              <div style={{display:'flex',gap:'10px'}}>
-                <button onClick={luuSPMoi} disabled={savingSP} style={{flex:1,padding:'11px',borderRadius:'8px',border:'none',background:savingSP?'#9CA3AF':'#7C3AED',color:'white',fontWeight:700,fontSize:'14px',cursor:savingSP?'not-allowed':'pointer'}}>
-                  {savingSP?'⏳ Đang lưu...':'✅ Thêm sản phẩm'}
+              <div style={{display:'flex',gap:'10px',marginTop:'4px'}}>
+                <button onClick={luuSPMoi} disabled={savingSP} style={{flex:1,padding:'11px',borderRadius:'8px',border:'none',background:savingSP?'#9CA3AF':'var(--primary)',color:'white',fontWeight:700,fontSize:'14px',cursor:savingSP?'not-allowed':'pointer'}}>
+                  {savingSP?'⏳ Đang lưu...':'✅ Lưu sản phẩm'}
                 </button>
                 <button onClick={()=>setShowNewSP(false)} style={{padding:'11px 16px',borderRadius:'8px',border:'1px solid var(--border)',background:'white',cursor:'pointer',fontSize:'14px',fontWeight:600}}>Huỷ</button>
               </div>
