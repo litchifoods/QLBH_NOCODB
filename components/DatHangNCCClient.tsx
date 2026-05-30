@@ -120,7 +120,9 @@ export default function DatHangNCCClient({donDHList,nccList,sanPhamList,user}:{
     updItem(id,'donVi',sp['Đơn vị tính']||'')
     const giaNCC = Number(sp['Giá nhập NCC']||0)
     const cpvc   = Number(sp['CPVC về kho']||0)
-    updItem(id,'giaNhap', giaNCC+cpvc > 0 ? giaNCC+cpvc : 0)
+    const giaNhapTong = giaNCC + cpvc
+    // Nếu SP chưa có giá nhập → để trống (0) để người dùng tự nhập
+    updItem(id,'giaNhap', giaNhapTong)
     setSearchSP(p=>({...p,[id]:sp['Tên sản phẩm']||''}))
     setShowSP(p=>({...p,[id]:false}))
   }
@@ -488,14 +490,20 @@ export default function DatHangNCCClient({donDHList,nccList,sanPhamList,user}:{
                 {/* SL */}
                 <input className="input" type="number" min="1" value={it.soLuong||''} onChange={e=>updItem(it._id,'soLuong',Number(e.target.value))} style={{fontSize:'12px',textAlign:'center'}}/>
                 {/* ĐVT */}
-                <select className="input" value={it.donVi} onChange={e=>updItem(it._id,'donVi',e.target.value)} style={{fontSize:'12px'}}>
-                  <option>Cái</option><option>Chiếc</option><option>Bộ</option>
-                </select>
+                <input className="input" value={it.donVi} onChange={e=>updItem(it._id,'donVi',e.target.value)} style={{fontSize:'12px'}} placeholder="ĐVT"/>
                 {/* Giá nhập */}
-                <input className="input" type="text" inputMode="numeric"
-                  value={it.giaNhap?it.giaNhap.toLocaleString('vi-VN'):''}  placeholder="0"
-                  onChange={e=>{const v=e.target.value.replace(/\./g,'');const n=Number(v);if(!isNaN(n))updItem(it._id,'giaNhap',n)}}
-                  style={{fontSize:'12px'}}/>
+                <div>
+                  <input className="input" type="text" inputMode="numeric"
+                    value={it.giaNhap?it.giaNhap.toLocaleString('vi-VN'):''}  placeholder="Nhập giá..."
+                    onChange={e=>{const v=e.target.value.replace(/\./g,'');const n=Number(v);if(!isNaN(n))updItem(it._id,'giaNhap',n)}}
+                    style={{fontSize:'12px'}}/>
+                  {it.maSP&&spMap[it.maSP]&&(Number(spMap[it.maSP]['Giá nhập NCC']||0)+Number(spMap[it.maSP]['CPVC về kho']||0))>0&&it.giaNhap===0&&(
+                    <div style={{fontSize:'10px',color:'#6B7280',marginTop:'1px',cursor:'pointer'}}
+                      onClick={()=>updItem(it._id,'giaNhap',Number(spMap[it.maSP]['Giá nhập NCC']||0)+Number(spMap[it.maSP]['CPVC về kho']||0))}>
+                      💡 {(Number(spMap[it.maSP]['Giá nhập NCC']||0)+Number(spMap[it.maSP]['CPVC về kho']||0)).toLocaleString('vi-VN')}đ
+                    </div>
+                  )}
+                </div>
                 {/* Thành tiền */}
                 <div style={{padding:'8px 4px',fontSize:'12px',fontWeight:600,color:'var(--primary)',alignSelf:'center'}}>
                   {(Number(it.soLuong||0)*Number(it.giaNhap||0)).toLocaleString('vi-VN')}đ

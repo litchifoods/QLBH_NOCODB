@@ -17,7 +17,7 @@ export default async function DatHangNCCPage() {
     }),
     getRecords(TABLES.SAN_PHAM, {
       limit: 500,
-      fields: 'Id,Mã SP,Tên sản phẩm,Đơn vị tính,Giá bán buôn',
+      fields: 'Id,Mã SP,Tên sản phẩm,Đơn vị tính,Giá nhập NCC,CPVC về kho,Giá bán buôn',
     }),
   ])
   return (
