@@ -47,10 +47,11 @@ export default function SanPhamClient({ danhSach, user }:{ danhSach:any[]; user:
   const [tenSP,    setTenSP]    = useState('')
   const [loaiSP,   setLoaiSP]   = useState('Phổ thông')
   const [donVi,    setDonVi]    = useState('Bộ')
+  const [giaNhap,  setGiaNhap]  = useState(0)
   const [giaBuon,  setGiaBuon]  = useState(0)
   const [giaLe,    setGiaLe]    = useState(0)
   const [tonKho,   setTonKho]   = useState(0)
-  const [canhBao,  setCanhBao]  = useState(5)
+  const [canhBao,  setCanhBao]  = useState(1)
   const [thongSo,  setThongSo]  = useState('')
   const [ghiChu,   setGhiChu]   = useState('')
 
@@ -71,13 +72,13 @@ export default function SanPhamClient({ danhSach, user }:{ danhSach:any[]; user:
   const trangHT   = Math.min(trang,tongTrang)
   const dsTrang   = filtered.slice((trangHT-1)*SO_DONG, trangHT*SO_DONG)
 
-  function reset(){setMaSP('');setTenSP('');setLoaiSP('Phổ thông');setDonVi('Bộ');setGiaBuon(0);setGiaLe(0);setTonKho(0);setCanhBao(5);setThongSo('');setGhiChu('');setEditSP(null)}
+  function reset(){setMaSP('');setTenSP('');setLoaiSP('Phổ thông');setDonVi('Bộ');setGiaNhap(0);setGiaBuon(0);setGiaLe(0);setTonKho(0);setCanhBao(5);setThongSo('');setGhiChu('');setEditSP(null)}
   function moThem(){reset();setShowModal(true)}
   function moSua(sp:any){
     setEditSP(sp);setMaSP(sp['Mã SP']||'');setTenSP(sp['Tên sản phẩm']||'')
     setLoaiSP(sp['Loại SP']||'Phổ thông');setDonVi(sp['Đơn vị tính']||'Bộ')
-    setGiaBuon(Number(sp['Giá bán buôn']||0));setGiaLe(Number(sp['Giá bán lẻ']||0))
-    setTonKho(Number(sp['Tồn kho']||0));setCanhBao(Number(sp['Ngưỡng cảnh báo']||5))
+    setGiaNhap(Number(sp['Giá nhập']||0));setGiaBuon(Number(sp['Giá bán buôn']||0));setGiaLe(Number(sp['Giá bán lẻ']||0))
+    setTonKho(Number(sp['Tồn kho']||0));setCanhBao(Number(sp['Ngưỡng cảnh báo']||1))
     setThongSo(sp['Thông số kỹ thuật']||'');setGhiChu(sp['Ghi chú']||'')
     setShowModal(true)
   }
@@ -90,6 +91,7 @@ export default function SanPhamClient({ danhSach, user }:{ danhSach:any[]; user:
         'Tên sản phẩm':tenSP.trim(),
         'Loại SP':loaiSP,
         'Đơn vị tính':donVi,
+        'Giá nhập':Number(giaNhap)||0,
         'Giá bán buôn':Number(giaBuon)||0,
         'Giá bán lẻ':Number(giaLe)||0,
         'Tồn kho':Number(tonKho)||0,
@@ -137,7 +139,7 @@ export default function SanPhamClient({ danhSach, user }:{ danhSach:any[]; user:
     const rows = filtered.map(sp=>({
       'Mã SP':sp['Mã SP']||'','Tên sản phẩm':sp['Tên sản phẩm']||'',
       'Loại SP':sp['Loại SP']||'','Đơn vị tính':sp['Đơn vị tính']||'',
-      'Giá bán buôn':Number(sp['Giá bán buôn']||0),'Giá bán lẻ':Number(sp['Giá bán lẻ']||0),
+      'Giá nhập':Number(sp['Giá nhập']||0),'Giá bán buôn':Number(sp['Giá bán buôn']||0),'Giá bán lẻ':Number(sp['Giá bán lẻ']||0),
       'Tồn kho':Number(sp['Tồn kho']||0),'Ngưỡng cảnh báo':Number(sp['Ngưỡng cảnh báo']||0),
       'Thông số kỹ thuật':sp['Thông số kỹ thuật']||'','Ghi chú':sp['Ghi chú']||'',
     }))
@@ -369,18 +371,24 @@ export default function SanPhamClient({ danhSach, user }:{ danhSach:any[]; user:
                   </select>
                 </div>
               </div>
-              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'10px'}}>
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:'10px'}}>
+                <div>
+                  <label style={{fontSize:'11px',fontWeight:600,display:'block',marginBottom:'3px'}}>📦 Giá nhập (đ)</label>
+                  <input className="input" type="number" min="0" placeholder="0"
+                    value={giaNhap||''} onChange={e=>setGiaNhap(Number(e.target.value)||0)}/>
+                  {giaNhap>0&&<div style={{fontSize:'11px',color:'#6B7280',marginTop:'2px'}}>{giaNhap.toLocaleString('vi-VN')}đ</div>}
+                </div>
                 <div>
                   <label style={{fontSize:'11px',fontWeight:600,display:'block',marginBottom:'3px'}}>💵 Giá bán buôn (đ)</label>
-                  <input className="input" type="text" inputMode="numeric" placeholder="0"
-                    value={giaBuon?giaBuon.toLocaleString('vi-VN'):''}
-                    onChange={e=>{const v=Number(e.target.value.replace(/\./g,'').replace(/,/g,''));if(!isNaN(v))setGiaBuon(v)}}/>
+                  <input className="input" type="number" min="0" placeholder="0"
+                    value={giaBuon||''} onChange={e=>setGiaBuon(Number(e.target.value)||0)}/>
+                  {giaBuon>0&&<div style={{fontSize:'11px',color:'#6B7280',marginTop:'2px'}}>{giaBuon.toLocaleString('vi-VN')}đ</div>}
                 </div>
                 <div>
                   <label style={{fontSize:'11px',fontWeight:600,display:'block',marginBottom:'3px'}}>🏷️ Giá bán lẻ (đ)</label>
-                  <input className="input" type="text" inputMode="numeric" placeholder="0"
-                    value={giaLe?giaLe.toLocaleString('vi-VN'):''}
-                    onChange={e=>{const v=Number(e.target.value.replace(/\./g,'').replace(/,/g,''));if(!isNaN(v))setGiaLe(v)}}/>
+                  <input className="input" type="number" min="0" placeholder="0"
+                    value={giaLe||''} onChange={e=>setGiaLe(Number(e.target.value)||0)}/>
+                  {giaLe>0&&<div style={{fontSize:'11px',color:'#6B7280',marginTop:'2px'}}>{giaLe.toLocaleString('vi-VN')}đ</div>}
                 </div>
               </div>
               <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'10px'}}>
