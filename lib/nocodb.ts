@@ -24,6 +24,7 @@ export const TABLES = {
   DOI_SOAT:       '9_Đối soát giao hàng',
   DAT_HANG_NCC:   '10_Đặt hàng NCC',
   NHAP_KHO:       '11_Nhập kho',
+  XU_LY_HANG:     '18_Xử lý hàng nhập',
   THANH_TOAN_NCC: '12_Thanh toán NCC',
   CHI_TRA_NV:     '13_Chi trả nhân viên',
   CHI_PHI:        '14_Chi phí hoạt động',
@@ -118,4 +119,5 @@ export async function deleteRecord(tableName: string, rowId: number) {
     return res.ok
   } catch { return false }
 }
+
 
