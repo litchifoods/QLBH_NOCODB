@@ -40,12 +40,18 @@ export default function NhapKhoClient({nhapKhoList,nccList,sanPhamList,datHangLi
         })})
       const d=await res.json()
       if(!res.ok) throw new Error(d.message)
+      // Trừ tồn kho ngay - bất kể loại vấn đề
+      const spXL = spMap[popupBaoCao['Mã SP']]
+      if(spXL){
+        setSpLocal(prev=>prev.map(s=>s['Mã SP']===popupBaoCao['Mã SP']
+          ?{...s,'Tồn kho':Math.max(0,Number(s['Tồn kho']||0)-bcSoLuong)}:s))
+      }
       // Đổi trạng thái phiếu nhập → Có vấn đề
       await fetch('/api/nhap-kho',{method:'PATCH',headers:{'Content-Type':'application/json'},
         body:JSON.stringify({id:Number(popupBaoCao['Id']||popupBaoCao['id']),
           slThucNhanCu:0,'Mã SP':popupBaoCao['Mã SP'],
           'Tình trạng hàng':'Có vấn đề',
-          'Ghi chú':(popupBaoCao['Ghi chú']||'')+` | ${bcLoai}: ${bcSoLuong} SP`,
+          'Ghi chú':(popupBaoCao['Ghi chú']||'')+` | ${bcLoai} (${bcSoLuong} SP): ${bcHuong}`,
           'Số lượng thực nhận':Number(popupBaoCao['Số lượng thực nhận']||0),
         })})
       setLocal(prev=>prev.map(d=>(d['Id']||d['id'])===(popupBaoCao['Id']||popupBaoCao['id'])
@@ -1045,9 +1051,13 @@ export default function NhapKhoClient({nhapKhoList,nccList,sanPhamList,datHangLi
               <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'10px'}}>
                 <div>
                   <label className="lbl">Loại vấn đề</label>
-                  <select className="input" value={bcLoai} onChange={e=>setBcLoai(e.target.value)}>
+                  <select className="input" value={bcLoai} onChange={e=>{
+                    setBcLoai(e.target.value)
+                    setBcHuong(HUONG_XU_LY[e.target.value]?.[0]||'Trả lại NCC')
+                  }}>
                     <option>Lỗi</option>
                     <option>Thiếu phụ kiện</option>
+                    <option>Hỏng phụ kiện</option>
                     <option>Thừa hàng</option>
                     <option>Thiếu hàng</option>
                   </select>
@@ -1060,10 +1070,7 @@ export default function NhapKhoClient({nhapKhoList,nccList,sanPhamList,datHangLi
               <div>
                 <label className="lbl">Hướng xử lý dự kiến</label>
                 <select className="input" value={bcHuong} onChange={e=>setBcHuong(e.target.value)}>
-                  <option>Trả NCC</option>
-                  <option>Giữ trong kho</option>
-                  <option>Nhận bổ sung</option>
-                  <option>Đặt bù</option>
+                  {(HUONG_XU_LY[bcLoai]||['Trả lại NCC']).map(h=><option key={h}>{h}</option>)}
                 </select>
               </div>
               <div>
@@ -1071,7 +1078,7 @@ export default function NhapKhoClient({nhapKhoList,nccList,sanPhamList,datHangLi
                 <input className="input" placeholder="Mô tả vấn đề cụ thể..." value={bcGhiChu} onChange={e=>setBcGhiChu(e.target.value)}/>
               </div>
               <div style={{padding:'8px 12px',background:'#FEF3C7',borderRadius:'6px',fontSize:'12px',color:'#92400E'}}>
-                ⚠️ Sau khi báo cáo, phiếu nhập sẽ chuyển sang trạng thái "Có vấn đề" và tạo phiếu xử lý riêng.
+                ⚠️ Sau khi xác nhận: tồn kho sẽ trừ {bcSoLuong} {spMap[popupBaoCao?.['Mã SP']]?.['Đơn vị tính']||'SP'} ngay lập tức và tạo phiếu xử lý riêng tại trang "Xử lý hàng nhập".
               </div>
               <div style={{display:'flex',gap:'10px'}}>
                 <button onClick={baoCaoVanDe} disabled={bcLoading} style={{flex:1,padding:'11px',borderRadius:'8px',border:'none',background:bcLoading?'#9CA3AF':'#D97706',color:'white',fontWeight:700,cursor:bcLoading?'not-allowed':'pointer',fontSize:'14px'}}>

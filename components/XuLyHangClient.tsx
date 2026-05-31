@@ -6,18 +6,26 @@ import { UserSession } from '@/lib/auth'
 function fDate(s:string){if(!s)return'—';try{const d=new Date(s);return`${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`}catch{return s}}
 function boDau(s:string){return(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/đ/g,'d').replace(/Đ/g,'D').toLowerCase()}
 
-const LOAI_COLOR:Record<string,{bg:string,c:string}> = {
-  'Lỗi':            {bg:'#FEE2E2',c:'#991B1B'},
-  'Thiếu phụ kiện': {bg:'#FEF3C7',c:'#92400E'},
-  'Thừa hàng':      {bg:'#DBEAFE',c:'#1E40AF'},
-  'Thiếu hàng':     {bg:'#F3E8FF',c:'#6D28D9'},
-}
+
 const TT_COLOR:Record<string,{bg:string,c:string}> = {
   'Chờ xử lý':   {bg:'#FEF3C7',c:'#92400E'},
   'Đang xử lý':  {bg:'#DBEAFE',c:'#1E40AF'},
   'Đã xử lý':    {bg:'#D1FAE5',c:'#065F46'},
 }
 const SO_DONG = 15
+
+// Hướng xử lý nào sẽ cộng lại tồn kho
+const CONG_KHO = ['Bán giảm giá','Bổ sung phụ kiện','Nhập kho']
+// Hướng xử lý nào KHÔNG cộng lại (đã trả NCC)
+const KHONG_CONG = ['Trả lại NCC','Đặt hàng bổ sung']
+
+const LOAI_COLOR:Record<string,{bg:string,c:string}> = {
+  'Lỗi':             {bg:'#FEE2E2',c:'#991B1B'},
+  'Thiếu phụ kiện':  {bg:'#FEF3C7',c:'#92400E'},
+  'Hỏng phụ kiện':   {bg:'#FEF3C7',c:'#B45309'},
+  'Thừa hàng':       {bg:'#DBEAFE',c:'#1E40AF'},
+  'Thiếu hàng':      {bg:'#F3E8FF',c:'#6D28D9'},
+}
 
 export default function XuLyHangClient({danhSach,nccList,sanPhamList,user}:{
   danhSach:any[]; nccList:any[]; sanPhamList:any[]; user:UserSession
@@ -71,26 +79,25 @@ export default function XuLyHangClient({danhSach,nccList,sanPhamList,user}:{
   async function xuLyHoanTat(){
     if(!popupXL) return
     setLoading(true)
+    const huong = xlHuong||popupXL['Hướng xử lý']
+    const sl    = Number(popupXL['Số lượng']||0)
+    const maSP  = popupXL['Mã SP']
     try{
+      // Cập nhật phiếu xử lý
       await capNhatXL(Number(popupXL['Id']||popupXL['id']),'Đã xử lý',{
-        'Hướng xử lý':xlHuong||popupXL['Hướng xử lý'],
+        'Hướng xử lý':huong,
         'Người xử lý':xlNguoi,
         'Ghi chú':(popupXL['Ghi chú']||'')+(xlGhiChu?` | ${xlGhiChu}`:''),
         'Ngày hoàn thành':new Date().toISOString().split('T')[0],
       })
-      // Nếu hướng xử lý là Trả NCC hoặc Đặt bù → cần trừ tồn kho
-      if(['Trả NCC','Đặt bù'].includes(xlHuong||popupXL['Hướng xử lý'])){
-        await fetch('/api/nhap-kho',{method:'PATCH',headers:{'Content-Type':'application/json'},
-          body:JSON.stringify({
-            id:0, // không dùng
-            slThucNhanCu:Number(popupXL['Số lượng']||0),
-            'Mã SP':popupXL['Mã SP'],
-            'Tình trạng hàng':'Đã xử lý',
-            'Số lượng thực nhận':0,
-          })}).catch(()=>{})
+      // Nếu hướng xử lý cộng lại tồn kho → gọi API cập nhật SP
+      if(CONG_KHO.includes(huong)&&maSP&&sl>0){
+        await fetch('/api/san-pham/cap-nhat-ton',{method:'PATCH',
+          headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({maSP, delta:sl})
+        }).catch(()=>{})
       }
-      // Cập nhật phiếu nhập → Đã xử lý
-      showMsg2('✅ Đã hoàn tất xử lý!')
+      showMsg2(`✅ Đã hoàn tất: ${huong} — ${sl} SP${CONG_KHO.includes(huong)?' (đã cộng lại tồn kho)':''}`)
       setPopupXL(null)
     }catch(e:any){showMsg2('❌ '+(e.message||'Lỗi'),false)}
     finally{setLoading(false)}
@@ -247,10 +254,7 @@ export default function XuLyHangClient({danhSach,nccList,sanPhamList,user}:{
               <div>
                 <label className="lbl">Hướng xử lý thực tế</label>
                 <select className="input" value={xlHuong} onChange={e=>setXlHuong(e.target.value)}>
-                  <option>Trả NCC</option>
-                  <option>Giữ trong kho</option>
-                  <option>Nhận bổ sung</option>
-                  <option>Đặt bù</option>
+                  {({'Lỗi':['Trả lại NCC','Bán giảm giá'],'Thiếu phụ kiện':['Trả lại NCC','Bổ sung phụ kiện'],'Hỏng phụ kiện':['Trả lại NCC','Bổ sung phụ kiện'],'Thừa hàng':['Trả lại NCC','Nhập kho'],'Thiếu hàng':['Đặt hàng bổ sung']} as Record<string,string[]>)[popupXL['Loại vấn đề']]?.map(h=><option key={h}>{h}</option>)||['Trả lại NCC','Bán giảm giá','Bổ sung phụ kiện','Nhập kho','Đặt hàng bổ sung'].map(h=><option key={h}>{h}</option>)}
                 </select>
               </div>
               <div>
@@ -261,11 +265,13 @@ export default function XuLyHangClient({danhSach,nccList,sanPhamList,user}:{
                 <label className="lbl">Ghi chú kết quả</label>
                 <input className="input" placeholder="Kết quả xử lý cụ thể..." value={xlGhiChu} onChange={e=>setXlGhiChu(e.target.value)}/>
               </div>
-              {['Trả NCC','Đặt bù'].includes(xlHuong)&&(
-                <div style={{padding:'8px 12px',background:'#FEF3C7',borderRadius:'6px',fontSize:'12px',color:'#92400E'}}>
-                  ⚠️ Hướng xử lý này sẽ trừ {popupXL['Số lượng']} {spMap[popupXL['Mã SP']]?.['Đơn vị tính']||''} khỏi tồn kho
-                </div>
-              )}
+              <div style={{padding:'8px 12px',borderRadius:'6px',fontSize:'12px',
+                background:CONG_KHO.includes(xlHuong)?'#D1FAE5':'#FEF3C7',
+                color:CONG_KHO.includes(xlHuong)?'#065F46':'#92400E'}}>
+                {CONG_KHO.includes(xlHuong)
+                  ?`✅ Hướng xử lý này sẽ cộng lại ${popupXL['Số lượng']} ${spMap[popupXL['Mã SP']]?.['Đơn vị tính']||''} vào tồn kho`
+                  :`ℹ️ Hướng xử lý này không cộng lại tồn kho (hàng đã trả/đặt bù)`}
+              </div>
               <div style={{display:'flex',gap:'10px',marginTop:'4px'}}>
                 <button onClick={xuLyHoanTat} disabled={loading} style={{flex:1,padding:'11px',borderRadius:'8px',border:'none',background:loading?'#9CA3AF':'#16A34A',color:'white',fontWeight:700,cursor:loading?'not-allowed':'pointer',fontSize:'14px'}}>
                   {loading?'⏳ Đang lưu...':'✅ Xác nhận hoàn tất'}
