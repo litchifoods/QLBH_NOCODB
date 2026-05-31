@@ -26,6 +26,7 @@ const MENU = [
       { href: '/dashboard/san-pham',     icon: '🪑', label: 'Sản phẩm' },
       { href: '/dashboard/dat-hang-ncc', icon: '🛒', label: 'Đặt hàng NCC' },
       { href: '/dashboard/nhap-kho',     icon: '📦', label: 'Nhập kho' },
+      { href: '/dashboard/xu-ly-hang',   icon: '⚙️', label: 'Xử lý hàng nhập' },
       { href: '/dashboard/kiem-kho',     icon: '🔍', label: 'Kiểm kho' },
     ],
   },
