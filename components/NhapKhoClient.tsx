@@ -8,14 +8,6 @@ function fVND(n:any){return Number(n||0).toLocaleString('vi-VN')}
 function fDate(s:string){if(!s)return'—';try{const d=new Date(s);return`${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`}catch{return s}}
 function boDau(s:string){return(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/đ/g,'d').replace(/Đ/g,'D').toLowerCase()}
 
-const HUONG_XU_LY:Record<string,string[]> = {
-  'Lỗi':             ['Trả lại NCC', 'Bán giảm giá'],
-  'Thiếu phụ kiện':  ['Trả lại NCC', 'Bổ sung phụ kiện'],
-  'Hỏng phụ kiện':   ['Trả lại NCC', 'Bổ sung phụ kiện'],
-  'Thừa hàng':       ['Trả lại NCC', 'Nhập kho'],
-  'Thiếu hàng':      ['Đặt hàng bổ sung'],
-}
-
 const TT_COLOR:Record<string,{bg:string,c:string}> = {
   'Đủ':          {bg:'#D1FAE5',c:'#065F46'},
   'Có vấn đề':   {bg:'#FEF3C7',c:'#92400E'},
@@ -1110,17 +1102,17 @@ export default function NhapKhoClient({nhapKhoList,nccList,sanPhamList,datHangLi
 
 // ── SUB-COMPONENTS (tránh re-render parent) ──────────────────
 function MoneyInput({value,onChange}:{value:number;onChange:(v:number)=>void}){
-  const [focused,setFocused]=useState(false)
-  const [raw,setRaw]=useState(value>0?String(value):'')
-  useEffect(()=>{if(!focused)setRaw(value>0?String(value):'')},[value,focused])
+  const [display,setDisplay]=useState(value>0?value.toLocaleString('vi-VN'):'')
+  useEffect(()=>{setDisplay(value>0?value.toLocaleString('vi-VN'):'')},[value])
   return (
-    <div>
-      <input className="input" inputMode="numeric" placeholder="0"
-        value={focused?raw:(value>0?value.toLocaleString('vi-VN'):'')}
-        onFocus={()=>{setFocused(true);setRaw(value>0?String(value):'')} }
-        onChange={e=>{const v=e.target.value.replace(/[^0-9]/g,'');setRaw(v);onChange(Number(v)||0)}}
-        onBlur={()=>setFocused(false)}/>
-    </div>
+    <input className="input" inputMode="numeric" placeholder="0"
+      value={display}
+      onChange={e=>{
+        const raw=e.target.value.replace(/\./g,'').replace(/[^0-9]/g,'')
+        const num=Number(raw)||0
+        setDisplay(num>0?num.toLocaleString('vi-VN'):'')
+        onChange(num)
+      }}/>
   )
 }
 
