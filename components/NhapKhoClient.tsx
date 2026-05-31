@@ -244,8 +244,7 @@ export default function NhapKhoClient({nhapKhoList,nccList,sanPhamList,datHangLi
   function addSPToList(){
     if(!maSP){showMsgM('Chọn sản phẩm trước',false);return}
     if(slThucNhan<=0){showMsgM('Nhập số lượng > 0',false);return}
-    const tt=tinhTinhTrang(slThucNhan,slThucNhan,slLoi,slChoiPK)
-    setDsSP(p=>[...p,{maSP,tenSP,slThucNhan,giaNhapNCC,cpvcKho,tinhTrang:tt,slLoi,slChoiPK,ghiChu:'',_id:Date.now()}])
+    setDsSP(p=>[...p,{maSP,tenSP,slThucNhan,giaNhapNCC,cpvcKho,tinhTrang:'Đủ',slLoi,slChoiPK,ghiChu:'',_id:Date.now()}])
     // Reset ô SP để nhập tiếp
     setMaSP('');setTenSP('');setQSP('');setSlThucNhan(0);setGiaNhapNCC(0);setCpvcKho(0);setTinhTrang('Đủ')
     showMsgM('✅ Đã thêm SP vào danh sách',true)
@@ -336,14 +335,16 @@ export default function NhapKhoClient({nhapKhoList,nccList,sanPhamList,datHangLi
         }
       } else {
         // Nhập trực tiếp - tạo từ danh sách dsSP
-        const allSP = dsSP.length > 0 ? dsSP : (maSP&&slThucNhan>0 ? [{maSP,tenSP,slThucNhan,giaNhapNCC,cpvcKho,tinhTrang,ghiChu,_id:0}] : [])
+        const allSP = dsSP.length > 0 ? dsSP : (maSP&&slThucNhan>0 ? [{maSP,tenSP,slThucNhan,giaNhapNCC,cpvcKho,tinhTrang:'Đủ',slLoi:slLoi||0,slChoiPK:slChoiPK||0,ghiChu,_id:0}] : [])
+        if(!maNCC){showMsgM('Vui lòng chọn nhà cung cấp',false);setLoading(false);return}
         if(!allSP.length){showMsgM('Thêm ít nhất 1 sản phẩm',false);setLoading(false);return}
         let soTao=0
         for(const sp of allSP){
           const res=await fetch('/api/nhap-kho',{method:'POST',headers:{'Content-Type':'application/json'},
             body:JSON.stringify({maNCC,maSP:sp.maSP,maDatHang:'',ngayNhap,slDat:0,
-              slThucNhan:sp.slThucNhan,giaNhapTT:sp.giaNhapNCC,cpVC:sp.cpvcKho,slLoi:sp.slLoi||0,slChoiPK:sp.slChoiPK||0,
-              tinhTrang:sp.tinhTrang,ghiChu:sp.ghiChu||ghiChu,nguoiNhap:user.hoTen||user.tenDangNhap})})
+              slThucNhan:sp.slThucNhan,giaNhapTT:sp.giaNhapNCC,cpVC:sp.cpvcKho,
+              slLoi:0,slChoiPK:0,tinhTrang:'Đủ',
+              ghiChu:sp.ghiChu||ghiChu,nguoiNhap:user.hoTen||user.tenDangNhap})})
           const d=await res.json()
           if(res.ok){
             soTao++
@@ -751,7 +752,7 @@ export default function NhapKhoClient({nhapKhoList,nccList,sanPhamList,datHangLi
                   </div>
                 </div>}
                 {/* Form nhập SP - hàng 1: SP + SL */}
-                <div style={{display:'grid',gridTemplateColumns:'2fr 100px 120px',gap:'10px',marginBottom:'8px'}}>
+                <div style={{display:'grid',gridTemplateColumns:'2fr 120px',gap:'10px',marginBottom:'8px'}}>
                   <div>
                     <label className="lbl">Sản phẩm *</label>
                     <SPInput spList={spLocal} value={qSP} maSP={maSP}
@@ -766,16 +767,10 @@ export default function NhapKhoClient({nhapKhoList,nccList,sanPhamList,datHangLi
                     <input className="input" type="number" min="0" value={slThucNhan||''} placeholder="0" onChange={e=>setSlThucNhan(Number(e.target.value)||0)}/>
                     <div style={{fontSize:'10px',color:'#6B7280',marginTop:'2px',minHeight:'14px'}}>&nbsp;</div>
                   </div>
-                  <div>
-                    <label className="lbl">Tình trạng hàng</label>
-                    <select className="input" value={tinhTrang} onChange={e=>setTinhTrang(e.target.value)} style={{fontSize:'12px',background:TT_COLOR[tinhTrang]?.bg,color:TT_COLOR[tinhTrang]?.c,fontWeight:600}}>
-                      <option>Đủ</option><option>Có vấn đề</option><option>Đã xử lý</option>
-                    </select>
-                    <div style={{fontSize:'10px',color:'#6B7280',marginTop:'2px',minHeight:'14px'}}>&nbsp;</div>
-                  </div>
+
                 </div>
-                {/* Form nhập SP - hàng 2: giá + nút */}
-                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:'10px',marginBottom:'8px'}}>
+                {/* Form nhập SP - hàng 2: giá + lỗi + PK + nút */}
+                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 80px 80px 1fr',gap:'10px',marginBottom:'8px'}}>
                   <div>
                     <label className="lbl">📦 Giá nhập NCC (đ)</label>
                     <input className="input" type="number" min="0" value={giaNhapNCC||''} placeholder="0" onChange={e=>setGiaNhapNCC(Number(e.target.value)||0)}/>
@@ -785,6 +780,16 @@ export default function NhapKhoClient({nhapKhoList,nccList,sanPhamList,datHangLi
                     <label className="lbl">🚚 CPVC về kho (đ)</label>
                     <input className="input" type="number" min="0" value={cpvcKho||''} placeholder="0" onChange={e=>setCpvcKho(Number(e.target.value)||0)}/>
                     <div style={{fontSize:'10px',color:'#6B7280',marginTop:'2px',minHeight:'14px'}}>{cpvcKho>0?fVND(cpvcKho)+'đ':''}</div>
+                  </div>
+                  <div>
+                    <label className="lbl">🔴 Lỗi</label>
+                    <input className="input" type="number" min="0" value={slLoi||''} placeholder="0" onChange={e=>setSlLoi(Number(e.target.value)||0)}/>
+                    <div style={{fontSize:'10px',color:'#6B7280',marginTop:'2px',minHeight:'14px'}}>&nbsp;</div>
+                  </div>
+                  <div>
+                    <label className="lbl">🟡 Thiếu PK</label>
+                    <input className="input" type="number" min="0" value={slChoiPK||''} placeholder="0" onChange={e=>setSlChoiPK(Number(e.target.value)||0)}/>
+                    <div style={{fontSize:'10px',color:'#6B7280',marginTop:'2px',minHeight:'14px'}}>&nbsp;</div>
                   </div>
                   <div style={{display:'flex',flexDirection:'column',justifyContent:'flex-start'}}>
                     <label className="lbl" style={{visibility:'hidden'}}>_</label>
