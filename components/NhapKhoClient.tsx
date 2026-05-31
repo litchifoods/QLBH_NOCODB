@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 // components/NhapKhoClient.tsx - Viết lại hoàn toàn
 import { useState, useMemo, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
@@ -7,6 +7,14 @@ import { UserSession } from '@/lib/auth'
 function fVND(n:any){return Number(n||0).toLocaleString('vi-VN')}
 function fDate(s:string){if(!s)return'—';try{const d=new Date(s);return`${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`}catch{return s}}
 function boDau(s:string){return(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/đ/g,'d').replace(/Đ/g,'D').toLowerCase()}
+
+const HUONG_XU_LY:Record<string,string[]> = {
+  'Lỗi':             ['Trả lại NCC', 'Bán giảm giá'],
+  'Thiếu phụ kiện':  ['Trả lại NCC', 'Bổ sung phụ kiện'],
+  'Hỏng phụ kiện':   ['Trả lại NCC', 'Bổ sung phụ kiện'],
+  'Thừa hàng':       ['Trả lại NCC', 'Nhập kho'],
+  'Thiếu hàng':      ['Đặt hàng bổ sung'],
+}
 
 const TT_COLOR:Record<string,{bg:string,c:string}> = {
   'Đủ':          {bg:'#D1FAE5',c:'#065F46'},
