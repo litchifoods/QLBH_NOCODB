@@ -17,9 +17,19 @@ const HUONG_XU_LY:Record<string,string[]> = {
 }
 
 const TT_COLOR:Record<string,{bg:string,c:string}> = {
-  'Đủ':          {bg:'#D1FAE5',c:'#065F46'},
-  'Có vấn đề':   {bg:'#FEF3C7',c:'#92400E'},
-  'Đã xử lý':    {bg:'#F3F4F6',c:'#6B7280'},
+  'Đủ':        {bg:'#D1FAE5',c:'#065F46'},
+  'Có vấn đề': {bg:'#FEF3C7',c:'#92400E'},
+  'Đã xử lý':  {bg:'#F3F4F6',c:'#6B7280'},
+  'Thiếu':     {bg:'#FEF3C7',c:'#92400E'},
+  'Thừa':      {bg:'#DBEAFE',c:'#1E40AF'},
+}
+function getTTColor(tt:string):{bg:string,c:string}{
+  if(tt==='Đủ') return {bg:'#D1FAE5',c:'#065F46'}
+  if(tt==='Có vấn đề') return {bg:'#FEF3C7',c:'#92400E'}
+  if(tt==='Đã xử lý') return {bg:'#F3F4F6',c:'#6B7280'}
+  if(tt.startsWith('Thiếu')) return {bg:'#FEF3C7',c:'#92400E'}
+  if(tt.startsWith('Thừa')) return {bg:'#DBEAFE',c:'#1E40AF'}
+  return {bg:'#F3F4F6',c:'#374151'}
 }
 const SO_DONG = 10
 
@@ -230,11 +240,14 @@ export default function NhapKhoClient({nhapKhoList,nccList,sanPhamList,datHangLi
   function chonDon(maDon:string){
     const grp=donNCCGrouped[maDon]||[]
     if(!grp.length)return
+    // Chỉ lấy SP "Đã xác nhận"
+    const grpXN=grp.filter((d:any)=>d['Trạng thái']==='Đã xác nhận')
+    if(!grpXN.length){showMsgM('Không có SP nào đã xác nhận trong đơn này',false);return}
     setMaDonChon(maDon)
-    const nccMa=grp[0]['Mã NCC']||''
+    const nccMa=grpXN[0]['Mã NCC']||''
     setMaNCC(nccMa)
     setTenNCC(nccMap[nccMa]?.['Tên NCC']||nccMa)
-    setSpItems(grp.map((d:any)=>({
+    setSpItems(grpXN.map((d:any)=>({
       maSP:d['Mã SP']||'',
       tenSP:spMap[d['Mã SP']]?.['Tên sản phẩm']||d['Mã SP']||'',
       donVi:spMap[d['Mã SP']]?.['Đơn vị tính']||'',
@@ -242,7 +255,7 @@ export default function NhapKhoClient({nhapKhoList,nccList,sanPhamList,datHangLi
       sl:Number(d['Số lượng đặt']||0),
       giaNCC:Number(spMap[d['Mã SP']]?.['Giá nhập NCC']||d['Giá nhập dự kiến']||0),
       cpvc:Number(spMap[d['Mã SP']]?.['CPVC về kho']||0),
-      tinhTrang:'Đủ',
+      tinhTrang:'Đủ', // sẽ tự cập nhật khi nhập SL nhận
       ghiChu:'',
       checked:true,
     })))
@@ -270,13 +283,12 @@ export default function NhapKhoClient({nhapKhoList,nccList,sanPhamList,datHangLi
     setSpItems(p=>p.map((it,idx)=>{
       if(idx!==i) return it
       const updated={...it,[k]:v}
-      // Tự động tình trạng khi đổi SL nhận
       if(k==='sl'){
-        const sl=Number(v)  // KHÔNG dùng ||0 để phân biệt 0 với rỗng
+        const sl=Number(v)
         const slDat=Number(it.slDat)||0
         if(sl===slDat) updated.tinhTrang='Đủ'
-        else if(sl<slDat) updated.tinhTrang='Thiếu'
-        else updated.tinhTrang='Thừa'
+        else if(sl<slDat) updated.tinhTrang=`Thiếu ${slDat-sl}`
+        else updated.tinhTrang=`Thừa ${sl-slDat}`
       }
       return updated
     }))
@@ -327,7 +339,8 @@ export default function NhapKhoClient({nhapKhoList,nccList,sanPhamList,datHangLi
           const res=await fetch('/api/nhap-kho',{method:'POST',headers:{'Content-Type':'application/json'},
             body:JSON.stringify({maNCC,maSP:it.maSP,maDatHang:maDonChon,ngayNhap,
               slDat:it.slDat,slThucNhan:it.sl,giaNhapTT:it.giaNCC,cpVC:it.cpvc,
-              tinhTrang:it.tinhTrang,ghiChu:it.ghiChu||ghiChu,
+              tinhTrang:it.tinhTrang,  // Đủ / Thiếu X / Thừa X
+              ghiChu:it.ghiChu||ghiChu,
               nguoiNhap:user.hoTen||user.tenDangNhap})})
           const d=await res.json()
           if(res.ok){
@@ -580,7 +593,7 @@ export default function NhapKhoClient({nhapKhoList,nccList,sanPhamList,datHangLi
                 const ncc=nccMap[item['Mã NCC']]||{}
                 const sp=spMap[item['Mã SP']]||{}
                 const tt=item['Tình trạng hàng']||'Đủ'
-                const ttC=TT_COLOR[tt]||{bg:'#F3F4F6',c:'#374151'}
+                const ttC=getTTColor(tt)
                 return (
                   <tr key={item['Id']||i} style={{borderBottom:'1px solid #F0F0F0',background:i%2===0?'white':'#FAFBFD'}}>
                     <td style={{fontWeight:600,color:'#374151',fontSize:'12px',whiteSpace:'nowrap'}}>
@@ -1110,17 +1123,17 @@ export default function NhapKhoClient({nhapKhoList,nccList,sanPhamList,datHangLi
 
 // ── SUB-COMPONENTS (tránh re-render parent) ──────────────────
 function MoneyInput({value,onChange}:{value:number;onChange:(v:number)=>void}){
-  const [focused,setFocused]=useState(false)
-  const [raw,setRaw]=useState(value>0?String(value):'')
-  useEffect(()=>{if(!focused)setRaw(value>0?String(value):'')},[value,focused])
+  const [display,setDisplay]=useState(value>0?value.toLocaleString('vi-VN'):'')
+  useEffect(()=>{setDisplay(value>0?value.toLocaleString('vi-VN'):'')},[value])
   return (
-    <div>
-      <input className="input" inputMode="numeric" placeholder="0"
-        value={focused?raw:(value>0?value.toLocaleString('vi-VN'):'')}
-        onFocus={()=>{setFocused(true);setRaw(value>0?String(value):'')} }
-        onChange={e=>{const v=e.target.value.replace(/[^0-9]/g,'');setRaw(v);onChange(Number(v)||0)}}
-        onBlur={()=>setFocused(false)}/>
-    </div>
+    <input className="input" inputMode="numeric" placeholder="0"
+      value={display}
+      onChange={e=>{
+        const raw=e.target.value.replace(/\./g,'').replace(/[^0-9]/g,'')
+        const num=Number(raw)||0
+        setDisplay(num>0?num.toLocaleString('vi-VN'):'')
+        onChange(num)
+      }}/>
   )
 }
 
