@@ -194,13 +194,6 @@ export default function NhapKhoClient({nhapKhoList,nccList,sanPhamList,datHangLi
     })))
   }
 
-  function tinhTinhTrang(sl:number, slDat:number, loi:number, choiPK:number):string{
-    if(loi>0||choiPK>0) return 'Lỗi'
-    if(sl<slDat) return 'Thiếu'
-    if(sl>slDat) return 'Thừa'
-    return 'Đủ'
-  }
-
   function addSPToList(){
     if(!maSP){showMsgM('Chọn sản phẩm trước',false);return}
     if(slThucNhan<=0){showMsgM('Nhập số lượng > 0',false);return}
@@ -558,7 +551,7 @@ export default function NhapKhoClient({nhapKhoList,nccList,sanPhamList,datHangLi
                     <td style={{fontSize:'12px',color:'#6B7280'}}>{item['Người nhập']||'—'}</td>
                     <td style={{textAlign:'center'}}>
                       <div style={{display:'flex',flexDirection:'column',gap:'4px',width:'110px'}}>
-                        {isOwner&&<button onClick={()=>{setEditItem(item);setMaNCC(item['Mã NCC']||'');setTenNCC(nccMap[item['Mã NCC']]?.['Tên NCC']||'');setQNCC(nccMap[item['Mã NCC']]?.['Tên NCC']||'');setMaSP(item['Mã SP']||'');setTenSP(spMap[item['Mã SP']]?.['Tên sản phẩm']||'');setQSP(spMap[item['Mã SP']]?.['Tên sản phẩm']||'');setNgayNhap(item['Ngày nhập']?.split('T')[0]||'');setSlThucNhan(Number(item['Số lượng thực nhận']||0));setGiaNhapNCC(Number(item['Giá nhập thực tế']||0));setCpvcKho(Number(item['CP vận chuyển về kho']||0));setTinhTrang(item['Tình trạng hàng']||'Đủ');setGhiChu(item['Ghi chú']||'');setShowModal(true)}} style={{padding:'5px',borderRadius:'5px',border:'1px solid #FCD34D',background:'#FFFBEB',color:'#92400E',fontSize:'11px',cursor:'pointer',fontWeight:600,textAlign:'center'}}>✏️ Sửa</button>}
+                        {isOwner&&<button onClick={()=>{setEditItem(item);setMaNCC(item['Mã NCC']||'');setTenNCC(nccMap[item['Mã NCC']]?.['Tên NCC']||'');setQNCC(nccMap[item['Mã NCC']]?.['Tên NCC']||'');setMaSP(item['Mã SP']||'');setTenSP(spMap[item['Mã SP']]?.['Tên sản phẩm']||'');setQSP(spMap[item['Mã SP']]?.['Tên sản phẩm']||'');setNgayNhap(item['Ngày nhập']?.split('T')[0]||'');setSlThucNhan(Number(item['Số lượng thực nhận']||0));setSlLoi(Number(item['Số lượng lỗi']||0));setSlChoiPK(Number(item['Số lượng chờ phụ kiện']||0));setGiaNhapNCC(Number(item['Giá nhập thực tế']||0));setCpvcKho(Number(item['CP vận chuyển về kho']||0));setTinhTrang(item['Tình trạng hàng']||'Đủ');setGhiChu(item['Ghi chú']||'');setShowModal(true)}} style={{padding:'5px',borderRadius:'5px',border:'1px solid #FCD34D',background:'#FFFBEB',color:'#92400E',fontSize:'11px',cursor:'pointer',fontWeight:600,textAlign:'center'}}>✏️ Sửa</button>}
                         <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'4px'}}>
                           <button onClick={()=>xuatPDF(item)} style={{padding:'5px',borderRadius:'5px',border:'1px solid #BBF7D0',background:'#F0FDF4',color:'#16A34A',fontSize:'11px',cursor:'pointer',fontWeight:600}}>📄 PDF</button>
                           {isOwner&&<button onClick={()=>setXoaItem(item)} style={{padding:'5px',borderRadius:'5px',border:'1px solid #FCA5A5',background:'#FEF2F2',color:'#DC2626',fontSize:'11px',cursor:'pointer',fontWeight:600}}>🗑️ Xóa</button>}
@@ -898,8 +891,10 @@ export default function NhapKhoClient({nhapKhoList,nccList,sanPhamList,datHangLi
         const slDat   = Number(popupXuLy['Số lượng đặt']||0)
         const slLoi2  = Number(popupXuLy['Số lượng lỗi']||0)
         const slPK    = Number(popupXuLy['Số lượng chờ phụ kiện']||0)
-        const slThua  = slNhan > slDat ? slNhan - slDat : 0
-        const slThieu = slNhan < slDat ? slDat - slNhan : 0
+        // Chỉ tính thừa/thiếu khi có SL đặt (nhập từ đơn NCC)
+        const coSLDat = slDat > 0
+        const slThua  = coSLDat && slNhan > slDat ? slNhan - slDat : 0
+        const slThieu = coSLDat && slNhan < slDat ? slDat - slNhan : 0
         const slTraNCC= slLoi2 + slPK
         const spTen   = spMap[popupXuLy['Mã SP']]?.['Tên sản phẩm']||popupXuLy['Mã SP']
         const donVi   = spMap[popupXuLy['Mã SP']]?.['Đơn vị tính']||'cái'
@@ -947,10 +942,11 @@ export default function NhapKhoClient({nhapKhoList,nccList,sanPhamList,datHangLi
                 {/* Giữ hàng - áp dụng mọi trường hợp */}
                 <button onClick={()=>{xuLyPhieu(popupXuLy,false);setPopupXuLy(null)}}
                   style={{padding:'12px',borderRadius:'8px',border:'1px solid #16A34A',background:'#F0FDF4',color:'#065F46',fontWeight:700,cursor:'pointer',fontSize:'13px',textAlign:'left'}}>
-                  ✅ Giữ nguyên trong kho
+                  ✅ Giữ nguyên — Đã xử lý xong
                   <div style={{fontSize:'11px',fontWeight:400,marginTop:'2px',color:'#6B7280'}}>
-                    Đổi trạng thái → Đã xử lý · Tồn kho không thay đổi
-                    {slThua>0&&` · Giữ ${slThua} ${donVi} thừa trong kho`}
+                    {slPK>0?`NCC đã bổ sung phụ kiện, nhập thêm ${slPK} ${donVi} vào kho`:
+                     slThua>0?`Đồng ý giữ ${slThua} ${donVi} thừa trong kho`:
+                     'Đổi trạng thái → Đã xử lý, tồn kho không thay đổi'}
                   </div>
                 </button>
 
@@ -958,9 +954,12 @@ export default function NhapKhoClient({nhapKhoList,nccList,sanPhamList,datHangLi
                 {slTraNCC>0&&(
                   <button onClick={()=>{xuLyPhieu(popupXuLy,true);setPopupXuLy(null)}}
                     style={{padding:'12px',borderRadius:'8px',border:'1px solid #DC2626',background:'#FEF2F2',color:'#DC2626',fontWeight:700,cursor:'pointer',fontSize:'13px',textAlign:'left'}}>
-                    🔄 Trả {slTraNCC} {donVi} {slLoi2>0?'lỗi':''}{slLoi2>0&&slPK>0?'+':''}{slPK>0?'chờ PK':''} cho NCC
+                    🔄 Trả lại {slTraNCC} {donVi} cho NCC
                     <div style={{fontSize:'11px',fontWeight:400,marginTop:'2px',color:'#6B7280'}}>
-                      Đổi trạng thái → Đã xử lý · Trừ {slTraNCC} {donVi} khỏi tồn kho
+                      {slLoi2>0&&slPK>0?`${slLoi2} ${donVi} lỗi + ${slPK} ${donVi} chờ phụ kiện`:
+                       slLoi2>0?`${slLoi2} ${donVi} bị lỗi`:
+                       `${slPK} ${donVi} chờ phụ kiện`}
+                      {' · Trừ '}{slTraNCC}{' '}{donVi}{' khỏi tồn kho'}
                     </div>
                   </button>
                 )}
@@ -971,7 +970,7 @@ export default function NhapKhoClient({nhapKhoList,nccList,sanPhamList,datHangLi
                     style={{padding:'12px',borderRadius:'8px',border:'1px solid #1E40AF',background:'#EFF6FF',color:'#1E40AF',fontWeight:700,cursor:'pointer',fontSize:'13px',textAlign:'left'}}>
                     🔄 Trả lại {slThua} {donVi} thừa cho NCC
                     <div style={{fontSize:'11px',fontWeight:400,marginTop:'2px',color:'#6B7280'}}>
-                      Đổi trạng thái → Đã xử lý · Trừ {slThua} {donVi} khỏi tồn kho
+                      NCC giao dư {slThua} {donVi} · Trả lại và trừ {slThua} {donVi} khỏi tồn kho
                     </div>
                   </button>
                 )}
