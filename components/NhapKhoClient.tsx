@@ -40,12 +40,18 @@ export default function NhapKhoClient({nhapKhoList,nccList,sanPhamList,datHangLi
         })})
       const d=await res.json()
       if(!res.ok) throw new Error(d.message)
+      // Trừ tồn kho ngay - bất kể loại vấn đề
+      const spXL = spMap[popupBaoCao['Mã SP']]
+      if(spXL){
+        setSpLocal(prev=>prev.map(s=>s['Mã SP']===popupBaoCao['Mã SP']
+          ?{...s,'Tồn kho':Math.max(0,Number(s['Tồn kho']||0)-bcSoLuong)}:s))
+      }
       // Đổi trạng thái phiếu nhập → Có vấn đề
       await fetch('/api/nhap-kho',{method:'PATCH',headers:{'Content-Type':'application/json'},
         body:JSON.stringify({id:Number(popupBaoCao['Id']||popupBaoCao['id']),
           slThucNhanCu:0,'Mã SP':popupBaoCao['Mã SP'],
           'Tình trạng hàng':'Có vấn đề',
-          'Ghi chú':(popupBaoCao['Ghi chú']||'')+` | ${bcLoai}: ${bcSoLuong} SP`,
+          'Ghi chú':(popupBaoCao['Ghi chú']||'')+` | ${bcLoai} (${bcSoLuong} SP): ${bcHuong}`,
           'Số lượng thực nhận':Number(popupBaoCao['Số lượng thực nhận']||0),
         })})
       setLocal(prev=>prev.map(d=>(d['Id']||d['id'])===(popupBaoCao['Id']||popupBaoCao['id'])
@@ -751,61 +757,9 @@ export default function NhapKhoClient({nhapKhoList,nccList,sanPhamList,datHangLi
                     <button onClick={()=>setShowNewSP(true)} style={{padding:'4px 10px',borderRadius:'6px',border:'1px solid #8B5CF6',background:'#F5F3FF',color:'#7C3AED',fontSize:'11px',fontWeight:600,cursor:'pointer'}}>✨ Thêm SP mới</button>
                   </div>
                 </div>}
-                {/* Form nhập SP - hàng 1: SP + SL */}
-                <div style={{display:'grid',gridTemplateColumns:'2fr 120px',gap:'10px',marginBottom:'8px'}}>
-                  <div>
-                    <label className="lbl">Sản phẩm *</label>
-                    <SPInput spList={spLocal} value={qSP} maSP={maSP}
-                      onSelect={(ma,ten,giaNCC,cpvc)=>{setMaSP(ma);setTenSP(ten);setQSP(ten);setGiaNhapNCC(giaNCC);setCpvcKho(cpvc)}}
-                      onChange={v=>{setQSP(v);setMaSP('')}}/>
-                    <div style={{fontSize:'10px',color:'var(--primary)',fontWeight:600,marginTop:'2px',minHeight:'14px'}}>
-                      {maSP?`✅ ${tenSP} · Tồn: ${spMap[maSP]?.['Tồn kho']||0}`:''}
-                    </div>
-                  </div>
-                  <div>
-                    <label className="lbl">Số lượng nhập</label>
-                    <input className="input" type="number" min="0" value={slThucNhan||''} placeholder="0" onChange={e=>setSlThucNhan(Number(e.target.value)||0)}/>
-                    <div style={{fontSize:'10px',color:'#6B7280',marginTop:'2px',minHeight:'14px'}}>&nbsp;</div>
-                  </div>
-
-                </div>
-                {/* Form nhập SP - hàng 2: giá + lỗi + PK + nút */}
-                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 80px 80px 1fr',gap:'10px',marginBottom:'8px'}}>
-                  <div>
-                    <label className="lbl">📦 Giá nhập NCC (đ)</label>
-                    <input className="input" type="number" min="0" value={giaNhapNCC||''} placeholder="0" onChange={e=>setGiaNhapNCC(Number(e.target.value)||0)}/>
-                    <div style={{fontSize:'10px',color:'#6B7280',marginTop:'2px',minHeight:'14px'}}>{giaNhapNCC>0?fVND(giaNhapNCC)+'đ':''}</div>
-                  </div>
-                  <div>
-                    <label className="lbl">🚚 CPVC về kho (đ)</label>
-                    <input className="input" type="number" min="0" value={cpvcKho||''} placeholder="0" onChange={e=>setCpvcKho(Number(e.target.value)||0)}/>
-                    <div style={{fontSize:'10px',color:'#6B7280',marginTop:'2px',minHeight:'14px'}}>{cpvcKho>0?fVND(cpvcKho)+'đ':''}</div>
-                  </div>
-                  <div>
-                    <label className="lbl">🔴 Lỗi</label>
-                    <input className="input" type="number" min="0" value={slLoi||''} placeholder="0" onChange={e=>setSlLoi(Number(e.target.value)||0)}/>
-                    <div style={{fontSize:'10px',color:'#6B7280',marginTop:'2px',minHeight:'14px'}}>&nbsp;</div>
-                  </div>
-                  <div>
-                    <label className="lbl">🟡 Thiếu PK</label>
-                    <input className="input" type="number" min="0" value={slChoiPK||''} placeholder="0" onChange={e=>setSlChoiPK(Number(e.target.value)||0)}/>
-                    <div style={{fontSize:'10px',color:'#6B7280',marginTop:'2px',minHeight:'14px'}}>&nbsp;</div>
-                  </div>
-                  <div style={{display:'flex',flexDirection:'column',justifyContent:'flex-start'}}>
-                    <label className="lbl" style={{visibility:'hidden'}}>_</label>
-                    {!editItem
-                      ? <button onClick={addSPToList} style={{padding:'9px',borderRadius:'6px',border:'none',background:'var(--primary)',color:'white',fontWeight:700,cursor:'pointer',fontSize:'13px'}}>+ Thêm SP vào danh sách</button>
-                      : <div style={{padding:'8px 12px',background:'#EFF6FF',borderRadius:'6px',fontSize:'12px',fontWeight:700,color:'var(--primary)',textAlign:'center'}}>{fVND(slThucNhan*(giaNhapNCC+cpvcKho))}đ</div>
-                    }
-                    <div style={{fontSize:'10px',color:'#6B7280',marginTop:'2px',minHeight:'14px'}}>
-                      {!editItem&&maSP&&slThucNhan>0?`${slThucNhan} × ${fVND(giaNhapNCC+cpvcKho)}đ = ${fVND(slThucNhan*(giaNhapNCC+cpvcKho))}đ`:''}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Danh sách SP đã thêm */}
+                {/* Danh sách SP đã thêm - hiện TRÊN */}
                 {dsSP.length>0&&(
-                  <div style={{marginTop:'10px',border:'1px solid #E5E7EB',borderRadius:'8px',overflow:'hidden'}}>
+                  <div style={{marginBottom:'10px',border:'1px solid #E5E7EB',borderRadius:'8px',overflow:'hidden'}}>
                     <div style={{background:'#F0F4FF',padding:'6px 10px',fontSize:'11px',fontWeight:600,color:'var(--primary)',display:'flex',justifyContent:'space-between'}}>
                       <span>DANH SÁCH SẢN PHẨM ({dsSP.length})</span>
                       <span>Tổng: {fVND(dsSP.reduce((s:number,it:any)=>s+it.slThucNhan*(it.giaNhapNCC+it.cpvcKho),0))}đ</span>
@@ -825,6 +779,48 @@ export default function NhapKhoClient({nhapKhoList,nccList,sanPhamList,datHangLi
                     ))}
                   </div>
                 )}
+
+                {/* Form nhập SP - hàng 1: SP + SL */}
+                <div style={{display:'grid',gridTemplateColumns:'2fr 120px',gap:'10px',marginBottom:'8px'}}>
+                  <div>
+                    <label className="lbl">Sản phẩm *</label>
+                    <SPInput spList={spLocal} value={qSP} maSP={maSP}
+                      onSelect={(ma,ten,giaNCC,cpvc)=>{setMaSP(ma);setTenSP(ten);setQSP(ten);setGiaNhapNCC(giaNCC);setCpvcKho(cpvc)}}
+                      onChange={v=>{setQSP(v);setMaSP('')}}/>
+                    <div style={{fontSize:'10px',color:'var(--primary)',fontWeight:600,marginTop:'2px',minHeight:'14px'}}>
+                      {maSP?`✅ ${tenSP} · Tồn: ${spMap[maSP]?.['Tồn kho']||0}`:''}
+                    </div>
+                  </div>
+                  <div>
+                    <label className="lbl">Số lượng nhập</label>
+                    <input className="input" type="number" min="0" value={slThucNhan||''} placeholder="0" onChange={e=>setSlThucNhan(Number(e.target.value)||0)}/>
+                    <div style={{fontSize:'10px',color:'#6B7280',marginTop:'2px',minHeight:'14px'}}>&nbsp;</div>
+                  </div>
+
+                </div>
+                {/* Form nhập SP - hàng 2: giá + lỗi + PK + nút */}
+                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:'10px',marginBottom:'8px'}}>
+                  <div>
+                    <label className="lbl">📦 Giá nhập NCC (đ)</label>
+                    <MoneyInput value={giaNhapNCC} onChange={setGiaNhapNCC}/>
+                  </div>
+                  <div>
+                    <label className="lbl">🚚 CPVC về kho (đ)</label>
+                    <MoneyInput value={cpvcKho} onChange={setCpvcKho}/>
+                  </div>
+                  <div style={{display:'flex',flexDirection:'column',justifyContent:'flex-start'}}>
+                    <label className="lbl" style={{visibility:'hidden'}}>_</label>
+                    {!editItem
+                      ? <button onClick={addSPToList} style={{padding:'9px',borderRadius:'6px',border:'none',background:'var(--primary)',color:'white',fontWeight:700,cursor:'pointer',fontSize:'13px'}}>+ Thêm SP vào danh sách</button>
+                      : <div style={{padding:'8px 12px',background:'#EFF6FF',borderRadius:'6px',fontSize:'12px',fontWeight:700,color:'var(--primary)',textAlign:'center'}}>{fVND(slThucNhan*(giaNhapNCC+cpvcKho))}đ</div>
+                    }
+                    <div style={{fontSize:'10px',color:'#6B7280',marginTop:'2px',minHeight:'14px'}}>
+                      {!editItem&&maSP&&slThucNhan>0?`${slThucNhan} × ${fVND(giaNhapNCC+cpvcKho)}đ = ${fVND(slThucNhan*(giaNhapNCC+cpvcKho))}đ`:''}
+                    </div>
+                  </div>
+                </div>
+
+
 
                 {/* Nút Thêm sản phẩm ở dưới */}
                 {!editItem&&<button onClick={addSPToList} style={{marginTop:'8px',width:'100%',padding:'8px',borderRadius:'7px',border:'2px dashed var(--border)',background:'white',color:'var(--text-secondary)',fontSize:'13px',fontWeight:600,cursor:'pointer'}}>+ Thêm sản phẩm vào danh sách</button>}
@@ -1045,9 +1041,13 @@ export default function NhapKhoClient({nhapKhoList,nccList,sanPhamList,datHangLi
               <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'10px'}}>
                 <div>
                   <label className="lbl">Loại vấn đề</label>
-                  <select className="input" value={bcLoai} onChange={e=>setBcLoai(e.target.value)}>
+                  <select className="input" value={bcLoai} onChange={e=>{
+                    setBcLoai(e.target.value)
+                    setBcHuong(HUONG_XU_LY[e.target.value]?.[0]||'Trả lại NCC')
+                  }}>
                     <option>Lỗi</option>
                     <option>Thiếu phụ kiện</option>
+                    <option>Hỏng phụ kiện</option>
                     <option>Thừa hàng</option>
                     <option>Thiếu hàng</option>
                   </select>
@@ -1060,10 +1060,7 @@ export default function NhapKhoClient({nhapKhoList,nccList,sanPhamList,datHangLi
               <div>
                 <label className="lbl">Hướng xử lý dự kiến</label>
                 <select className="input" value={bcHuong} onChange={e=>setBcHuong(e.target.value)}>
-                  <option>Trả NCC</option>
-                  <option>Giữ trong kho</option>
-                  <option>Nhận bổ sung</option>
-                  <option>Đặt bù</option>
+                  {(HUONG_XU_LY[bcLoai]||['Trả lại NCC']).map(h=><option key={h}>{h}</option>)}
                 </select>
               </div>
               <div>
@@ -1071,7 +1068,7 @@ export default function NhapKhoClient({nhapKhoList,nccList,sanPhamList,datHangLi
                 <input className="input" placeholder="Mô tả vấn đề cụ thể..." value={bcGhiChu} onChange={e=>setBcGhiChu(e.target.value)}/>
               </div>
               <div style={{padding:'8px 12px',background:'#FEF3C7',borderRadius:'6px',fontSize:'12px',color:'#92400E'}}>
-                ⚠️ Sau khi báo cáo, phiếu nhập sẽ chuyển sang trạng thái "Có vấn đề" và tạo phiếu xử lý riêng.
+                ⚠️ Sau khi xác nhận: tồn kho sẽ trừ {bcSoLuong} {spMap[popupBaoCao?.['Mã SP']]?.['Đơn vị tính']||'SP'} ngay lập tức và tạo phiếu xử lý riêng tại trang "Xử lý hàng nhập".
               </div>
               <div style={{display:'flex',gap:'10px'}}>
                 <button onClick={baoCaoVanDe} disabled={bcLoading} style={{flex:1,padding:'11px',borderRadius:'8px',border:'none',background:bcLoading?'#9CA3AF':'#D97706',color:'white',fontWeight:700,cursor:bcLoading?'not-allowed':'pointer',fontSize:'14px'}}>
@@ -1104,6 +1101,21 @@ export default function NhapKhoClient({nhapKhoList,nccList,sanPhamList,datHangLi
 }
 
 // ── SUB-COMPONENTS (tránh re-render parent) ──────────────────
+function MoneyInput({value,onChange}:{value:number;onChange:(v:number)=>void}){
+  const [focused,setFocused]=useState(false)
+  const [raw,setRaw]=useState(value>0?String(value):'')
+  useEffect(()=>{if(!focused)setRaw(value>0?String(value):'')},[value,focused])
+  return (
+    <div>
+      <input className="input" inputMode="numeric" placeholder="0"
+        value={focused?raw:(value>0?value.toLocaleString('vi-VN'):'')}
+        onFocus={()=>{setFocused(true);setRaw(value>0?String(value):'')} }
+        onChange={e=>{const v=e.target.value.replace(/[^0-9]/g,'');setRaw(v);onChange(Number(v)||0)}}
+        onBlur={()=>setFocused(false)}/>
+    </div>
+  )
+}
+
 function NCCInput({nccList,value,maNCC,onSelect,onChange}:{nccList:any[];value:string;maNCC:string;onSelect:(ma:string,ten:string)=>void;onChange:(v:string)=>void}){
   const [show,setShow]=useState(false)
   const [q,setQ]=useState(value)
