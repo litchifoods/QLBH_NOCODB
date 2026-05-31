@@ -148,6 +148,8 @@ export default function NhapKhoClient({nhapKhoList,nccList,sanPhamList,datHangLi
   const [giaNhapNCC, setGiaNhapNCC] = useState<number>(0)
   const [cpvcKho,    setCpvcKho]    = useState<number>(0)
   const [tinhTrang,  setTinhTrang]  = useState('Đủ')
+  const [slLoi,      setSlLoi]      = useState<number>(0)
+  const [slChoiPK,   setSlChoiPK]   = useState<number>(0)
   // Danh sách SP nhập trực tiếp (nhiều SP)
   const [dsSP, setDsSP] = useState<any[]>([])
 
@@ -273,7 +275,7 @@ export default function NhapKhoClient({nhapKhoList,nccList,sanPhamList,datHangLi
     setNgayNhap(new Date().toISOString().split('T')[0])
     setGhiChu('')
     setMaSP('');setTenSP('');setQSP('');setDsSP([])
-    setSlThucNhan(0);setGiaNhapNCC(0);setCpvcKho(0);setTinhTrang('Đủ')
+    setSlThucNhan(0);setGiaNhapNCC(0);setCpvcKho(0);setTinhTrang('Đủ');setSlLoi(0);setSlChoiPK(0)
     setMaDonChon('');setSpItems([])
     setShowNCC(false);setShowSP(false)
     setMsgModal('')
