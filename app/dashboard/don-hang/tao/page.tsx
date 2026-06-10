@@ -18,7 +18,7 @@ export default async function TaoDonHangPage({
     }),
     getRecords(TABLES.SAN_PHAM, {
       limit: 300, sort: 'Tên sản phẩm',
-      fields: 'Mã SP,Tên sản phẩm,Đơn vị tính,Giá bán lẻ,Tồn kho',
+      fields: 'Mã SP,Tên sản phẩm,Đơn vị tính,Giá bán lẻ,Giá bán buôn,Giá nhập NCC,Tồn kho,Loại SP',
     }),
     getRecords(TABLES.DON_HANG, { limit: 1, sort: '-Id', fields: 'Mã đơn hàng' }),
   ])
@@ -26,7 +26,10 @@ export default async function TaoDonHangPage({
   // Query NV riêng — không dùng fields filter, không sort (tránh lỗi tên cột tiếng Việt)
   let nhanVien: any = { list: [] }
   try {
-    nhanVien = await getRecords(TABLES.NHAN_VIEN, { limit: 200 })
+    nhanVien = await getRecords(TABLES.NHAN_VIEN, {
+      limit: 200, sort: '-Id',
+      fields: 'Id,Mã nhân viên,Họ và Tên,Vai trò,Loại,Trạng thái'
+    })
   } catch (e) {
     console.error('[NV ERROR]', e)
   }
@@ -40,20 +43,16 @@ export default async function TaoDonHangPage({
   }
 
   // ✅ Đúng tên cột NocoDB: "Mã Nhân Viên" và "Họ và Tên"
-  const nvMap: Record<string,any> = {}
-  for (const nv of (nhanVien.list || [])) {
-    const ma  = nv['Mã Nhân Viên']
-    const ten = (nv['Họ và Tên'] || '').trim()
-    if (!ma || !ten) continue
-    if (!nvMap[ma] || (nv['Tháng']||'') > (nvMap[ma]['Tháng']||'')) nvMap[ma] = nv
-  }
-  const danhSachNV = Object.values(nvMap)
+  const danhSachNV = (nhanVien.list || [])
+    .filter((nv:any) => nv['Mã nhân viên'] && (nv['Họ và Tên']||'').trim() && nv['Loại']==='Nhân viên' && nv['Trạng thái']!=='Nghỉ việc')
     .map((nv:any) => ({
-      'Mã NV':   nv['Mã Nhân Viên'],
-      'Họ tên':  nv['Họ và Tên'] || '',
-      'Vai trò': nv['Vai trò'] || '',
+      'Mã nhân viên': nv['Mã nhân viên'],
+      'Họ và Tên':    nv['Họ và Tên'] || '',
+      'Vai trò':      nv['Vai trò'] || '',
+      'Trạng thái':   nv['Trạng thái'] || '',
+      'Loại':         nv['Loại'] || '',
     }))
-    .sort((a,b) => (a['Họ tên']||'').localeCompare(b['Họ tên']||'', 'vi'))
+    .sort((a:any,b:any) => (a['Họ và Tên']||'').localeCompare(b['Họ và Tên']||'', 'vi'))
 
   let khDaChon: any = null
   if (searchParams.maKH) {

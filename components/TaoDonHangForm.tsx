@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 // components/TaoDonHangForm.tsx — v2.4
 // Sửa lỗi 404: đọc maDon từ json.maDon (API đã query lại sau khi tạo)
 
@@ -12,12 +12,34 @@ function boDau(s: string) {
 }
 
 interface KH { 'Mã KH':string; 'Tên khách hàng':string; 'Số điện thoại':string; 'Địa chỉ':string; 'Đối tượng khách hàng'?:string }
-interface NV { 'Mã NV':string; 'Họ tên':string; 'Vai trò':string }
-interface SP { 'Mã SP':string; 'Tên sản phẩm':string; 'Đơn vị tính':string; 'Giá bán lẻ':number; 'Tồn kho':number }
-interface Dong { id:string; maSP:string; tenSP:string; soLuong:number; donGia:number; thanhTien:number; ghiChu:string }
+interface NV { 'Mã nhân viên':string; 'Họ và Tên':string; 'Vai trò':string; 'Trạng thái':string }
+interface SP { 'Mã SP':string; 'Tên sản phẩm':string; 'Đơn vị tính':string; 'Giá bán lẻ':number; 'Giá bán buôn':number; 'Tồn kho':number }
+interface Dong { id:string; maSP:string; tenSP:string; soLuong:number; donGia:number; giaBuon?:number; giaNhap?:number; thanhTien:number; ghiChu:string }
+interface DonHangSua {
+  maDon:string; rowId:string; ngayDat:string; kenhBan:string
+  htGiao:string; ngayHenGiao:string; nvBan:string; maNV:string
+  ghiChu:string; tienMat:number; ckCoc:number; cpGiaoHang:number
+  htCoc:string
+  chiTiet:{id:string;maSP:string;tenSP:string;soLuong:number;donGia:number;giaNhap:number;thanhTien:number;ghiChu:string}[]
+}
+
+function MoneyInput({value,onChange,placeholder='0',style={}}:{value:number;onChange:(v:number)=>void;placeholder?:string;style?:any}){
+  const [display,setDisplay]=useState(value>0?value.toLocaleString('vi-VN'):'')
+  useEffect(()=>{setDisplay(value>0?value.toLocaleString('vi-VN'):'')},[value])
+  return (
+    <input className="input" inputMode="numeric" placeholder={placeholder} style={style}
+      value={display}
+      onChange={e=>{
+        const raw=e.target.value.replace(/\./g,'').replace(/[^0-9]/g,'')
+        const num=Number(raw)||0
+        setDisplay(num>0?num.toLocaleString('vi-VN'):'')
+        onChange(num)
+      }}/>
+  )
+}
 
 export default function TaoDonHangForm({
-  user, danhSachKH, danhSachSP, danhSachNV, nextMaDon, khDaChon,
+  user, danhSachKH, danhSachSP, danhSachNV, nextMaDon, khDaChon, donHangSua,
 }: {
   user: UserSession
   danhSachKH: KH[]
@@ -25,24 +47,26 @@ export default function TaoDonHangForm({
   danhSachNV: NV[]
   nextMaDon: string
   khDaChon?: KH | null
+  donHangSua?: DonHangSua | null
 }) {
   const router = useRouter()
   const today  = new Date().toISOString().split('T')[0]
-  const dangLuu = useRef(false) // Ngăn double submit
+  const dangLuu = useRef(false)
+  const isSuaMode = !!donHangSua
 
-  const [ngayDat,     setNgayDat]     = useState(today)
-  const [kenhBan,     setKenhBan]     = useState('Trực tiếp')
-  const [htGiao,      setHtGiao]      = useState('Giao hàng cho khách')
-  const [ngayHenGiao, setNgayHenGiao] = useState('')
-  const [ghiChu,      setGhiChu]      = useState('')
+  const [ngayDat,     setNgayDat]     = useState(donHangSua?.ngayDat || today)
+  const [kenhBan,     setKenhBan]     = useState(donHangSua?.kenhBan || 'Trực tiếp')
+  const [htGiao,      setHtGiao]      = useState(donHangSua?.htGiao || 'Giao hàng cho khách')
+  const [ngayHenGiao, setNgayHenGiao] = useState(donHangSua?.ngayHenGiao || '')
+  const [ghiChu,      setGhiChu]      = useState(donHangSua?.ghiChu || '')
 
-  const [searchNV, setSearchNV] = useState('')
-  const [maNV,     setMaNV]     = useState('')
+  const [searchNV, setSearchNV] = useState(donHangSua?.nvBan || '')
+  const [maNV,     setMaNV]     = useState(donHangSua?.maNV || '')
   const [showNV,   setShowNV]   = useState(false)
   const nvLoc = useMemo(() => {
-    if (!searchNV.trim()) return danhSachNV.slice(0,10)
+    if (!searchNV.trim()) return danhSachNV.filter((nv:any)=>nv['Trạng thái']!=='Nghỉ việc').slice(0,10)
     const q = boDau(searchNV)
-    return danhSachNV.filter(nv => boDau(nv['Họ tên']||'').includes(q)||boDau(nv['Mã NV']||'').includes(q)).slice(0,10)
+    return danhSachNV.filter(nv => nv['Trạng thái']!=='Nghỉ việc').filter(nv => boDau(nv['Họ và Tên']||'').includes(q)||boDau(nv['Mã nhân viên']||'').includes(q)).slice(0,10)
   }, [searchNV, danhSachNV])
 
   const [searchKH,   setSearchKH]   = useState('')
@@ -137,15 +161,36 @@ export default function TaoDonHangForm({
     finally { setLoadingKH(false) }
   }
 
-  const [dongSP,   setDongSP]   = useState<Dong[]>([{id:'1',maSP:'',tenSP:'',soLuong:1,donGia:0,thanhTien:0,ghiChu:''}])
-  const [searchSP, setSearchSP] = useState<Record<string,string>>({})
+  const [dongSP,   setDongSP]   = useState<Dong[]>(() => {
+    if (donHangSua?.chiTiet?.length) {
+      return donHangSua.chiTiet.map(ct => ({
+        id: ct.id||Date.now().toString(),
+        maSP: ct.maSP, tenSP: ct.tenSP,
+        soLuong: ct.soLuong, donGia: ct.donGia,
+        giaBuon: 0, giaNhap: ct.giaNhap||0,
+        thanhTien: ct.thanhTien, ghiChu: ct.ghiChu,
+      }))
+    }
+    return [{id:'1',maSP:'',tenSP:'',soLuong:1,donGia:0,giaBuon:0,giaNhap:0,thanhTien:0,ghiChu:''}]
+  })
+  const [searchSP, setSearchSP] = useState<Record<string,string>>(() => {
+    if (donHangSua?.chiTiet?.length) {
+      const m: Record<string,string> = {}
+      donHangSua.chiTiet.forEach(ct => { m[ct.id||''] = ct.tenSP })
+      return m
+    }
+    return {}
+  })
   const [showSP,   setShowSP]   = useState<Record<string,boolean>>({})
-  const [cpGiaoHang, setCpGiaoHang] = useState(0)
-  const [tienMat,  setTienMat]  = useState(0)
-  const [ckCoc,    setCkCoc]    = useState(0)
+  const [cpGiaoHang, setCpGiaoHang] = useState(donHangSua?.cpGiaoHang || 0)
+  const [giamGia,    setGiamGia]    = useState(0)
+  const [loaiGiam,   setLoaiGiam]   = useState<'value'|'percent'>('value')
+  const [tienMat,  setTienMat]  = useState(donHangSua?.tienMat || 0)
+  const [ckCoc,    setCkCoc]    = useState(donHangSua?.ckCoc || 0)
   const tongTien   = dongSP.reduce((s,d)=>s+d.thanhTien,0)
   const datCocTong = tienMat+ckCoc
-  const conPhaiThu = tongTien + cpGiaoHang - datCocTong
+  const soTienGiam = loaiGiam==='percent' ? Math.round(tongTien*giamGia/100) : giamGia
+  const conPhaiThu = tongTien - soTienGiam + cpGiaoHang - datCocTong
 
   function spLoc(id:string) {
     const q=searchSP[id]||''
@@ -155,6 +200,8 @@ export default function TaoDonHangForm({
   }
   function chonSP(id:string,sp:SP) {
     const dg=sp['Giá bán lẻ']||0
+    const giaBuon=Number(sp['Giá bán buôn']||0)
+    const giaNhap=Number((sp as any)['Giá nhập NCC']||0)
     const tenMoi=sp['Tên sản phẩm']||''
     const maMoi=sp['Mã SP']||''
     // Kiểm tra đã có dòng SP này chưa (trừ dòng hiện tại)
@@ -168,7 +215,7 @@ export default function TaoDonHangForm({
         .filter(d=>d.id!==id)
       )
     } else {
-      setDongSP(prev=>prev.map(d=>d.id!==id?d:{...d,maSP:maMoi,tenSP:tenMoi,donGia:dg,thanhTien:d.soLuong*dg}))
+      setDongSP(prev=>prev.map(d=>d.id!==id?d:{...d,maSP:maMoi,tenSP:tenMoi,donGia:dg||0,giaBuon,giaNhap,thanhTien:d.soLuong*(dg||0)}))
     }
     setSearchSP(prev=>({...prev,[id]:tenMoi}))
     setShowSP(prev=>({...prev,[id]:false}))
@@ -181,7 +228,7 @@ export default function TaoDonHangForm({
       return u
     }))
   }
-  function themDong(){const id=Date.now().toString();setDongSP(prev=>[...prev,{id,maSP:'',tenSP:'',soLuong:1,donGia:0,thanhTien:0,ghiChu:''}])}
+  function themDong(){const id=Date.now().toString();setDongSP(prev=>[...prev,{id,maSP:'',tenSP:'',soLuong:1,donGia:0,giaNhap:0,thanhTien:0,ghiChu:''}])}
   function xoaDong(id:string){setDongSP(prev=>prev.filter(d=>d.id!==id))}
 
   const [loadingLuu, setLoadingLuu] = useState(false)
@@ -209,9 +256,12 @@ export default function TaoDonHangForm({
           'Ngày bán':ngayDat,'Ngày đặt':ngayDat,'Mã KH':maKH,
           'Tên khách hàng':tenKH||searchKH,'Kênh bán':kenhBan,
           'Hình thức giao hàng':htGiao,'Ngày hẹn giao':ngayHenGiao||null,
-          'Địa chỉ giao':diaChiKH,'Tổng tiền đơn':tongTien,
+          'Địa chỉ giao':diaChiKH,'Tổng tiền đơn':tongTien-soTienGiam,
+          'Giảm giá': soTienGiam||0,
+          'Loại giảm giá': giamGia>0 ? loaiGiam : '',
+          'Giá trị giảm': giamGia||0,
           'Đặt cọc':datCocTong,'Hình thức cọc':htCoc,
-          'Còn phải thu':conPhaiThu,'Trạng thái':'Chờ giao',
+          'Còn phải thu':conPhaiThu,'CP giao hàng':cpGiaoHang,'Trạng thái':'Chờ giao',
           'Mã NV':maNV||'','Nhân viên bán':searchNV,
           'Ghi chú':ghiChu,
         }),
@@ -238,7 +288,7 @@ export default function TaoDonHangForm({
           body: JSON.stringify({
             'Mã đơn hàng':maDonMoi,'Mã SP':d.maSP,
             'Tên SP (ghi nhanh)':d.tenSP,'Số lượng':d.soLuong,
-            'Đơn giá':d.donGia,'Thành tiền':d.thanhTien,'Ghi chú SP':d.ghiChu,
+            'Đơn giá':d.donGia,'Giá nhập':d.giaNhap||0,'Thành tiền':d.thanhTien,'Ghi chú SP':d.ghiChu,
           }),
         })
       }
@@ -252,13 +302,16 @@ export default function TaoDonHangForm({
 
   async function luuDon() {
     if (!validate()) return
-    if (dangLuu.current) return // Ngăn double submit
+    if (dangLuu.current) return
     dangLuu.current = true
     setLoadingLuu(true)
     const ma = await taoDon()
     setLoadingLuu(false)
     dangLuu.current = false
-    if (ma) { router.push('/dashboard/don-hang'); router.refresh() }
+    if (ma) {
+      if (isSuaMode) { router.push('/dashboard/don-hang/'+ma); router.refresh() }
+      else { router.push('/dashboard/don-hang'); router.refresh() }
+    }
   }
 
   async function luuVaIn() {
@@ -288,10 +341,14 @@ export default function TaoDonHangForm({
 
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'18px'}}>
         <div>
-          <h1 style={{fontFamily:'Playfair Display,serif',fontSize:'21px',fontWeight:700,margin:0}}>➕ Tạo đơn hàng mới</h1>
-          <p style={{color:'var(--text-secondary)',fontSize:'12px',margin:'2px 0 0'}}>Mã đơn sẽ được hệ thống tự tạo</p>
+          <h1 style={{fontFamily:'Playfair Display,serif',fontSize:'21px',fontWeight:700,margin:0}}>
+            {isSuaMode ? '✏️ Sửa đơn hàng' : '➕ Tạo đơn hàng mới'}
+          </h1>
+          <p style={{color:'var(--text-secondary)',fontSize:'12px',margin:'2px 0 0'}}>
+            {isSuaMode ? 'Mã đơn: '+donHangSua?.maDon : 'Mã đơn sẽ được hệ thống tự tạo'}
+          </p>
         </div>
-        <button onClick={()=>router.back()} className="btn btn-ghost btn-sm">← Quay lại</button>
+        <button onClick={()=>isSuaMode?router.push('/dashboard/don-hang/'+donHangSua?.maDon):router.back()} className="btn btn-ghost btn-sm">← Quay lại</button>
       </div>
 
       {error&&<div style={{background:'#FEE2E2',color:'#DC2626',padding:'10px 14px',borderRadius:'8px',marginBottom:'14px',fontSize:'13px'}}>⚠️ {error}</div>}
@@ -305,7 +362,7 @@ export default function TaoDonHangForm({
               <div><LBL>Ngày đặt *</LBL><input className="input" type="date" value={ngayDat} onChange={e=>setNgayDat(e.target.value)}/></div>
               <div><LBL>Kênh bán *</LBL>
                 <select className="input" value={kenhBan} onChange={e=>setKenhBan(e.target.value)}>
-                  {['Trực tiếp','Zalo','Facebook','Điện thoại','Online'].map(k=><option key={k}>{k}</option>)}
+                  {['Trực tiếp','Online'].map(k=><option key={k}>{k}</option>)}
                 </select>
               </div>
               <div><LBL>Hình thức giao *</LBL>
@@ -322,13 +379,13 @@ export default function TaoDonHangForm({
                     onFocus={()=>setShowNV(true)} onBlur={()=>setTimeout(()=>setShowNV(false),200)} style={{paddingRight:'32px'}}/>
                   <span style={{position:'absolute',right:'10px',top:'50%',transform:'translateY(-50%)',color:'#9CA3AF',fontSize:'14px',pointerEvents:'none'}}>🔍</span>
                   {showNV&&<div className="db">
-                    {searchNV&&!danhSachNV.find(n=>n['Họ tên']===searchNV)&&
+                    {searchNV&&!danhSachNV.find(n=>n['Họ và Tên']===searchNV)&&
                       <div className="di" onMouseDown={e=>{e.preventDefault();setShowNV(false)}} style={{background:'#FEF9C3',color:'#92400E',fontSize:'12px'}}>✏️ Dùng tên: <strong>"{searchNV}"</strong></div>}
                     {nvLoc.length===0
                       ?<div style={{padding:'12px',fontSize:'12px',color:'#6B7280',textAlign:'center'}}>Không tìm thấy</div>
-                      :nvLoc.map(nv=><div key={nv['Mã NV']} className="di" onMouseDown={e=>{e.preventDefault();setSearchNV(nv['Họ tên']);setMaNV(nv['Mã NV']);setShowNV(false)}}>
-                        <div style={{fontWeight:600}}>{nv['Họ tên']}</div>
-                        <div style={{fontSize:'11px',color:'#6B7280'}}>{nv['Mã NV']} · {nv['Vai trò']||'—'}</div>
+                      :nvLoc.map(nv=><div key={nv['Mã nhân viên']} className="di" onMouseDown={e=>{e.preventDefault();setSearchNV(nv['Họ và Tên']);setMaNV(nv['Mã nhân viên']);setShowNV(false)}}>
+                        <div style={{fontWeight:600}}>{nv['Họ và Tên']}</div>
+                        <div style={{fontSize:'11px',color:'#6B7280'}}>{nv['Mã nhân viên']} · {nv['Vai trò']||'—'}</div>
                       </div>)}
                   </div>}
                 </div>
@@ -372,7 +429,7 @@ export default function TaoDonHangForm({
           </div>
 
           <div className="card" style={{padding:'14px'}}>
-            <h3 style={{fontSize:'11px',fontWeight:700,marginBottom:'12px',color:'var(--primary)',textTransform:'uppercase',letterSpacing:'.05em'}}>💰 Đặt cọc</h3>
+            <h3 style={{fontSize:'11px',fontWeight:700,marginBottom:'12px',color:'var(--primary)',textTransform:'uppercase',letterSpacing:'.05em'}}>💰 Đặt cọc/Trả trước</h3>
             <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'10px'}}>
               <div><LBL>💵 Tiền mặt (VNĐ)</LBL><input className="input" type="text" inputMode="numeric" value={tienMat?tienMat.toLocaleString('vi-VN'):''} placeholder="0" onChange={e=>{const v=Number(e.target.value.replace(/\./g,'').replace(/,/g,''));if(!isNaN(v))setTienMat(v)}}/></div>
               <div><LBL>🏦 Chuyển khoản (VNĐ)</LBL><input className="input" type="text" inputMode="numeric" value={ckCoc?ckCoc.toLocaleString('vi-VN'):''} placeholder="0" onChange={e=>{const v=Number(e.target.value.replace(/\./g,'').replace(/,/g,''));if(!isNaN(v))setCkCoc(v)}}/></div>
@@ -382,14 +439,43 @@ export default function TaoDonHangForm({
           </div>
 
           <div className="card" style={{padding:'14px'}}>
-            <h3 style={{fontSize:'11px',fontWeight:700,marginBottom:'10px',color:'var(--primary)',textTransform:'uppercase',letterSpacing:'.05em'}}>🚚 Chi phí giao hàng</h3>
-            <div>
-              <LBL>CP giao hàng / lắp đặt (VNĐ)</LBL>
-              <input className="input" type="number" min="0" value={cpGiaoHang||''} placeholder="0 — để trống nếu không có"
-                onChange={e=>setCpGiaoHang(Number(e.target.value))}/>
-              {cpGiaoHang>0&&<div style={{marginTop:'4px',fontSize:'11px',color:'#6B7280',fontStyle:'italic'}}>
-                💡 CP giao hàng sẽ được cộng vào "Còn phải thu"
-              </div>}
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'14px'}}>
+              {/* Giảm giá */}
+              <div>
+                <h3 style={{fontSize:'11px',fontWeight:700,marginBottom:'10px',color:'#7C3AED',textTransform:'uppercase',letterSpacing:'.05em'}}>🏷️ Giảm giá</h3>
+                <div style={{display:'flex',gap:'6px',marginBottom:'6px'}}>
+                  {(['value','percent'] as const).map(l=>(
+                    <button key={l} onClick={()=>{setLoaiGiam(l);setGiamGia(0)}}
+                      style={{flex:1,padding:'4px',borderRadius:'6px',border:'1px solid',fontSize:'11px',fontWeight:600,cursor:'pointer',
+                        borderColor:loaiGiam===l?'#7C3AED':'var(--border)',
+                        background:loaiGiam===l?'#F5F3FF':'white',
+                        color:loaiGiam===l?'#7C3AED':'var(--text-secondary)'}}>
+                      {l==='value'?'Giá trị (đ)':'Phần trăm (%)'}
+                    </button>
+                  ))}
+                </div>
+                {loaiGiam==='value'
+                  ?<MoneyInput value={giamGia} onChange={setGiamGia} placeholder="0"/>
+                  :<div style={{display:'flex',alignItems:'center',gap:'6px'}}>
+                    <input className="input" type="number" min="0" max="100" step="0.5" placeholder="0"
+                      value={giamGia||''} onChange={e=>setGiamGia(Number(e.target.value)||0)}
+                      style={{flex:1}}/>
+                    <span style={{fontWeight:700,color:'#7C3AED'}}>%</span>
+                  </div>}
+                {giamGia>0&&(
+                  <div style={{marginTop:'4px',fontSize:'11px',color:'#7C3AED',fontWeight:600}}>
+                    = -{fVND(soTienGiam)}đ
+                  </div>
+                )}
+              </div>
+              {/* CP giao hàng */}
+              <div>
+                <h3 style={{fontSize:'11px',fontWeight:700,marginBottom:'10px',color:'var(--primary)',textTransform:'uppercase',letterSpacing:'.05em'}}>🚚 Chi phí giao hàng</h3>
+                <MoneyInput value={cpGiaoHang} onChange={setCpGiaoHang} placeholder="0 — để trống nếu không có"/>
+                {cpGiaoHang>0&&<div style={{marginTop:'4px',fontSize:'11px',color:'#6B7280',fontStyle:'italic'}}>
+                  💡 Sẽ cộng vào "Còn phải thu"
+                </div>}
+              </div>
             </div>
           </div>
 
@@ -406,13 +492,22 @@ export default function TaoDonHangForm({
               <h3 style={{fontSize:'11px',fontWeight:700,color:'var(--primary)',textTransform:'uppercase',letterSpacing:'.05em',margin:0}}>🪑 Sản phẩm trong đơn</h3>
               <button onClick={themDong} className="btn btn-outline btn-sm" style={{fontSize:'12px'}}>+ Thêm SP</button>
             </div>
-            <div style={{display:'grid',gridTemplateColumns:'3fr 60px 100px 80px 20px',gap:'6px',padding:'4px 6px',fontSize:'11px',fontWeight:700,color:'var(--text-secondary)'}}>
-              <span>Sản phẩm</span><span style={{textAlign:'center'}}>SL</span><span style={{textAlign:'right'}}>Đơn giá</span><span style={{textAlign:'right'}}>T.Tiền</span><span></span>
+            <div style={{display:'grid',gridTemplateColumns:'2fr 50px 110px 100px 24px',gap:'4px',padding:'4px 0 6px',fontSize:'11px',fontWeight:700,color:'var(--text-secondary)',borderBottom:'1px solid var(--border)',marginBottom:'6px'}}>
+              <span>Sản phẩm</span>
+              <span style={{textAlign:'center'}}>SL</span>
+              <span style={{textAlign:'right'}}>Giá bán</span>
+              <span style={{textAlign:'right'}}>Thành tiền</span>
+              <span></span>
             </div>
+            {dongSP.some((d:any)=>Number(d.giaBuon||0)>0&&Number(d.donGia||0)>0&&Number(d.donGia)<Number(d.giaBuon))&&(
+              <div style={{padding:'8px 12px',borderRadius:'6px',background:'#FEF3C7',border:'1px solid #FCD34D',fontSize:'12px',color:'#92400E',fontWeight:600,marginBottom:'6px'}}>
+                ⚠️ Một số sản phẩm đang bán dưới giá cho phép — vui lòng kiểm tra lại trước khi lưu
+              </div>
+            )}
             <div style={{display:'flex',flexDirection:'column',gap:'6px'}}>
               {dongSP.map((dong,idx)=>(
-                <div key={dong.id} style={{border:'1px solid var(--border)',borderRadius:'8px',padding:'8px 10px',background:'#FAFBFD'}}>
-                  <div style={{display:'grid',gridTemplateColumns:'3fr 60px 100px 80px 20px',gap:'6px',alignItems:'center'}}>
+                <div key={dong.id} style={{borderRadius:'6px',padding:'4px 0',background:idx%2===0?'white':'#F8FAFD',borderBottom:'1px solid #F0F0F0'}}>
+                  <div style={{display:'grid',gridTemplateColumns:'2fr 50px 110px 100px 24px',gap:'4px',alignItems:'center'}}>
                     <div style={{position:'relative'}}>
                       <input className="input" placeholder={`SP #${idx+1} — gõ tên...`}
                         value={searchSP[dong.id]!==undefined?searchSP[dong.id]:dong.tenSP}
@@ -424,13 +519,14 @@ export default function TaoDonHangForm({
                         {spLoc(dong.id).map(sp=><div key={sp['Mã SP']} className="di" style={{fontSize:'12px'}} onMouseDown={e=>{e.preventDefault();chonSP(dong.id,sp)}}>
                           <div style={{fontWeight:600}}>{sp['Tên sản phẩm']}</div>
                           <div style={{fontSize:'11px',color:'#6B7280'}}>{sp['Mã SP']} · {Number(sp['Giá bán lẻ']).toLocaleString('vi-VN')}đ
-                            {Number(sp['Tồn kho'])===0?<span style={{color:'#DC2626',marginLeft:'6px'}}>⚠️ Hết</span>:<span style={{color:'#16A34A',marginLeft:'6px'}}>Kho:{sp['Tồn kho']}</span>}
+                            {Number(sp['Tồn kho'])===0&&(sp as any)['Loại SP']!=='Theo yêu cầu'?<span style={{color:'#DC2626',marginLeft:'6px'}}>⚠️ Hết</span>:(sp as any)['Loại SP']==='Theo yêu cầu'?<span style={{color:'#7C3AED',marginLeft:'6px'}}>Theo yêu cầu</span>:<span style={{color:'#16A34A',marginLeft:'6px'}}>Kho:{sp['Tồn kho']}</span>}
                           </div>
                         </div>)}
                       </div>}
                     </div>
-                    <input className="input" type="number" min="1" value={dong.soLuong} style={{fontSize:'12px',padding:'5px 4px',textAlign:'center'}} onChange={e=>updDong(dong.id,'soLuong',e.target.value)}/>
-                    <input className="input" type="number" min="0" value={dong.donGia||''} placeholder="0" style={{fontSize:'12px',padding:'5px 4px',textAlign:'right'}} onChange={e=>updDong(dong.id,'donGia',e.target.value)}/>
+                    <input className="input" type="number" min="1" value={dong.soLuong||''} onChange={e=>updDong(dong.id,'soLuong',e.target.value)} style={{fontSize:'12px',padding:'5px 4px',textAlign:'center'}}/>
+                    <input type="hidden" value={dong.giaNhap||0}/>
+                    <MoneyInput value={Number(dong.donGia)||0} onChange={v=>updDong(dong.id,'donGia',v)} placeholder="0" style={{fontSize:'12px',padding:'5px 4px',textAlign:'right'}}/>
                     <div style={{fontSize:'12px',fontWeight:700,color:'var(--success)',textAlign:'right'}}>{dong.thanhTien>0?dong.thanhTien.toLocaleString('vi-VN'):'0'}đ</div>
                     {dongSP.length>1?<button onClick={()=>xoaDong(dong.id)} style={{background:'none',border:'none',cursor:'pointer',color:'#DC2626',fontSize:'14px',padding:0}}>✕</button>:<span></span>}
                   </div>
@@ -448,6 +544,10 @@ export default function TaoDonHangForm({
               <div style={{display:'flex',justifyContent:'space-between',fontSize:'13px',marginBottom:'4px'}}>
                 <span style={{color:'var(--text-secondary)'}}>Tổng tiền hàng:</span><span style={{fontWeight:700}}>{fVND(tongTien)}</span>
               </div>
+              {soTienGiam>0&&<div style={{display:'flex',justifyContent:'space-between',fontSize:'13px',marginBottom:'4px'}}>
+                <span style={{color:'var(--text-secondary)'}}>Giảm giá{loaiGiam==='percent'?` (${giamGia}%)`:''}:</span>
+                <span style={{fontWeight:600,color:'#7C3AED'}}>- {fVND(soTienGiam)}</span>
+              </div>}
               {cpGiaoHang>0&&<div style={{display:'flex',justifyContent:'space-between',fontSize:'13px',marginBottom:'4px'}}>
                 <span style={{color:'var(--text-secondary)'}}>CP giao hàng:</span><span style={{fontWeight:600,color:'#92400E'}}>+ {fVND(cpGiaoHang)}</span>
               </div>}
@@ -464,7 +564,7 @@ export default function TaoDonHangForm({
           <div style={{display:'flex',flexDirection:'column',gap:'8px'}}>
             <button onClick={luuDon} disabled={loadingLuu||loadingIn}
               style={{width:'100%',padding:'13px',borderRadius:'8px',border:'none',background:loadingLuu?'#9CA3AF':'var(--primary)',color:'white',fontWeight:700,fontSize:'15px',cursor:loadingLuu||loadingIn?'not-allowed':'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:'8px'}}>
-              {loadingLuu?'⏳ Đang lưu...':'✅ Lưu đơn hàng'}
+              {loadingLuu?'⏳ Đang lưu...':(isSuaMode?'💾 Lưu chỉnh sửa':'✅ Lưu đơn hàng')}
             </button>
             <button onClick={luuVaIn} disabled={loadingLuu||loadingIn}
               style={{width:'100%',padding:'13px',borderRadius:'8px',border:'none',background:loadingIn?'#6B7280':'#0F6B3B',color:'white',fontWeight:700,fontSize:'15px',cursor:loadingLuu||loadingIn?'not-allowed':'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:'8px'}}>
@@ -535,3 +635,8 @@ export default function TaoDonHangForm({
     </div>
   )
 }
+
+
+
+
+

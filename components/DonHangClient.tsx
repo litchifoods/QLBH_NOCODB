@@ -1,8 +1,8 @@
-'use client'
+﻿'use client'
 // components/DonHangClient.tsx — v3.0
 // Thêm phân trang 10 đơn/trang
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { UserSession } from '@/lib/auth'
@@ -23,6 +23,7 @@ function badgeColor(tt: string) {
     'Đã giao 1 phần':  { bg:'#ECFDF5', color:'#059669' },
     'Hoàn thành':      { bg:'#D1FAE5', color:'#065F46' },
     'Huỷ':             { bg:'#FEE2E2', color:'#991B1B' },
+    'Hủy':             { bg:'#FEE2E2', color:'#991B1B' },
   }
   return map[tt] || { bg:'#F3F4F6', color:'#374151' }
 }
@@ -32,19 +33,31 @@ const KENH       = ['Tất cả','Trực tiếp','Zalo','Facebook','Điện tho�
 const SO_TRANG   = 10
 
 export default function DonHangClient({
-  donHang, khachHangMap, trangThaiMap, user, searchParams,
+  donHang, khachHangMap, trangThaiMap, thuKHMap={}, user, searchParams,
 }: {
   donHang: any[]
   khachHangMap: Record<string, any>
-  trangThaiMap: Record<string, string>  // maDon → trạng thái tính toán
+  trangThaiMap: Record<string, string>
+  thuKHMap?: Record<string, number>
   user: UserSession
   searchParams: any
 }) {
   const router = useRouter()
   const [trangThai, setTrangThai] = useState(searchParams.trang_thai || 'Tất cả')
+  const [xoaDon,        setXoaDon]        = useState<any>(null)
+  const [dangXoaDon,    setDangXoaDon]    = useState(false)
+  const [msgXoa,        setMsgXoa]        = useState('')
   const [kenh,      setKenh]      = useState(searchParams.kenh       || 'Tất cả')
   const [search,    setSearch]    = useState(searchParams.q          || '')
   const [trang,     setTrang]     = useState(1)
+  const [tuNgay,    setTuNgay]    = useState('')
+  const [denNgay,   setDenNgay]   = useState('')
+  useEffect(()=>{
+    const n = new Date()
+    const y = n.getFullYear(), m = String(n.getMonth()+1).padStart(2,'0')
+    setTuNgay(`${y}-${m}-01`)
+    setDenNgay(n.toISOString().split('T')[0])
+  },[])
 
   const donHopLe = useMemo(() =>
     donHang.filter(d => d['Mã đơn hàng']?.toString().trim())
@@ -68,6 +81,12 @@ export default function DonHangClient({
   const filtered = useMemo(() => {
     setTrang(1)
     return donHopLe.filter(d => {
+      if(tuNgay && denNgay){
+        const raw = (d['Ngày đặt']||d['Ngày bán']||'').split(' ')[0]
+        const parts = raw.split('-')
+        const ngay = parts.length===3&&parts[0].length===2 ? `${parts[2]}-${parts[1]}-${parts[0]}` : raw.split('T')[0]
+        if(ngay && (ngay<tuNgay || ngay>denNgay)) return false
+      }
       const ttTinh = trangThaiMap[d['Mã đơn hàng']] || d['Trạng thái'] || ''
       if (trangThai !== 'Tất cả' && ttTinh !== trangThai) return false
       if (kenh      !== 'Tất cả' && d['Kênh bán']   !== kenh)      return false
@@ -88,13 +107,15 @@ export default function DonHangClient({
       }
       return true
     })
-  }, [donHopLe, trangThai, kenh, search, khachHangMap])
+  }, [donHopLe, trangThai, kenh, search, khachHangMap, tuNgay, denNgay])
 
   // Phân trang
   const tongTrang      = Math.max(1, Math.ceil(filtered.length / SO_TRANG))
   const trangHienTai   = Math.min(trang, tongTrang)
   const danhSachTrang  = filtered.slice((trangHienTai-1)*SO_TRANG, trangHienTai*SO_TRANG)
-  const tongTien       = filtered.reduce((s: number, d: any) => s + (Number(d['Tổng tiền đơn']) || 0), 0)
+  const tongTien    = filtered.reduce((s:number,d:any)=>s+Number(d['Tổng tiền đơn']||0)+Number(d['CP giao hàng']||0),0)
+  const tongDaThu   = filtered.reduce((s:number,d:any)=>s+Number(d['Đặt cọc']||0)+Number(thuKHMap[d['Mã đơn hàng']]||0),0)
+  const tongConNo   = filtered.reduce((s:number,d:any)=>{const doanhThu=Number(d['Tổng tiền đơn']||0)+Number(d['CP giao hàng']||0);const daThu=Number(d['Đặt cọc']||0)+Number(thuKHMap[d['Mã đơn hàng']]||0);return s+Math.max(0,doanhThu-daThu)},0)
 
   async function handleNhap(rows: Record<string,string>[]) {
     const res = await fetch('/api/import/don-hang', {
@@ -104,6 +125,21 @@ export default function DonHangClient({
     const data = await res.json()
     if (!res.ok) throw new Error(data.message || 'Lỗi nhập')
     router.refresh()
+  }
+
+  async function xacNhanXoaDon() {
+    if (!xoaDon) return
+    setDangXoaDon(true); setMsgXoa('')
+    try {
+      const id = Number(xoaDon['Id']||xoaDon['id'])
+      const maDon = xoaDon['Mã đơn hàng']||''
+      const res = await fetch('/api/don-hang?id='+id+'&maDon='+encodeURIComponent(maDon), {method:'DELETE'})
+      const d = await res.json()
+      if (!res.ok) throw new Error(d.message||'Lỗi')
+      setXoaDon(null)
+      router.refresh()
+    } catch(e:any) { setMsgXoa('❌ '+(e.message||'Lỗi')) }
+    finally { setDangXoaDon(false) }
   }
 
   function PhanTrang() {
@@ -146,7 +182,7 @@ export default function DonHangClient({
 
   return (
     <div style={{ padding:'20px' }}>
-      <style>{`
+      <style suppressHydrationWarning>{`
         .dh-hdr{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;gap:12px;flex-wrap:wrap;}
         .btn-tao{background:var(--primary);color:white;border:none;border-radius:8px;padding:10px 18px;font-size:14px;font-weight:600;white-space:nowrap;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;gap:6px;}
         .btn-tao:hover{opacity:.9;}
@@ -163,7 +199,7 @@ export default function DonHangClient({
         <div>
           <h1 style={{ fontFamily:'Playfair Display,serif', fontSize:'20px', fontWeight:700, margin:0 }}>📋 Đơn hàng</h1>
           <p style={{ color:'var(--text-secondary)', fontSize:'13px', margin:'2px 0 8px' }}>
-            {filtered.length} đơn &nbsp;•&nbsp; Tổng: {formatVND(tongTien)}đ
+            {filtered.length} đơn
           </p>
           <ExcelToolbar loai="DON_HANG" danhSach={filtered} tenFile="don-hang"
             layGiaTri={d=>[
@@ -177,6 +213,37 @@ export default function DonHangClient({
             onNhap={handleNhap}/>
         </div>
         <Link href="/dashboard/don-hang/tao" className="btn-tao">➕ Tạo đơn mới</Link>
+      </div>
+
+      {/* Bộ lọc ngày */}
+      <div className="card" style={{padding:'10px 14px',marginBottom:'12px'}}>
+        <div style={{display:'flex',gap:'10px',alignItems:'center',flexWrap:'wrap'}}>
+          <span style={{fontSize:'12px',fontWeight:600,color:'var(--text-secondary)',whiteSpace:'nowrap'}}>📅 Từ ngày:</span>
+          <input type="date" value={tuNgay} onChange={e=>setTuNgay(e.target.value)}
+            style={{padding:'5px 10px',borderRadius:'6px',border:'1px solid var(--border)',fontSize:'12px'}}/>
+          <span style={{fontSize:'12px',fontWeight:600,color:'var(--text-secondary)',whiteSpace:'nowrap'}}>đến ngày:</span>
+          <input type="date" value={denNgay} onChange={e=>setDenNgay(e.target.value)}
+            style={{padding:'5px 10px',borderRadius:'6px',border:'1px solid var(--border)',fontSize:'12px'}}/>
+          <button onClick={()=>{const n=new Date();const y=n.getFullYear();const m=String(n.getMonth()+1).padStart(2,'0');setTuNgay(`${y}-${m}-01`);setDenNgay(n.toISOString().split('T')[0])}}
+            style={{padding:'5px 12px',borderRadius:'6px',border:'1px solid var(--border)',background:'white',fontSize:'12px',cursor:'pointer',color:'var(--text-secondary)'}}>
+            📅 Tháng hiện tại
+          </button>
+        </div>
+      </div>
+
+      {/* Thống kê 3 ô */}
+      <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:'10px',marginBottom:'14px'}}>
+        {[
+          {icon:'💰',label:'Tổng doanh thu',val:tongTien,c:'var(--primary)'},
+          {icon:'✅',label:'Đã thu',val:tongDaThu,c:'#065F46'},
+          {icon:'⚠️',label:'KH còn nợ',val:tongConNo,c:'#B45309'},
+        ].map(({icon,label,val,c})=>(
+          <div key={label} className="card" style={{padding:'10px 14px'}}>
+            <div style={{fontSize:'16px',marginBottom:'2px'}}>{icon}</div>
+            <div style={{fontSize:'15px',fontWeight:800,color:c}}>{val.toLocaleString('vi-VN')}đ</div>
+            <div style={{fontSize:'11px',color:'var(--text-secondary)'}}>{label}</div>
+          </div>
+        ))}
       </div>
 
       {/* Filters */}
@@ -239,8 +306,9 @@ export default function DonHangClient({
                 const tenKH  = getTenKH(don)
                 const diaChi = getDiaChiGiao(don)
                 const maKH   = don['Mã KH'] || ''
+                const isHuy  = tt === 'Huỷ' || tt === 'Hủy'
                 return (
-                  <tr key={don['Mã đơn hàng']||i} style={{ borderBottom:'1px solid #F0F0F0', background:i%2===0?'white':'#FAFBFD' }}>
+                  <tr key={don['Mã đơn hàng']||i} style={{ borderBottom:'1px solid #F0F0F0', background:isHuy?'#FFF5F5':i%2===0?'white':'#FAFBFD', opacity:isHuy?0.6:1 }}>
                     <td>
                       <Link href={`/dashboard/don-hang/${don['Mã đơn hàng']}`}
                         style={{ color:'var(--primary)', fontWeight:700, textDecoration:'none', whiteSpace:'nowrap' }}>
@@ -257,16 +325,15 @@ export default function DonHangClient({
                         : maKH ? <div style={{ fontSize:'11px', color:'var(--text-muted)' }}>{maKH}</div> : null
                       }
                     </td>
-                    <td className="col-ngay" style={{ fontSize:'12px', color:'var(--text-secondary)' }}>
-                      <div style={{whiteSpace:'nowrap'}}>{formatDate(don['Ngày hẹn giao'])}</div>
-                      {don['Ghi chú']&&<div style={{fontSize:'10px',color:'#9CA3AF',fontStyle:'italic',maxWidth:'120px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',marginTop:'2px'}} title={don['Ghi chú']}>📝 {don['Ghi chú']}</div>}
+                    <td className="col-ngay" style={{ fontSize:'12px', color:'var(--text-secondary)', whiteSpace:'nowrap' }}>
+                      {formatDate(don['Ngày hẹn giao'])}
                     </td>
                     <td className="col-dia" style={{
                       fontSize:'12px', color:'var(--text-secondary)',
                       maxWidth:'180px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap',
                     }} title={diaChi}>{diaChi}</td>
                     <td style={{ fontWeight:700, textAlign:'right', whiteSpace:'nowrap' }}>
-                      {formatVND(Number(don['Tổng tiền đơn']))}đ
+                      {formatVND(Number(don['Tổng tiền đơn']||0)+Number(don['CP giao hàng']||0))}đ
                     </td>
                     <td className="col-coc" style={{ color:'var(--success)', fontWeight:600, textAlign:'right', whiteSpace:'nowrap' }}>
                       {formatVND(Number(don['Đặt cọc']))}đ
@@ -289,7 +356,7 @@ export default function DonHangClient({
                     </td>
                     <td style={{ textAlign:'center' }}>
                       <span style={{ padding:'3px 9px', borderRadius:'20px', fontSize:'11px', fontWeight:700, background:c.bg, color:c.color, whiteSpace:'nowrap' }}>
-                        {tt}
+                        {(tt==='Hủy'||tt==='Huỷ')?'Đã hủy':tt}
                       </span>
                     </td>
                     <td>
@@ -304,6 +371,10 @@ export default function DonHangClient({
                             className="btn btn-ghost btn-sm" style={{ padding:'4px 8px' }} title="In hóa đơn">🖨️</Link>
                           <span className="tt-label">In hóa đơn</span>
                         </span>
+                        {user.vaiTro==='Chủ cửa hàng'&&['Nháp',''].includes(tt)&&(
+                          <button onClick={()=>setXoaDon(don)} title="Xóa đơn"
+                            style={{padding:'4px 7px',borderRadius:'5px',border:'1px solid #FCA5A5',background:'#FEF2F2',color:'#DC2626',cursor:'pointer',fontSize:'12px'}}>🗑️</button>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -314,6 +385,35 @@ export default function DonHangClient({
         </div>
         <PhanTrang/>
       </div>
+      {/* MODAL XÓA ĐƠN HÀNG */}
+      {xoaDon&&(
+        <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.5)',zIndex:200,display:'flex',alignItems:'center',justifyContent:'center',padding:'16px'}}
+          onClick={()=>{setXoaDon(null);setMsgXoa('')}}>
+          <div style={{background:'white',borderRadius:'12px',padding:'24px',width:'100%',maxWidth:'400px',textAlign:'center'}} onClick={e=>e.stopPropagation()}>
+            <div style={{fontSize:'36px',marginBottom:'8px'}}>🗑️</div>
+            <h2 style={{fontSize:'16px',fontWeight:700,margin:'0 0 4px'}}>Xóa đơn hàng</h2>
+            <p style={{fontSize:'15px',fontWeight:700,color:'var(--primary)',margin:'0 0 4px'}}>{xoaDon['Mã đơn hàng']}</p>
+            <p style={{fontSize:'13px',color:'#6B7280',margin:'0 0 4px'}}>{getTenKH(xoaDon)}</p>
+            <p style={{fontSize:'13px',fontWeight:600,color:'#374151',margin:'0 0 14px'}}>
+              {formatVND(Number(xoaDon['Tổng tiền đơn']||0))}đ · {xoaDon['Trạng thái']||'Nháp'}
+            </p>
+            <div style={{padding:'10px 12px',borderRadius:'8px',background:'#FEF3C7',border:'1px solid #FCD34D',marginBottom:'14px',fontSize:'12px',color:'#92400E',textAlign:'left'}}>
+              ⚠️ Xóa đơn sẽ xóa luôn toàn bộ chi tiết sản phẩm trong đơn. Không thể hoàn tác!
+            </div>
+            {msgXoa&&<div style={{padding:'8px 12px',borderRadius:'8px',background:'#FEE2E2',color:'#991B1B',fontSize:'13px',marginBottom:'12px'}}>{msgXoa}</div>}
+            <div style={{display:'flex',gap:'10px'}}>
+              <button onClick={xacNhanXoaDon} disabled={dangXoaDon}
+                style={{flex:1,padding:'11px',borderRadius:'8px',border:'none',background:dangXoaDon?'#9CA3AF':'#DC2626',color:'white',fontWeight:700,cursor:'pointer',fontSize:'14px'}}>
+                {dangXoaDon?'⏳ Đang xóa...':'🗑️ Xác nhận xóa'}
+              </button>
+              <button onClick={()=>{setXoaDon(null);setMsgXoa('')}}
+                style={{padding:'11px 16px',borderRadius:'8px',border:'1px solid var(--border)',background:'white',cursor:'pointer',fontWeight:600}}>Huỷ</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
+
+

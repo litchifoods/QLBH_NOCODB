@@ -13,7 +13,7 @@ async function getDashboardData() {
   const thangStr = `${yyyy}-${mm}`
 
   const [donHang, giaHang, sanPham, khachHang] = await Promise.all([
-    getRecords(TABLES.DON_HANG, { limit: 100, sort: '-Ngày đặt' }),
+    getRecords(TABLES.DON_HANG, { limit: 100, sort: '-Id' }),
     getRecords(TABLES.GIAO_HANG, { limit: 100, sort: '-Ngày giao' }),
     getRecords(TABLES.SAN_PHAM, { limit: 200 }),
     getRecords(TABLES.KHACH_HANG, { limit: 10, sort: '-Ngày tạo' }),
@@ -25,7 +25,7 @@ async function getDashboardData() {
 
   // Tính doanh thu hôm nay
   const donHomNay = tatCaDon.filter((d: any) => {
-    const ngay = d['Ngày đặt'] || ''
+    const ngay = d['Ngày bán'] || ''
     return ngay.startsWith(todayStr)
   })
   const doanhThuHomNay = donHomNay.reduce((s: number, d: any) =>
@@ -33,7 +33,7 @@ async function getDashboardData() {
 
   // Tính doanh thu tháng này
   const donThangNay = tatCaDon.filter((d: any) => {
-    const ngay = d['Ngày đặt'] || ''
+    const ngay = d['Ngày bán'] || ''
     return ngay.startsWith(thangStr)
   })
   const doanhThuThang = donThangNay.reduce((s: number, d: any) =>

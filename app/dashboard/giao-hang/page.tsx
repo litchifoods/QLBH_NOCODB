@@ -8,7 +8,7 @@ import GiaoHangClient from '@/components/GiaoHangClient'
 export default async function GiaoHangPage() {
   const session = await getSession()
 
-  const [giaoHang, chiTietGiao, donHang, chiTietDon, nhanVien, khachHang] = await Promise.all([
+  const [giaoHang, chiTietGiao, donHang, chiTietDon, nhanVien, khachHang, sanPham] = await Promise.all([
     getRecords(TABLES.GIAO_HANG, { limit: 500, sort: '-Id' }),
     getRecords(TABLES.CHI_TIET_GIAO, { limit: 1000 }),
     getRecords(TABLES.DON_HANG, { limit: 500, sort: '-Id' }),
@@ -16,13 +16,16 @@ export default async function GiaoHangPage() {
       limit: 500, sort: 'Id',
       fields: 'Mã chi tiết,Mã đơn hàng,Mã SP,Tên SP (ghi nhanh),Số lượng,Ghi chú SP,Trạng thái SP',
     }),
-    getRecords(TABLES.NHAN_VIEN, { limit: 200 }),
+    getRecords(TABLES.NHAN_VIEN, { limit: 200, fields: 'Id,Mã nhân viên,Họ và Tên,Vai trò,Loại,Trạng thái' }),
     getRecords(TABLES.KHACH_HANG, {
       limit: 500,
       fields: 'Mã KH,Tên khách hàng,Số điện thoại,Địa chỉ',
     }),
+    getRecords(TABLES.SAN_PHAM, { limit:500, fields:'Mã SP,Tồn kho' }),
   ])
 
+  const tonKhoMap: Record<string,number> = {}
+  for (const sp of (sanPham.list||[])) { if(sp['Mã SP']) tonKhoMap[sp['Mã SP']]=Number(sp['Tồn kho']||0) }
   const khachHangMap: Record<string, any> = {}
   for (const kh of (khachHang.list || [])) {
     if (kh['Mã KH']) khachHangMap[kh['Mã KH']] = kh
@@ -52,9 +55,8 @@ export default async function GiaoHangPage() {
   }
 
   const nvMapTemp: Record<string, any> = {}
-  // ✅ Đúng tên cột: "Mã Nhân Viên" và "Họ và Tên"
   for (const nv of (nhanVien.list || [])) {
-    const ma  = nv['Mã Nhân Viên']
+    const ma  = nv['Mã nhân viên']
     const ten = (nv['Họ và Tên'] || '').trim()
     if (!ma || !ten) continue
     if (!nvMapTemp[ma] || (nv['Tháng']||'') > (nvMapTemp[ma]['Tháng']||'')) {
@@ -63,11 +65,12 @@ export default async function GiaoHangPage() {
   }
   const danhSachNV = Object.values(nvMapTemp).map((nv:any) => ({
     ...nv,
-    'Mã NV':  nv['Mã Nhân Viên'],
+    'Mã NV':  nv['Mã nhân viên'],
     'Họ tên': nv['Họ và Tên'] || '',
   }))
-  const danhSachNVCuaHang = danhSachNV.filter((nv:any) => (nv['Mã NV']||'').startsWith('NV-'))
-  const danhSachDoiTac    = danhSachNV.filter((nv:any) => (nv['Mã NV']||'').startsWith('DT-'))
+  // Giao hàng + Đối soát cần cả NV lẫn Đối tác
+  const danhSachNVCuaHang = danhSachNV.filter((nv:any) => nv['Loại']==='Nhân viên')
+  const danhSachDoiTac    = danhSachNV.filter((nv:any) => nv['Loại']==='Đối tác')
 
   // Tính trạng thái chi tiết cho từng đơn
   function tinhTrangThaiDon(maDon: string): string {
@@ -163,6 +166,7 @@ export default async function GiaoHangPage() {
         '_tongDaGiao':  tongDaGiao,
         '_conLai':      Math.max(0, tongSP - tongDaGiao),
         '_trangThaiTinh': tinhTrangThaiDon(maDon),
+        '_choHangVe': chiTiet.filter((ct:any)=>ct['Trạng thái SP']!=='Huỷ').some((ct:any)=>Number(tonKhoMap[ct['Mã SP']]||0)<=0),
       }
     })
     .sort((a: any, b: any) => {

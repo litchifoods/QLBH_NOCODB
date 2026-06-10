@@ -26,7 +26,7 @@ const MENU = [
       { href: '/dashboard/san-pham',     icon: '🪑', label: 'Sản phẩm' },
       { href: '/dashboard/dat-hang-ncc', icon: '🛒', label: 'Đặt hàng NCC' },
       { href: '/dashboard/nhap-kho',     icon: '📦', label: 'Nhập kho' },
-      { href: '/dashboard/xu-ly-hang',   icon: '⚙️', label: 'Xử lý hàng nhập' },
+      { href: '/dashboard/xu-ly-hang',   icon: '🔧', label: 'Xử lý hàng lỗi' },
       { href: '/dashboard/kiem-kho',     icon: '🔍', label: 'Kiểm kho' },
     ],
   },
@@ -34,7 +34,7 @@ const MENU = [
     group: 'NHÀ CUNG CẤP',
     items: [
       { href: '/dashboard/nha-cung-cap',   icon: '🏭', label: 'Nhà cung cấp' },
-      { href: '/dashboard/thanh-toan-ncc', icon: '💳', label: 'Thanh toán NCC' },
+      { href: '/dashboard/thanh-toan-ncc', icon: '💳', label: 'Lịch sử TT NCC' },
     ],
   },
   {
@@ -47,7 +47,7 @@ const MENU = [
   {
     group: 'TÀI CHÍNH',
     items: [
-      { href: '/dashboard/chi-phi', icon: '📉', label: 'Chi phí' },
+      { href: '/dashboard/chi-phi', icon: '💹', label: 'Thu Chi' },
       { href: '/dashboard/bao-cao', icon: '📈', label: 'Báo cáo' },
     ],
   },

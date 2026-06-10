@@ -1,24 +1,27 @@
-'use client'
+﻿'use client'
 // components/DatHangNCCClient.tsx v2
-import { useState, useMemo, useRef } from 'react'
 import { useRouter } from 'next/navigation'
+import { useState, useMemo, useRef, useEffect } from 'react'
 import { UserSession } from '@/lib/auth'
 
 function fVND(n:any){return Number(n||0).toLocaleString('vi-VN')}
 function fDate(s:string){if(!s)return'—';const d=new Date(s);return`${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`}
 function boDau(s:string){return(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/đ/g,'d').replace(/Đ/g,'D').toLowerCase()}
 
-const TRANG_THAI = ['Chờ xác nhận','Đã xác nhận']
+const TRANG_THAI = ['Chờ xác nhận','Đã xác nhận','Đã nhập kho','Nhập thiếu','Nhập thừa']
 const TT_COLOR: Record<string,{bg:string,c:string}> = {
-  'Chờ xác nhận': {bg:'#FEF3C7',c:'#92400E'},
+  'Chờ xác nhận': {bg:'#FEF3C7',c:'#B45309'},
   'Đã xác nhận':  {bg:'#D1FAE5',c:'#065F46'},
+  'Đã nhập kho':  {bg:'#DBEAFE',c:'#1E40AF'},
+  'Nhập thiếu':   {bg:'#FEE2E2',c:'#991B1B'},
+  'Nhập thừa':    {bg:'#DBEAFE',c:'#1E40AF'},
 }
 const SO_DONG = 10
 
 interface SPItem { _id:number; maSP:string; tenSP:string; donVi:string; soLuong:number; giaNhap:number; ngayVe:string; ghiChu:string }
 
-export default function DatHangNCCClient({donDHList,nccList,sanPhamList,user}:{
-  donDHList:any[]; nccList:any[]; sanPhamList:any[]; user:UserSession
+export default function DatHangNCCClient({donDHList,nccList,sanPhamList,danhMucList=[],user}:{
+  donDHList:any[]; nccList:any[]; sanPhamList:any[]; danhMucList:any[]; user:UserSession
 }) {
   const router = useRouter()
   const _idRef = useRef(0)
@@ -54,14 +57,58 @@ export default function DatHangNCCClient({donDHList,nccList,sanPhamList,user}:{
   const [newCpvcKho,    setNewCpvcKho]   = useState(0)
   const [newGia,    setNewGia]   = useState(0)
   const [newGhiChu, setNewGhiChu]= useState('')
+  const [newDanhMuc, setNewDanhMuc]= useState('')
   const [savingSP,  setSavingSP] = useState(false)
+  // Danh mục
+  const [danhMucLocal3, setDanhMucLocal3] = useState(danhMucList)
+  const [showThemDM3,   setShowThemDM3]   = useState(false)
+  const [newTenDM3,     setNewTenDM3]     = useState('')
+  const [loadingDM3,    setLoadingDM3]    = useState(false)
+  const [msgDM3,        setMsgDM3]        = useState('')
+  const danhMucNames3 = danhMucLocal3.map((d:any)=>d['Tên danh mục']||'')
+
+  async function themDM3(){
+    if(!newTenDM3.trim()) return
+    setLoadingDM3(true)
+    try{
+      const res=await fetch('/api/danh-muc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({tenDanhMuc:newTenDM3.trim()})})
+      const d=await res.json()
+      if(!res.ok) throw new Error(d.message)
+      setDanhMucLocal3((p:any[])=>[...p,{...d.data,'Tên danh mục':newTenDM3.trim()}])
+      setNewDanhMuc(newTenDM3.trim())
+      setNewTenDM3('')
+      setShowThemDM3(false)
+      setMsgDM3('✅ Đã thêm: '+newTenDM3.trim())
+      setTimeout(()=>setMsgDM3(''),3000)
+    }catch(e:any){setMsgDM3('❌ '+(e.message||'Lỗi'))}
+    finally{setLoadingDM3(false)}
+  }
   const [newTonKho, setNewTonKho] = useState(0)
   const [newNguong, setNewNguong] = useState(5)
   const [newGiaLe,  setNewGiaLe]  = useState(0)
   const [newThongSo,setNewThongSo]= useState('')
   const [trungSP,   setTrungSP]  = useState<{idx:number, idxCu:number, tenSP:string}|null>(null)
+  const [showBoSung, setShowBoSung] = useState(false)
 
   function showMsg2(t:string,ok=true){setMsg(t);setMsgOk(ok);setTimeout(()=>setMsg(''),5000)}
+
+  // Danh sách đơn Nhập thiếu để bổ sung
+  const donNhapThieu = useMemo(()=>{
+    const g:Record<string,{maDH:string,maNCC:string,maSP:string,tenSP:string,slDat:number,slNhap:number,slThieu:number}[]>={}
+    donDHList.filter(d=>d['Trạng thái']==='Nhập thiếu').forEach(d=>{
+      const maDH = (d['Mã đặt hàng']||'').split('-').slice(0,3).join('-')
+      if(!g[maDH]) g[maDH]=[]
+      // Tính số lượng đã nhập (từ nhapKhoList nếu có) - tạm dùng 0
+      g[maDH].push({
+        maDH, maNCC:d['Mã NCC']||'',
+        maSP:d['Mã SP']||'',
+        tenSP:'', // sẽ lấy từ spMap
+        slDat:Number(d['Số lượng đặt']||0),
+        slNhap:0, slThieu:Number(d['Số lượng đặt']||0)
+      })
+    })
+    return g
+  },[donDHList])
 
   const nccMap = useMemo(()=>{
     const m:Record<string,any>={}
@@ -78,7 +125,8 @@ export default function DatHangNCCClient({donDHList,nccList,sanPhamList,user}:{
   // Group theo mã đơn gốc
   const grouped = useMemo(()=>{
     let r = local
-    if (filterTT!=='Tất cả') r=r.filter(d=>d['Trạng thái']===filterTT)
+    if (filterTT==='Chưa nhập kho') r=r.filter(d=>d['Trạng thái']!=='Đã nhập kho')
+    else if (filterTT!=='Tất cả') r=r.filter(d=>d['Trạng thái']===filterTT)
     if (filterNCC!=='Tất cả') r=r.filter(d=>d['Mã NCC']===filterNCC)
     if (search.trim()) {
       const q=boDau(search)
@@ -98,7 +146,7 @@ export default function DatHangNCCClient({donDHList,nccList,sanPhamList,user}:{
     return g
   },[local,filterTT,filterNCC,search,nccMap])
 
-  const groupKeys  = Object.keys(grouped)
+  const groupKeys  = Object.keys(grouped).sort((a,b)=>b.localeCompare(a))
   const tongTrangG = Math.max(1,Math.ceil(groupKeys.length/SO_DONG))
   const trangHT    = Math.min(trang,tongTrangG)
   const keysTrang  = groupKeys.slice((trangHT-1)*SO_DONG, trangHT*SO_DONG)
@@ -109,20 +157,23 @@ export default function DatHangNCCClient({donDHList,nccList,sanPhamList,user}:{
   function removeItem(id:number){setItems(p=>p.filter(it=>it._id!==id))}
   function updItem(id:number,k:keyof SPItem,v:any){setItems(p=>p.map(it=>it._id===id?{...it,[k]:v}:it))}
   function chonSP(id:number,sp:any){
-    // Kiểm tra SP đã có trong danh sách chưa
-    const existing = items.find(it=>it._id!==id && it.maSP===sp['Mã SP'])
-    if (existing) {
-      setTrungSP({idx:id, idxCu:existing._id, tenSP:sp['Tên sản phẩm']||''})
-      return
-    }
-    updItem(id,'maSP',sp['Mã SP']||'')
-    updItem(id,'tenSP',sp['Tên sản phẩm']||'')
-    updItem(id,'donVi',sp['Đơn vị tính']||'')
     const giaNCC = Number(sp['Giá nhập NCC']||0)
     const cpvc   = Number(sp['CPVC về kho']||0)
-    const giaNhapTong = giaNCC + cpvc
-    // Nếu SP chưa có giá nhập → để trống (0) để người dùng tự nhập
-    updItem(id,'giaNhap', giaNhapTong)
+    // Dùng functional update để tránh stale closure - kiểm tra trùng trong callback
+    setItems(prev=>{
+      const existing = prev.find(it=>it._id!==id && it.maSP===sp['Mã SP'])
+      if(existing){
+        // Set trùng SP sau khi setItems để tránh conflict
+        setTimeout(()=>setTrungSP({idx:id, idxCu:existing._id, tenSP:sp['Tên sản phẩm']||''}),0)
+        return prev
+      }
+      return prev.map(it=>it._id===id?{...it,
+        maSP:sp['Mã SP']||'',
+        tenSP:sp['Tên sản phẩm']||'',
+        donVi:sp['Đơn vị tính']||'',
+        giaNhap:giaNCC+cpvc,
+      }:it)
+    })
     setSearchSP(p=>({...p,[id]:sp['Tên sản phẩm']||''}))
     setShowSP(p=>({...p,[id]:false}))
   }
@@ -136,24 +187,56 @@ export default function DatHangNCCClient({donDHList,nccList,sanPhamList,user}:{
   }
   const tongTien = items.reduce((s,it)=>s+Number(it.soLuong||0)*Number(it.giaNhap||0),0)
 
+  function moBoSung(maDH:string){
+    const ds = donNhapThieu[maDH]||[]
+    if(!ds.length) return
+    const nccMa = ds[0].maNCC
+    setMaNCC(nccMa)
+    setSearchNCC(nccMap[nccMa]?.['Tên NCC']||nccMa)
+    setNgayDat(new Date().toISOString().split('T')[0])
+    setGhiChuDon(`Nhập bổ sung cho ${maDH}`)
+    setItems(ds.map((d,i)=>({
+      _id:i+1,
+      maSP:d.maSP,
+      tenSP:spMap[d.maSP]?.['Tên sản phẩm']||d.maSP,
+      donVi:spMap[d.maSP]?.['Đơn vị tính']||'',
+      soLuong:d.slDat, // số lượng đặt ban đầu (sẽ tính thiếu sau)
+      giaNhap:Number(spMap[d.maSP]?.['Giá nhập NCC']||0)+Number(spMap[d.maSP]?.['CPVC về kho']||0),
+      ngayVe:'', ghiChu:`Bổ sung thiếu cho ${maDH}`
+    })))
+    setSearchSP(Object.fromEntries(ds.map((d,i)=>[i+1,spMap[d.maSP]?.['Tên sản phẩm']||d.maSP])))
+    setShowBoSung(false)
+    setEditDon(null)
+    setShowModal(true)
+  }
+
   function moTaoMoi(){setEditDon(null);resetForm();setShowModal(true)}
+  const [isViewOnly, setIsViewOnly] = useState(false)
+
   function moSua(grp:any[]){
     setEditDon(grp)
     const first=grp[0]
+    // Chế độ xem - không cho sửa
+    const allDone = grp.every(d=>['Đã nhập kho','Nhập thừa','Nhập thiếu'].includes(d['Trạng thái']||''))
+    setIsViewOnly(allDone)
     setMaNCC(first['Mã NCC']||'')
     setNgayDat(first['Ngày đặt']?.split('T')[0]||new Date().toISOString().split('T')[0])
     setGhiChuDon(first['Ghi chú']||'')
-    setItems(grp.map((d,i)=>({
+    // Load tất cả SP vào form - chỉ cho sửa SP chưa nhập kho
+    const spCoTheSua = grp.filter(d=>d['Trạng thái']!=='Đã nhập kho')
+    const spLoad = spCoTheSua.length > 0 ? spCoTheSua : grp // nếu tất cả đã nhập kho thì load hết để xem
+    setItems(spLoad.map((d,i)=>({
       _id:i+1,
       maSP:d['Mã SP']||'', tenSP:spMap[d['Mã SP']]?.['Tên sản phẩm']||d['Mã SP']||'',
       donVi:spMap[d['Mã SP']]?.['Đơn vị tính']||'',
       soLuong:Number(d['Số lượng đặt']||1), giaNhap:Number(d['Giá nhập dự kiến']||0),
       ngayVe:d['Ngày dự kiến về']?.split('T')[0]||'', ghiChu:d['Ghi chú']||''
     })))
-    setSearchSP(Object.fromEntries(grp.map((d,i)=>[i,spMap[d['Mã SP']]?.['Tên sản phẩm']||d['Mã SP']||''])))
+    setSearchSP(Object.fromEntries(spLoad.map((d,i)=>[i,spMap[d['Mã SP']]?.['Tên sản phẩm']||d['Mã SP']||''])))
     setShowModal(true)
   }
   function resetForm(){
+    setIsViewOnly(false)
     setMaNCC('');setSearchNCC('');_idRef.current=1
     setNgayDat(new Date().toISOString().split('T')[0])
     setGhiChuDon('')
@@ -168,25 +251,37 @@ export default function DatHangNCCClient({donDHList,nccList,sanPhamList,user}:{
     setLoading(true)
     try {
       if (editDon) {
-        // Xóa dòng cũ rồi tạo lại
-        for (const d of editDon) {
-          await fetch(`/api/dat-hang-ncc?id=${d['Id']||d['id']}`,{method:'DELETE'})
-        }
         const full3 = editDon[0]['Mã đặt hàng']||''
         const parts3 = full3.split('-')
         const maDH = parts3.length>=3 ? parts3.slice(0,3).join('-') : full3
+        // Chỉ xóa SP chưa nhập kho, giữ lại SP đã nhập kho
+        const spGiuLai = editDon.filter(d=>d['Trạng thái']==='Đã nhập kho')
+        const spXoa = editDon.filter(d=>d['Trạng thái']!=='Đã nhập kho')
+        for (const d of spXoa) {
+          await fetch(`/api/dat-hang-ncc?id=${d['Id']||d['id']}`,{method:'DELETE'})
+        }
+        // Tạo lại SP chưa nhập kho
+        let idx = spGiuLai.length
         for (let i=0;i<valid.length;i++) {
           const it=valid[i]
+          // Bỏ qua SP đã nhập kho (không tạo lại)
+          if(spGiuLai.find(d=>d['Mã SP']===it.maSP)) continue
+          idx++
+          const forceMaDH = (spGiuLai.length+valid.length)>1 ? `${maDH}-${idx}` : maDH
           await fetch('/api/dat-hang-ncc',{method:'POST',headers:{'Content-Type':'application/json'},
-            body:JSON.stringify({maNCC,ngayDat,ghiChu:ghiChuDon,forceMaDH:valid.length>1?`${maDH}-${i+1}`:maDH,items:[it]})})
+            body:JSON.stringify({maNCC,ngayDat,ghiChu:ghiChuDon,forceMaDH,items:[it]})})
         }
         showMsg2(`✅ Đã cập nhật đơn ${maDH}`)
       } else {
+        const maDonGoc = ghiChuDon.match(/cho (DH-NCC-\d+)/)?.[1]||''
         const res=await fetch('/api/dat-hang-ncc',{method:'POST',headers:{'Content-Type':'application/json'},
-          body:JSON.stringify({maNCC,ngayDat,ghiChu:ghiChuDon,items:valid})})
+          body:JSON.stringify({maNCC,ngayDat,ghiChu:ghiChuDon,maDonGoc,items:valid})})
         const d=await res.json()
         if (!res.ok) throw new Error(d.message)
         showMsg2(`✅ Đã tạo ${d.maDH} — ${d.soSP} SP`)
+        // Reload data ngay
+        window.location.reload()
+        return
       }
       setShowModal(false);resetForm();window.location.reload()
     } catch(e:any){setMsg('❌ '+(e.message||'Lỗi'));setMsgOk(false);setTimeout(()=>setMsg(''),5000)}
@@ -201,6 +296,7 @@ export default function DatHangNCCClient({donDHList,nccList,sanPhamList,user}:{
       }
       const ids=new Set(grp.map(d=>d['Id']||d['id']))
       setLocal(prev=>prev.map(d=>ids.has(d['Id']||d['id'])?{...d,'Trạng thái':tt}:d))
+      router.refresh()
     } catch(e:any){showMsg2('❌ '+(e.message||'Lỗi'),false)}
   }
 
@@ -221,13 +317,13 @@ export default function DatHangNCCClient({donDHList,nccList,sanPhamList,user}:{
     setSavingSP(true)
     try {
       const res=await fetch('/api/san-pham',{method:'POST',headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({'Mã SP':newMaSP.trim()||undefined,'Tên sản phẩm':newTenSP.trim(),'Loại SP':newLoai,'Đơn vị tính':newDonVi,'Giá nhập NCC':newGiaNhapNCC,'CPVC về kho':newCpvcKho,'Giá bán buôn':newGia,'Giá bán lẻ':newGiaLe,'Tồn kho':newTonKho,'Ngưỡng cảnh báo':newNguong,'Thông số kỹ thuật':newThongSo,'Ghi chú':newGhiChu})})
+        body:JSON.stringify({'Mã SP':newMaSP.trim()||undefined,'Tên sản phẩm':newTenSP.trim(),'Danh mục':newDanhMuc||'','Loại SP':newLoai,'Đơn vị tính':newDonVi,'Giá nhập NCC':newGiaNhapNCC,'CPVC về kho':newCpvcKho,'Giá bán buôn':newGia,'Giá bán lẻ':newGiaLe,'Tồn kho':newTonKho,'Ngưỡng cảnh báo':newNguong,'Thông số kỹ thuật':newThongSo,'Ghi chú':newGhiChu})})
       const d=await res.json()
       if (!res.ok) throw new Error(d.message)
       const newSP={...d.data,'Mã SP':d.data?.['Mã SP']||newMaSP,'Giá nhập NCC':newGiaNhapNCC,'CPVC về kho':newCpvcKho}
       setSpLocal(p=>[newSP,...p])
       showMsg2(`✅ Đã thêm SP: ${newTenSP}`)
-      setShowNewSP(false);setNewTenSP('');setNewMaSP('');setNewLoai('Theo yêu cầu');setNewDonVi('Cái');setNewGia(0);setNewGiaLe(0);setNewGhiChu('');setNewThongSo('');setNewTonKho(0);setNewNguong(5)
+      setShowNewSP(false);setNewTenSP('');setNewMaSP('');setNewLoai('Theo yêu cầu');setNewDonVi('Cái');setNewGia(0);setNewGiaLe(0);setNewGhiChu('');setNewThongSo('');setNewTonKho(0);setNewNguong(5);setNewDanhMuc('')
     } catch(e:any){showMsg2('❌ '+(e.message||'Lỗi'),false)}
     finally{setSavingSP(false)}
   }
@@ -292,7 +388,13 @@ export default function DatHangNCCClient({donDHList,nccList,sanPhamList,user}:{
             {chuaXN>0&&<span style={{marginLeft:'8px',color:'#D97706',fontWeight:600}}>⏳ {chuaXN} chờ xác nhận</span>}
           </p>
         </div>
-        <button onClick={moTaoMoi} style={{background:'var(--primary)',color:'white',border:'none',borderRadius:'8px',padding:'10px 18px',fontSize:'14px',fontWeight:600,cursor:'pointer'}}>+ Tạo đơn đặt hàng</button>
+        <div style={{display:'flex',gap:'8px'}}>
+          {Object.keys(donNhapThieu).length>0&&<button onClick={()=>setShowBoSung(true)}
+            style={{background:'#FEF3C7',color:'#92400E',border:'1px solid #FCD34D',borderRadius:'8px',padding:'10px 18px',fontSize:'14px',fontWeight:600,cursor:'pointer'}}>
+            📋 Bổ sung đơn thiếu ({Object.keys(donNhapThieu).length})
+          </button>}
+          <button onClick={moTaoMoi} style={{background:'var(--primary)',color:'white',border:'none',borderRadius:'8px',padding:'10px 18px',fontSize:'14px',fontWeight:600,cursor:'pointer'}}>+ Tạo đơn đặt hàng</button>
+        </div>
       </div>
 
       {msg&&<div style={{padding:'10px 14px',borderRadius:'8px',marginBottom:'14px',fontSize:'13px',background:msgOk?'#D1FAE5':'#FEE2E2',color:msgOk?'#065F46':'#991B1B'}}>{msg}</div>}
@@ -306,7 +408,7 @@ export default function DatHangNCCClient({donDHList,nccList,sanPhamList,user}:{
             {nccDanhSach.map(n=><option key={n.ma} value={n.ma}>{n.ten}</option>)}
           </select>
           <div style={{display:'flex',gap:'6px'}}>
-            {['Tất cả',...TRANG_THAI].map(tt=>{
+            {['Tất cả','Chưa nhập kho',...TRANG_THAI].map(tt=>{
               const c=TT_COLOR[tt]||{bg:'#F3F4F6',c:'#374151'}
               return <button key={tt} onClick={()=>setFilterTT(tt)} style={{padding:'5px 12px',borderRadius:'20px',border:'1px solid',borderColor:filterTT===tt?c.c:'var(--border)',background:filterTT===tt?c.bg:'white',color:filterTT===tt?c.c:'var(--text-secondary)',fontWeight:filterTT===tt?700:400,fontSize:'12px',cursor:'pointer'}}>{tt}</button>
             })}
@@ -323,7 +425,7 @@ export default function DatHangNCCClient({donDHList,nccList,sanPhamList,user}:{
                 <th style={{textAlign:'left',fontWeight:700,whiteSpace:'nowrap'}}>Mã đơn</th>
                 <th style={{textAlign:'left',fontWeight:700}}>Tên NCC</th>
                 <th style={{textAlign:'left',fontWeight:700}}>Sản phẩm</th>
-                <th style={{textAlign:'center',fontWeight:700}}>Số lượng</th>
+                <th style={{textAlign:'center',fontWeight:700}}>SL đặt</th>
                 <th style={{textAlign:'center',fontWeight:700,whiteSpace:'nowrap'}}>Ngày hàng về</th>
                 <th style={{textAlign:'center',fontWeight:700}}>Trạng thái</th>
                 <th style={{textAlign:'center',fontWeight:700,width:'130px'}}>Thao tác</th>
@@ -371,8 +473,8 @@ export default function DatHangNCCClient({donDHList,nccList,sanPhamList,user}:{
                           </select>
                         </div>
                       })}
-                      {grp.length>1&&grp.some(d=>d['Trạng thái']!=='Đã xác nhận')&&(
-                        <button onClick={()=>doiTrangThai(grp,'Đã xác nhận')}
+                      {grp.length>1&&grp.some(d=>!['Đã xác nhận','Đã nhập kho','Nhập thừa'].includes(d['Trạng thái']||''))&&(
+                        <button onClick={()=>doiTrangThai(grp.filter(d=>!['Đã nhập kho','Nhập thừa'].includes(d['Trạng thái']||'')),'Đã xác nhận')}
                           style={{marginTop:'4px',width:'100%',padding:'3px 6px',borderRadius:'6px',border:'1px solid #065F46',background:'#D1FAE5',color:'#065F46',fontSize:'10px',fontWeight:700,cursor:'pointer'}}>
                           ✅ Xác nhận tất cả
                         </button>
@@ -380,7 +482,7 @@ export default function DatHangNCCClient({donDHList,nccList,sanPhamList,user}:{
                     </td>
                     <td style={{textAlign:'center',verticalAlign:'middle'}}>
                       <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'4px',width:'100px'}}>
-                        <button onClick={()=>moSua(grp)} style={{gridColumn:'1/-1',padding:'5px 8px',borderRadius:'5px',border:'1px solid #FCD34D',background:'#FFFBEB',color:'#92400E',fontSize:'11px',cursor:'pointer',fontWeight:600,textAlign:'center'}}>✏️ Sửa</button>
+                        {!grp.every(d=>['Đã nhập kho','Nhập thừa','Nhập thiếu'].includes(d['Trạng thái']||''))&&<button onClick={()=>moSua(grp)} style={{gridColumn:'1/-1',padding:'5px 8px',borderRadius:'5px',border:'1px solid #FCD34D',background:'#FFFBEB',color:'#92400E',fontSize:'11px',cursor:'pointer',fontWeight:600,textAlign:'center'}}>✏️ Sửa</button>}
                         <button onClick={()=>xuatPDF(grp)} style={{padding:'5px 4px',borderRadius:'5px',border:'1px solid #BBF7D0',background:'#F0FDF4',color:'#16A34A',fontSize:'11px',cursor:'pointer',fontWeight:600,textAlign:'center'}}>📄 PDF</button>
                         <button onClick={()=>setXoaItem(first)} style={{padding:'5px 4px',borderRadius:'5px',border:'1px solid #FCA5A5',background:'#FEF2F2',color:'#DC2626',fontSize:'11px',cursor:'pointer',fontWeight:600,textAlign:'center'}}>🗑️ Xóa</button>
                       </div>
@@ -408,7 +510,14 @@ export default function DatHangNCCClient({donDHList,nccList,sanPhamList,user}:{
         <div className="ov" onClick={()=>{setShowModal(false);resetForm()}}>
           <div className="mk" onClick={e=>e.stopPropagation()}>
             <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'16px'}}>
-              <h2 style={{fontSize:'17px',fontWeight:700,margin:0}}>{editDon?'✏️ Chỉnh sửa đơn đặt hàng':'🛒 Tạo đơn đặt hàng NCC'}</h2>
+              <div>
+                <h2 style={{fontSize:'17px',fontWeight:700,margin:0}}>
+                  {isViewOnly?'👁️ Xem chi tiết đơn':editDon?'✏️ Chỉnh sửa đơn':'🛒 Tạo đơn đặt hàng NCC'}
+                </h2>
+                {editDon&&<div style={{fontSize:'12px',color:'var(--primary)',fontWeight:600,marginTop:'2px'}}>
+                  {(()=>{const f=editDon[0]['Mã đặt hàng']||'';const p=f.split('-');return p.length>=3?p.slice(0,3).join('-'):f})()}
+                </div>}
+              </div>
               <button onClick={()=>{setShowModal(false);resetForm()}} style={{background:'none',border:'none',cursor:'pointer',fontSize:'22px',color:'#6B7280'}}>✕</button>
             </div>
 
@@ -458,35 +567,19 @@ export default function DatHangNCCClient({donDHList,nccList,sanPhamList,user}:{
             {/* SP header */}
             <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'8px'}}>
               <label style={{fontSize:'12px',fontWeight:700,color:'var(--primary)'}}>📦 SẢN PHẨM ĐẶT HÀNG</label>
-              <div style={{display:'flex',gap:'8px'}}>
+              {!isViewOnly&&<div style={{display:'flex',gap:'8px'}}>
                 <button onClick={()=>setShowNewSP(true)} style={{padding:'5px 12px',borderRadius:'6px',border:'1px solid #8B5CF6',background:'#F5F3FF',color:'#7C3AED',fontSize:'12px',fontWeight:600,cursor:'pointer'}}>✨ Tạo SP mới</button>
                 <button onClick={addItem} style={{padding:'5px 12px',borderRadius:'6px',border:'1px solid var(--primary)',background:'white',color:'var(--primary)',fontSize:'12px',fontWeight:600,cursor:'pointer'}}>+ Thêm SP</button>
-              </div>
+              </div>}
             </div>
             {/* Header cột */}
-            <div style={{display:'grid',gridTemplateColumns:'2fr 70px 80px 110px 130px 100px 1fr 32px',gap:'8px',padding:'4px 10px',fontSize:'11px',color:'#6B7280',fontWeight:600}}>
-              <div>Sản phẩm</div><div style={{textAlign:'center'}}>SL</div><div>ĐVT</div><div>Giá nhập (đ)</div><div>Thành tiền</div><div>Ngày về</div><div>Ghi chú</div><div></div>
+            <div style={{display:'grid',gridTemplateColumns:'2fr 90px 80px 110px 130px 100px 1fr 32px',gap:'8px',padding:'4px 10px',fontSize:'11px',color:'#6B7280',fontWeight:600}}>
+              <div>Sản phẩm</div><div style={{textAlign:'center'}}>SL</div><div>ĐVT</div><div>Giá nhập (đ)</div><div>Thành tiền</div><div>Ngày hàng về</div><div>Ghi chú</div><div></div>
             </div>
             {items.map((it)=>(
               <div key={it._id} className="sp-row">
                 {/* SP */}
-                <div style={{position:'relative'}}>
-                  <input className="input" placeholder="Tìm tên hoặc mã SP..." value={searchSP[it._id]??it.tenSP}
-                    onChange={e=>{setSearchSP(p=>({...p,[it._id]:e.target.value}));updItem(it._id,'tenSP',e.target.value);updItem(it._id,'maSP','');setShowSP(p=>({...p,[it._id]:true}))}}
-                    onFocus={()=>setShowSP(p=>({...p,[it._id]:true}))}
-                    onBlur={()=>setTimeout(()=>setShowSP(p=>({...p,[it._id]:false})),200)}
-                    style={{fontSize:'12px'}}/>
-                  {showSP[it._id]&&(
-                    <div className="db">
-                      {spLocal.filter(sp=>{const q=boDau(searchSP[it._id]||'').slice(0,20);return !q||boDau(sp['Tên sản phẩm']||'').includes(q)||boDau(sp['Mã SP']||'').includes(q)}).slice(0,10).map((sp,j)=>(
-                        <div key={j} className="di" onMouseDown={e=>{e.preventDefault();chonSP(it._id,sp)}}>
-                          <span style={{fontWeight:600}}>{sp['Tên sản phẩm']}</span>
-                          <span style={{fontSize:'11px',color:'#6B7280',marginLeft:'8px'}}>{sp['Mã SP']}</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
+                <SPItemInput key={`${it._id}-${it.maSP}`} spList={spLocal} initVal={it.tenSP} onSelect={sp=>chonSP(it._id,sp)}/>
                 {/* SL */}
                 <input className="input" type="number" min="1" value={it.soLuong||''} onChange={e=>updItem(it._id,'soLuong',Number(e.target.value))} style={{fontSize:'12px',textAlign:'center'}}/>
                 {/* ĐVT */}
@@ -508,23 +601,25 @@ export default function DatHangNCCClient({donDHList,nccList,sanPhamList,user}:{
                 <div style={{padding:'8px 4px',fontSize:'12px',fontWeight:600,color:'var(--primary)',alignSelf:'center'}}>
                   {(Number(it.soLuong||0)*Number(it.giaNhap||0)).toLocaleString('vi-VN')}đ
                 </div>
-                {/* Ngày về */}
+                {/* Ngày hàng về */}
                 <input className="input" type="date" value={it.ngayVe} onChange={e=>updItem(it._id,'ngayVe',e.target.value)} style={{fontSize:'12px'}}/>
                 {/* Ghi chú */}
                 <input className="input" placeholder="Ghi chú..." value={it.ghiChu} onChange={e=>updItem(it._id,'ghiChu',e.target.value)} style={{fontSize:'12px'}}/>
                 {/* Xóa */}
-                {items.length>1&&<button onClick={()=>removeItem(it._id)} style={{padding:'6px',borderRadius:'5px',border:'none',background:'#FEE2E2',color:'#DC2626',cursor:'pointer',fontSize:'14px',alignSelf:'center'}}>✕</button>}
+                {items.length>1&&!isViewOnly&&<button onClick={()=>removeItem(it._id)} style={{padding:'6px',borderRadius:'5px',border:'none',background:'#FEE2E2',color:'#DC2626',cursor:'pointer',fontSize:'14px',alignSelf:'center'}}>✕</button>}
               </div>
             ))}
             {tongTien>0&&<div style={{textAlign:'right',fontWeight:700,fontSize:'14px',color:'var(--primary)',marginTop:'8px',paddingRight:'8px'}}>Tổng dự kiến: {fVND(tongTien)}đ</div>}
-            <button onClick={addItem} style={{marginTop:'8px',width:'100%',padding:'8px',borderRadius:'7px',border:'2px dashed var(--border)',background:'white',color:'var(--text-secondary)',fontSize:'13px',fontWeight:600,cursor:'pointer'}}>+ Thêm sản phẩm</button>
+            {!isViewOnly&&<button onClick={addItem} style={{marginTop:'8px',width:'100%',padding:'8px',borderRadius:'7px',border:'2px dashed var(--border)',background:'white',color:'var(--text-secondary)',fontSize:'13px',fontWeight:600,cursor:'pointer'}}>+ Thêm sản phẩm</button>}
 
             {msg&&<div style={{padding:'8px 12px',borderRadius:'8px',marginBottom:'8px',fontSize:'13px',background:msgOk?'#D1FAE5':'#FEE2E2',color:msgOk?'#065F46':'#991B1B'}}>{msg}</div>}
             <div style={{display:'flex',gap:'10px',marginTop:'16px'}}>
-              <button onClick={luuDon} disabled={loading} style={{flex:1,padding:'12px',borderRadius:'8px',border:'none',background:loading?'#9CA3AF':'var(--primary)',color:'white',fontWeight:700,fontSize:'14px',cursor:loading?'not-allowed':'pointer'}}>
+              {!isViewOnly&&<button onClick={luuDon} disabled={loading} style={{flex:1,padding:'12px',borderRadius:'8px',border:'none',background:loading?'#9CA3AF':'var(--primary)',color:'white',fontWeight:700,fontSize:'14px',cursor:loading?'not-allowed':'pointer'}}>
                 {loading?'⏳ Đang lưu...':editDon?'✅ Cập nhật đơn':'✅ Tạo đơn đặt hàng'}
+              </button>}
+              <button onClick={()=>{setShowModal(false);resetForm()}} style={{padding:'12px 18px',borderRadius:'8px',border:'1px solid var(--border)',background:isViewOnly?'var(--primary)':'white',color:isViewOnly?'white':'inherit',cursor:'pointer',fontSize:'14px',fontWeight:isViewOnly?700:400,flex:isViewOnly?1:undefined}}>
+                {isViewOnly?'✕ Đóng':'Huỷ'}
               </button>
-              <button onClick={()=>{setShowModal(false);resetForm()}} style={{padding:'12px 18px',borderRadius:'8px',border:'1px solid var(--border)',background:'white',cursor:'pointer',fontSize:'14px'}}>Huỷ</button>
             </div>
           </div>
         </div>
@@ -550,8 +645,28 @@ export default function DatHangNCCClient({donDHList,nccList,sanPhamList,user}:{
                   <input className="input" placeholder="Tên sản phẩm..." value={newTenSP} onChange={e=>setNewTenSP(e.target.value)} autoFocus/>
                 </div>
               </div>
-              {/* Hàng 2: Loại SP + ĐVT */}
-              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'10px'}}>
+              {/* Hàng 2: Danh mục + Loại SP + ĐVT */}
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:'10px'}}>
+                <div>
+                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'3px'}}>
+                    <label style={{fontSize:'11px',fontWeight:600}}>📂 Danh mục</label>
+                    <button type="button" onClick={()=>setShowThemDM3(true)} style={{padding:'1px 6px',borderRadius:'4px',border:'1px solid #7C3AED',background:'#F5F3FF',color:'#7C3AED',fontSize:'10px',cursor:'pointer'}}>+ Thêm</button>
+                  </div>
+                  {msgDM3&&<div style={{fontSize:'11px',marginBottom:'3px',color:msgDM3.startsWith('✅')?'#065F46':'#DC2626'}}>{msgDM3}</div>}
+                  {showThemDM3&&(
+                    <div style={{display:'flex',gap:'4px',marginBottom:'4px'}}>
+                      <input className="input" placeholder="Tên danh mục..." value={newTenDM3} autoFocus
+                        onChange={e=>setNewTenDM3(e.target.value)}
+                        onKeyDown={e=>e.key==='Enter'&&themDM3()}
+                        style={{flex:1,fontSize:'12px'}}/>
+                      <button onClick={themDM3} disabled={loadingDM3} style={{padding:'4px 8px',borderRadius:'5px',border:'none',background:'#7C3AED',color:'white',fontSize:'11px',cursor:'pointer',fontWeight:600,whiteSpace:'nowrap'}}>
+                        {loadingDM3?'⏳':'✅'}
+                      </button>
+                      <button onClick={()=>{setShowThemDM3(false);setNewTenDM3('')}} style={{padding:'4px 8px',borderRadius:'5px',border:'1px solid #E5E7EB',background:'white',fontSize:'11px',cursor:'pointer'}}>✕</button>
+                    </div>
+                  )}
+                  <DanhMucInput3 danhMucNames={danhMucNames3} value={newDanhMuc} onChange={setNewDanhMuc}/>
+                </div>
                 <div>
                   <label style={{fontSize:'11px',fontWeight:600,display:'block',marginBottom:'3px'}}>Loại SP</label>
                   <select className="input" value={newLoai} onChange={e=>setNewLoai(e.target.value)}>
@@ -642,6 +757,40 @@ export default function DatHangNCCClient({donDHList,nccList,sanPhamList,user}:{
         </div>
       )}
 
+      {/* Modal chọn đơn thiếu để bổ sung */}
+      {showBoSung&&(
+        <div className="ov" onClick={()=>setShowBoSung(false)}>
+          <div style={{background:'white',borderRadius:'12px',padding:'24px',width:'100%',maxWidth:'560px'}} onClick={e=>e.stopPropagation()}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'16px'}}>
+              <h2 style={{fontSize:'16px',fontWeight:700,margin:0}}>📋 Chọn đơn cần bổ sung</h2>
+              <button onClick={()=>setShowBoSung(false)} style={{background:'none',border:'none',cursor:'pointer',fontSize:'20px',color:'#6B7280'}}>✕</button>
+            </div>
+            <p style={{fontSize:'13px',color:'#6B7280',marginBottom:'14px'}}>Các đơn đang ở trạng thái "Nhập thiếu" — chọn để tạo đơn bổ sung:</p>
+            <div style={{display:'flex',flexDirection:'column',gap:'8px'}}>
+              {Object.entries(donNhapThieu).map(([maDH,ds])=>{
+                const ncc=nccMap[ds[0].maNCC]||{}
+                return (
+                  <div key={maDH} onClick={()=>moBoSung(maDH)}
+                    style={{padding:'12px',borderRadius:'8px',border:'1px solid #FCD34D',background:'#FFFBEB',cursor:'pointer'}}>
+                    <div style={{fontWeight:700,color:'#92400E'}}>{maDH}</div>
+                    <div style={{fontSize:'12px',color:'#6B7280',marginTop:'4px'}}>
+                      NCC: {ncc['Tên NCC']||ds[0].maNCC} · {ds.length} SP thiếu
+                    </div>
+                    <div style={{fontSize:'12px',marginTop:'4px'}}>
+                      {ds.map(d=>(
+                        <span key={d.maSP} style={{marginRight:'8px'}}>
+                          {spMap[d.maSP]?.['Tên sản phẩm']||d.maSP}: <strong>{d.slDat}</strong>
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Modal xóa */}
       {xoaItem&&(
         <div className="ov" onClick={()=>setXoaItem(null)}>
@@ -660,6 +809,75 @@ export default function DatHangNCCClient({donDHList,nccList,sanPhamList,user}:{
   )
 }
 
+function MoneyInput({value,onChange,style={}}:{value:number;onChange:(v:number)=>void;style?:any}){
+  const [display,setDisplay]=useState(value>0?value.toLocaleString('vi-VN'):'')
+  useEffect(()=>{setDisplay(value>0?value.toLocaleString('vi-VN'):'')},[value])
+  return (
+    <input className="input" inputMode="numeric" placeholder="0" style={style}
+      value={display}
+      onChange={e=>{
+        const raw=e.target.value.replace(/\./g,'').replace(/[^0-9]/g,'')
+        const num=Number(raw)||0
+        setDisplay(num>0?num.toLocaleString('vi-VN'):'')
+        onChange(num)
+      }}/>
+  )
+}
+
 function Btn({children,active,disabled,onClick}:any){
   return <button onClick={onClick} disabled={disabled} style={{padding:'4px 10px',borderRadius:'5px',border:'1px solid',borderColor:active?'var(--primary)':'var(--border)',background:active?'var(--primary)':disabled?'#F9FAFB':'white',color:active?'white':disabled?'#CCC':'var(--text-secondary)',cursor:disabled?'not-allowed':'pointer',fontSize:'13px',fontWeight:active?700:400,minWidth:'32px'}}>{children}</button>
 }
+
+function SPItemInput({spList,initVal,onSelect}:{spList:any[];initVal:string;onSelect:(sp:any)=>void}){
+  const [q,setQ]=useState(initVal)
+  const [show,setShow]=useState(false)
+  function boDau(s:string){return(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/đ/g,'d').replace(/Đ/g,'D').toLowerCase()}
+  const filtered=spList.filter(s=>{const qb=boDau(q).slice(0,20);return !qb||boDau(s['Tên sản phẩm']||'').includes(qb)||boDau(s['Mã SP']||'').includes(qb)}).slice(0,10)
+  return (
+    <div style={{position:'relative'}}>
+      <input className="input" placeholder="Tìm tên hoặc mã SP..." value={q}
+        onChange={e=>{setQ(e.target.value);setShow(true)}}
+        onFocus={()=>setShow(true)}
+        onBlur={()=>setTimeout(()=>setShow(false),200)}
+        style={{fontSize:'12px'}}/>
+      {show&&filtered.length>0&&(
+        <div style={{position:'absolute',top:'calc(100% + 2px)',left:0,right:0,zIndex:300,background:'white',border:'1px solid #E5E7EB',borderRadius:'8px',boxShadow:'0 4px 20px rgba(0,0,0,.15)',maxHeight:'200px',overflowY:'auto'}}>
+          {filtered.map((sp,j)=>(
+            <div key={j} style={{padding:'8px 12px',cursor:'pointer',borderBottom:'1px solid #F3F4F6',fontSize:'13px'}}
+              onMouseDown={e=>{e.preventDefault();setQ(sp['Tên sản phẩm']||'');setShow(false);onSelect(sp)}}>
+              <span style={{fontWeight:600}}>{sp['Tên sản phẩm']}</span>
+              <span style={{fontSize:'11px',color:'#6B7280',marginLeft:'8px'}}>{sp['Mã SP']}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function DanhMucInput3({danhMucNames,value,onChange}:{danhMucNames:string[];value:string;onChange:(v:string)=>void}){
+  const [show,setShow]=useState(false)
+  const [q,setQ]=useState(value)
+  useEffect(()=>{setQ(value)},[value])
+  function boDau3(s:string){return(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/đ/g,'d').replace(/Đ/g,'D').toLowerCase()}
+  const filtered=danhMucNames.filter(dm=>{const qb=boDau3(q);return !qb||boDau3(dm).includes(qb)}).slice(0,10)
+  return (
+    <div style={{position:'relative'}}>
+      <input className="input" placeholder="Gõ hoặc chọn danh mục..." value={q}
+        onChange={e=>{setQ(e.target.value);onChange(e.target.value);setShow(true)}}
+        onFocus={()=>setShow(true)} onBlur={()=>setTimeout(()=>setShow(false),200)}
+        style={{background:value?'#F5F3FF':'',color:value?'#7C3AED':''}}/>
+      {show&&filtered.length>0&&(
+        <div style={{position:'absolute',top:'calc(100%+2px)',left:0,right:0,zIndex:400,background:'white',border:'1px solid #E5E7EB',borderRadius:'8px',boxShadow:'0 4px 16px rgba(0,0,0,.15)',maxHeight:'180px',overflowY:'auto'}}>
+          {filtered.map(dm=>(
+            <div key={dm} style={{padding:'8px 12px',cursor:'pointer',borderBottom:'1px solid #F3F4F6',fontSize:'13px',fontWeight:500}}
+              onMouseDown={e=>{e.preventDefault();setQ(dm);onChange(dm);setShow(false)}}>
+              📂 {dm}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+

@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
 
     const result = await getRecords(TABLES.CHI_TIET_DON, {
       where, limit: 100,
-      fields: 'Id,Mã chi tiết,Mã đơn hàng,Mã SP,Tên SP (ghi nhanh),Số lượng,Đơn giá,Thành tiền,Ghi chú SP,Trạng thái SP',
+      fields: 'Id,Mã chi tiết,Mã đơn hàng,Mã SP,Tên SP (ghi nhanh),Số lượng,Đơn giá,Giá nhập,Thành tiền,Ghi chú SP,Trạng thái SP',
     })
     return NextResponse.json(result)
   } catch (error: any) {
@@ -48,6 +48,12 @@ export async function PATCH(request: NextRequest) {
     const { id, ...upd } = body
     if (!id) return NextResponse.json({ message: 'Thiếu id' }, { status: 400 })
 
+    // Nếu hủy SP → cộng lại tồn kho
+    if (upd['Trạng thái SP'] === 'Huỷ' && upd['Mã SP'] && Number(upd['Số lượng']||0) > 0) {
+      const spR = await getRecords(TABLES.SAN_PHAM, { where: `(Mã SP,eq,)`, limit:1, fields:'Id,Tồn kho' })
+      const sp = spR.list?.[0]
+      if (sp) await updateRecord(TABLES.SAN_PHAM, Number(sp['Id']||sp['id']), { 'Tồn kho': Number(sp['Tồn kho']||0) + Number(upd['Số lượng']) })
+    }
     const result = await updateRecord(TABLES.CHI_TIET_DON, Number(id), upd)
     return NextResponse.json({ success: true, data: result })
   } catch (error: any) {

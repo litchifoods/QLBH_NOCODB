@@ -1,7 +1,7 @@
 ﻿'use client'
 // components/SanPhamClient.tsx
 
-import { useState, useMemo, useRef } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { UserSession } from '@/lib/auth'
 import * as XLSX from 'xlsx'
@@ -19,7 +19,25 @@ function fVND(n:any){return Number(n||0).toLocaleString('vi-VN')}
 // LOAI_SP và DON_VI đọc động từ NocoDB qua useMeta
 const SO_DONG = 10
 
-export default function SanPhamClient({ danhSach, user }:{ danhSach:any[]; user:UserSession }) {
+function MoneyInput({value,onChange,placeholder='0'}:{value:number;onChange:(v:number)=>void;placeholder?:string}){
+  const [display,setDisplay]=useState(value>0?value.toLocaleString('vi-VN'):'')
+  useEffect(()=>{setDisplay(value>0?value.toLocaleString('vi-VN'):'')},[value])
+  return (
+    <input className="input" inputMode="numeric" placeholder={placeholder}
+      value={display}
+      onChange={e=>{
+        const raw=e.target.value.replace(/\./g,'').replace(/[^0-9]/g,'')
+        const num=Number(raw)||0
+        setDisplay(num>0?num.toLocaleString('vi-VN'):'')
+        onChange(num)
+      }}/>
+  )
+}
+
+export default function SanPhamClient({ danhSach, danhMucList=[], nhapKhoList=[], nccMap={}, user }:{
+  danhSach:any[]; danhMucList:any[]
+  nhapKhoList:any[]; nccMap:Record<string,string>; user:UserSession
+}) {
   const router   = useRouter()
   const LOAI_SP = ['Phổ thông','Theo yêu cầu']
   const DON_VI  = ['Cái','Chiếc','Bộ']
@@ -31,6 +49,18 @@ export default function SanPhamClient({ danhSach, user }:{ danhSach:any[]; user:
   const [search,   setSearch]   = useState('')
   const [filterLoai,setFilterLoai] = useState('Tất cả')
   const [filterTon, setFilterTon]  = useState('Tất cả')
+  const [filterDanhMuc, setFilterDanhMuc] = useState('Tất cả')
+  const [showNgungKD,  setShowNgungKD]  = useState(false) // hiện/ẩn SP ngừng KD
+  // State quản lý danh mục
+  const [danhMucLocal,  setDanhMucLocal]  = useState(danhMucList)
+  const [showQLDM,      setShowQLDM]      = useState(false)
+  const [newTenDM,      setNewTenDM]      = useState('')
+  const [editDM,        setEditDM]        = useState<any>(null)
+  const [loadingDM,     setLoadingDM]     = useState(false)
+  const [msgDM,         setMsgDM]         = useState('')
+  const [trangDM,       setTrangDM]       = useState(1)
+  const [searchDM,      setSearchDM]      = useState('')
+  const SO_DONG_DM = 10
   const [trang,    setTrang]    = useState(1)
   const [msg,      setMsg]      = useState('')
   const [msgOk,    setMsgOk]    = useState(true)
@@ -40,13 +70,17 @@ export default function SanPhamClient({ danhSach, user }:{ danhSach:any[]; user:
   const [editSP,   setEditSP]   = useState<any>(null)
   const [loading,  setLoading]  = useState(false)
   const [xoaSP,    setXoaSP]    = useState<any>(null)
+  const [lichSuGiaSP, setLichSuGiaSP] = useState<any>(null) // SP đang xem lịch sử giá
   const [dangXoa,  setDangXoa]  = useState(false)
+  const [xoaCheck, setXoaCheck] = useState<any>(null)
+  const [loadingXoaCheck, setLoadingXoaCheck] = useState(false)
 
   // Form fields
-  const [maSP,     setMaSP]     = useState('')
-  const [tenSP,    setTenSP]    = useState('')
-  const [loaiSP,   setLoaiSP]   = useState('Phổ thông')
-  const [donVi,    setDonVi]    = useState('Bộ')
+  const [maSP,      setMaSP]      = useState('')
+  const [tenSP,     setTenSP]     = useState('')
+  const [loaiSP,    setLoaiSP]    = useState('Phổ thông')
+  const [danhMucSP, setDanhMucSP] = useState('')
+  const [donVi,     setDonVi]     = useState('Cái')
   const [giaNhapNCC,setGiaNhapNCC]= useState(0)
   const [cpvcKho,  setCpvcKho]  = useState(0)
   const [giaBuon,  setGiaBuon]  = useState(0)
@@ -57,27 +91,84 @@ export default function SanPhamClient({ danhSach, user }:{ danhSach:any[]; user:
   const [ghiChu,   setGhiChu]   = useState('')
 
   function showMsg2(text:string,ok=true){setMsg(text);setMsgOk(ok);setTimeout(()=>setMsg(''),5000)}
+  function showMsgDM(t:string){setMsgDM(t);setTimeout(()=>setMsgDM(''),4000)}
+  const danhMucNames = danhMucLocal.map((d:any)=>d['Tên danh mục']||'')
+  const thongKeDM = danhMucLocal.reduce((m:Record<string,number>,d:any)=>{
+    const ten=d['Tên danh mục']||''; const count=local.filter((sp:any)=>sp['Danh mục']===ten).length; m[ten]=count; return m
+  },{} as Record<string,number>)
+
+  async function themDanhMuc(){
+    if(!newTenDM.trim()){showMsgDM('Nhập tên danh mục');return}
+    if(danhMucNames.includes(newTenDM.trim())){showMsgDM('Danh mục đã tồn tại');return}
+    setLoadingDM(true)
+    try{
+      const res=await fetch('/api/danh-muc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({tenDanhMuc:newTenDM.trim()})})
+      const d=await res.json()
+      if(!res.ok) throw new Error(d.message)
+      setDanhMucLocal((p:any[])=>[...p,{...d.data,'Tên danh mục':newTenDM.trim()}])
+      setNewTenDM('')
+      showMsgDM('✅ Đã thêm')
+    }catch(e:any){showMsgDM('❌ '+(e.message||'Lỗi'))}
+    finally{setLoadingDM(false)}
+  }
+
+  async function suaDanhMuc(){
+    if(!editDM||!editDM.ten.trim()) return
+    setLoadingDM(true)
+    try{
+      const res=await fetch('/api/danh-muc',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:editDM.id,'Tên danh mục':editDM.ten.trim()})})
+      if(!res.ok) throw new Error((await res.json()).message)
+      setDanhMucLocal((p:any[])=>p.map((d:any)=>(d['Id']||d['id'])===editDM.id?{...d,'Tên danh mục':editDM.ten.trim()}:d))
+      setEditDM(null); showMsgDM('✅ Đã cập nhật')
+    }catch(e:any){showMsgDM('❌ '+(e.message||'Lỗi'))}
+    finally{setLoadingDM(false)}
+  }
+
+  async function xoaDanhMuc(id:number, ten:string){
+    const soSP=local.filter((sp:any)=>sp['Danh mục']===ten).length
+    if(soSP>0){showMsgDM(`❌ Có ${soSP} SP đang dùng — không thể xóa`);return}
+    if(!confirm(`Xóa danh mục "${ten}"?`)) return
+    setLoadingDM(true)
+    try{
+      const res=await fetch(`/api/danh-muc?id=${id}`,{method:'DELETE'})
+      if(!res.ok) throw new Error((await res.json()).message)
+      setDanhMucLocal((p:any[])=>p.filter((d:any)=>(d['Id']||d['id'])!==id))
+      showMsgDM('✅ Đã xóa')
+    }catch(e:any){showMsgDM('❌ '+(e.message||'Lỗi'))}
+    finally{setLoadingDM(false)}
+  }
 
   const filtered = useMemo(()=>local.filter(sp=>{
+    // Ẩn SP ngừng KD theo toggle
+    const isNgung = sp['Trạng thái']==='Ngừng kinh doanh'
+    if (isNgung && !showNgungKD) return false
+    if (!isNgung && showNgungKD) return false
     if (filterLoai!=='Tất cả' && sp['Loại SP']!==filterLoai) return false
+    if (filterDanhMuc!=='Tất cả' && (sp['Danh mục']||'Chưa phân loại')!==filterDanhMuc) return false
     if (filterTon !== 'Tất cả') {
-      const tt = tinhTonKho(Number(sp['Tồn kho']||0), Number(sp['Ngưỡng cảnh báo']||0))
-      if (tt.label !== filterTon) return false
+      const ton = Number(sp['Tồn kho']||0)
+      // "Hết hàng" bắt cả tồn âm (đã đặt hàng chưa về) lẫn tồn = 0
+      if (filterTon === 'Hết hàng') {
+        if (ton > 0) return false
+      } else {
+        const tt = tinhTonKho(ton, Number(sp['Ngưỡng cảnh báo']||0))
+        if (tt.label !== filterTon) return false
+      }
     }
     if (!search.trim()) return true
     const q=boDau(search)
     return boDau(sp['Tên sản phẩm']||'').includes(q)||boDau(sp['Mã SP']||'').includes(q)||boDau(sp['Loại SP']||'').includes(q)
-  }),[local,search,filterLoai,filterTon])
+  }),[local,search,filterLoai,filterTon,showNgungKD])
 
   const tongTrang = Math.max(1,Math.ceil(filtered.length/SO_DONG))
   const trangHT   = Math.min(trang,tongTrang)
   const dsTrang   = filtered.slice((trangHT-1)*SO_DONG, trangHT*SO_DONG)
 
-  function reset(){setMaSP('');setTenSP('');setLoaiSP('Phổ thông');setDonVi('Bộ');setGiaNhapNCC(0);setCpvcKho(0);setGiaBuon(0);setGiaLe(0);setTonKho(0);setCanhBao(5);setThongSo('');setGhiChu('');setEditSP(null)}
+  function reset(){setMaSP('');setTenSP('');setLoaiSP('Phổ thông');setDanhMucSP('');setDonVi('Cái');setGiaNhapNCC(0);setCpvcKho(0);setGiaBuon(0);setGiaLe(0);setTonKho(0);setCanhBao(1);setThongSo('');setGhiChu('');setEditSP(null)}
   function moThem(){reset();setShowModal(true)}
   function moSua(sp:any){
     setEditSP(sp);setMaSP(sp['Mã SP']||'');setTenSP(sp['Tên sản phẩm']||'')
-    setLoaiSP(sp['Loại SP']||'Phổ thông');setDonVi(sp['Đơn vị tính']||'Bộ')
+    setLoaiSP(sp['Loại SP']||'Phổ thông');setDanhMucSP(sp['Danh mục']||'');setDonVi(sp['Đơn vị tính']||'Cái')
     setGiaNhapNCC(Number(sp['Giá nhập NCC']||0));setCpvcKho(Number(sp['CPVC về kho']||0));setGiaBuon(Number(sp['Giá bán buôn']||0));setGiaLe(Number(sp['Giá bán lẻ']||0))
     setTonKho(Number(sp['Tồn kho']||0));setCanhBao(Number(sp['Ngưỡng cảnh báo']||1))
     setThongSo(sp['Thông số kỹ thuật']||'');setGhiChu(sp['Ghi chú']||'')
@@ -91,6 +182,7 @@ export default function SanPhamClient({ danhSach, user }:{ danhSach:any[]; user:
       const data: Record<string,any> = {
         'Tên sản phẩm':tenSP.trim(),
         'Loại SP':loaiSP,
+        'Danh mục':danhMucSP||'',
         'Đơn vị tính':donVi,
         'Giá nhập NCC':Number(giaNhapNCC)||0,
         'CPVC về kho':Number(cpvcKho)||0,
@@ -123,17 +215,49 @@ export default function SanPhamClient({ danhSach, user }:{ danhSach:any[]; user:
     finally{setLoading(false)}
   }
 
+  async function moXoa(sp: any) {
+    setXoaSP(sp); setXoaCheck(null); setLoadingXoaCheck(true)
+    try {
+      const maSP = sp['Mã SP'] || ''
+      const res = await fetch('/api/san-pham?loai=kiem-tra-xoa&maSP='+encodeURIComponent(maSP))
+      const d = await res.json(); setXoaCheck(d)
+    } catch { setXoaCheck({ coTheXoa: false, lyDo: ['Lỗi kiểm tra'] }) }
+    finally { setLoadingXoaCheck(false) }
+  }
+
   async function xacNhanXoa(){
-    if (!xoaSP) return
+    if (!xoaSP || !xoaCheck?.coTheXoa) return
     setDangXoa(true)
     try {
-      const res = await fetch(`/api/san-pham?id=${xoaSP._rowId}`,{method:'DELETE'})
+      const maSP = xoaSP['Mã SP'] || ''
+      const res = await fetch('/api/san-pham?id='+xoaSP._rowId+'&maSP='+encodeURIComponent(maSP),{method:'DELETE'})
       if (!res.ok) throw new Error((await res.json()).message)
       setLocal(prev=>prev.filter(sp=>sp._key!==xoaSP._key))
       showMsg2('✅ Đã xóa: '+xoaSP['Tên sản phẩm'])
-      setXoaSP(null)
+      setXoaSP(null); setXoaCheck(null)
     } catch(e:any){showMsg2('❌ '+(e.message||'Lỗi xóa'),false)}
     finally{setDangXoa(false)}
+  }
+
+  async function ngungKinhDoanh(sp: any) {
+    try {
+      const res = await fetch('/api/san-pham', {method:'PATCH', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({id: sp._rowId, 'Trạng thái': 'Ngừng kinh doanh'})})
+      if (!res.ok) throw new Error((await res.json()).message)
+      setLocal(prev=>prev.map(s=>s._key===sp._key?{...s,'Trạng thái':'Ngừng kinh doanh'}:s))
+      setXoaSP(null); setXoaCheck(null)
+      showMsg2('⛔ Đã chuyển "'+sp['Tên sản phẩm']+'" sang Ngừng kinh doanh')
+    } catch(e:any){showMsg2('❌ '+(e.message||'Lỗi'),false)}
+  }
+
+  async function khoiPhucKinhDoanh(sp: any) {
+    try {
+      const res = await fetch('/api/san-pham', {method:'PATCH', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({id: sp._rowId, 'Trạng thái': 'Đang bán'})})
+      if (!res.ok) throw new Error((await res.json()).message)
+      setLocal(prev=>prev.map(s=>s._key===sp._key?{...s,'Trạng thái':'Đang bán'}:s))
+      showMsg2('✅ Đã khôi phục: '+sp['Tên sản phẩm'])
+    } catch(e:any){showMsg2('❌ '+(e.message||'Lỗi'),false)}
   }
 
   // Xuất Excel
@@ -177,7 +301,7 @@ export default function SanPhamClient({ danhSach, user }:{ danhSach:any[]; user:
           const res = await fetch('/api/san-pham',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
             'Mã SP':(row['Mã SP']||'').toString().trim()||undefined,
             'Tên sản phẩm':ten,'Loại SP':row['Loại SP']||'Phổ thông',
-            'Đơn vị tính':row['Đơn vị tính']||'Bộ',
+            'Đơn vị tính':row['Đơn vị tính']||'Cái',
             'Giá bán buôn':Number(row['Giá bán buôn']||0),'Giá bán lẻ':Number(row['Giá bán lẻ']||0),
             'Tồn kho':Number(row['Tồn kho']||0),'Ngưỡng cảnh báo':Number(row['Ngưỡng cảnh báo']||5),
             'Thông số kỹ thuật':(row['Thông số kỹ thuật']||'').toString(),
@@ -197,6 +321,7 @@ export default function SanPhamClient({ danhSach, user }:{ danhSach:any[]; user:
   return (
     <div style={{padding:'20px'}}>
       <style>{`
+        .col-buon{display:none!important;}
         .sp-t th,.sp-t td{padding:8px 10px;}
         .sp-t tbody tr:hover td{background:#F0F4FF!important;}
         .ov{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;display:flex;align-items:center;justify-content:center;padding:16px;}
@@ -209,25 +334,51 @@ export default function SanPhamClient({ danhSach, user }:{ danhSach:any[]; user:
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:'14px',flexWrap:'wrap',gap:'10px'}}>
         <div>
           <h1 style={{fontFamily:'Playfair Display,serif',fontSize:'20px',fontWeight:700,margin:0}}>🪑 Sản phẩm</h1>
-          <p style={{color:'var(--text-secondary)',fontSize:'13px',margin:'2px 0 6px'}}>
-            {(()=>{
-              const canNhap = local.filter(sp=>Number(sp['Tồn kho']||0)<0).length
-              const hetHang = local.filter(sp=>Number(sp['Tồn kho']||0)===0).length
-              const sapHet  = local.filter(sp=>{const t=Number(sp['Tồn kho']||0);return t>0&&t<=Number(sp['Ngưỡng cảnh báo']||0)}).length
-              return <span>
-                Tổng {local.length} sản phẩm
-                {canNhap>0&&<span style={{marginLeft:'8px',padding:'1px 8px',borderRadius:'10px',background:'#FEF9C3',color:'#A16207',fontWeight:600,fontSize:'12px'}}>{canNhap} SP cần nhập</span>}
-                {hetHang>0&&<span style={{marginLeft:'6px',padding:'1px 8px',borderRadius:'10px',background:'#FEE2E2',color:'#DC2626',fontWeight:600,fontSize:'12px'}}>{hetHang} SP hết hàng</span>}
-                {sapHet>0&&<span style={{marginLeft:'6px',padding:'1px 8px',borderRadius:'10px',background:'#FEF3C7',color:'#D97706',fontWeight:600,fontSize:'12px'}}>⚠️ {sapHet} SP sắp hết</span>}
-              </span>
-            })()}
-          </p>
+          {/* Thống kê nhanh */}
+          {(()=>{
+            const hetHang = local.filter(sp=>Number(sp['Tồn kho']||0)===0).length
+            const canNhap = local.filter(sp=>Number(sp['Tồn kho']||0)<0).length
+            const sapHet  = local.filter(sp=>{const t=Number(sp['Tồn kho']||0);return t>0&&t<=Number(sp['Ngưỡng cảnh báo']||0)}).length
+            return (
+              <div style={{display:'flex',gap:'8px',flexWrap:'wrap',margin:'8px 0 4px'}}>
+                <div style={{padding:'6px 14px',borderRadius:'8px',background:'#EFF6FF',border:'1px solid #BFDBFE',cursor:'pointer'}}
+                  onClick={()=>{setFilterLoai('Tất cả');setFilterTon('Tất cả');setSearch('');setTrang(1)}}>
+                  <span style={{fontSize:'18px',fontWeight:800,color:'#1E40AF'}}>{local.length}</span>
+                  <span style={{fontSize:'11px',color:'#6B7280',marginLeft:'5px'}}>Tổng SP</span>
+                </div>
+                <div style={{padding:'6px 14px',borderRadius:'8px',background:'#FEE2E2',border:'1px solid #FCA5A5',cursor:'pointer'}}
+                  onClick={()=>{setFilterTon('Hết hàng');setTrang(1)}}>
+                  <span style={{fontSize:'18px',fontWeight:800,color:'#DC2626'}}>{hetHang}</span>
+                  <span style={{fontSize:'11px',color:'#6B7280',marginLeft:'5px'}}>Hết hàng</span>
+                </div>
+                <div style={{padding:'6px 14px',borderRadius:'8px',background:'#FEF9C3',border:'1px solid #FDE68A',cursor:'pointer'}}
+                  onClick={()=>{setFilterTon('Cần nhập');setTrang(1)}}>
+                  <span style={{fontSize:'18px',fontWeight:800,color:'#A16207'}}>{canNhap}</span>
+                  <span style={{fontSize:'11px',color:'#6B7280',marginLeft:'5px'}}>Cần nhập</span>
+                </div>
+                <div style={{padding:'6px 14px',borderRadius:'8px',background:'#FEF3C7',border:'1px solid #FCD34D',cursor:'pointer'}}
+                  onClick={()=>{setFilterTon('Sắp hết');setTrang(1)}}>
+                  <span style={{fontSize:'18px',fontWeight:800,color:'#D97706'}}>{sapHet}</span>
+                  <span style={{fontSize:'11px',color:'#6B7280',marginLeft:'5px'}}>⚠️ Sắp hết</span>
+                </div>
+              </div>
+            )
+          })()}
+          {(()=>{const soNgung=local.filter(sp=>sp['Trạng thái']==='Ngừng kinh doanh').length;return soNgung>0&&(
+            <button onClick={()=>setShowNgungKD(p=>!p)}
+              style={{padding:'6px 14px',borderRadius:'8px',background:showNgungKD?'#FEE2E2':'#F3F4F6',border:'1px solid',borderColor:showNgungKD?'#FCA5A5':'#E5E7EB',cursor:'pointer',fontSize:'12px',fontWeight:600,color:showNgungKD?'#DC2626':'#6B7280'}}>
+              {showNgungKD?'✅ Ẩn SP ngừng KD':'⛔ Xem SP ngừng KD ('+soNgung+')'}
+            </button>
+          )})()} 
           <div style={{display:'flex',gap:'8px',flexWrap:'wrap'}}>
             <button onClick={xuatExcel} style={{padding:'5px 12px',borderRadius:'6px',border:'1px solid #E5E7EB',background:'white',cursor:'pointer',fontSize:'12px',fontWeight:600}}>📥 Xuất Excel</button>
             <button onClick={taiFileMau} style={{padding:'5px 12px',borderRadius:'6px',border:'1px solid #E5E7EB',background:'white',cursor:'pointer',fontSize:'12px',fontWeight:600}}>📋 Tải file mẫu</button>
             <label style={{padding:'5px 12px',borderRadius:'6px',border:'1px solid #E5E7EB',background:'white',cursor:'pointer',fontSize:'12px',fontWeight:600}}>
               📤 Nhập Excel<input ref={fileRef} type="file" accept=".xlsx,.xls" style={{display:'none'}} onChange={nhapExcel}/>
             </label>
+            <button onClick={()=>setShowQLDM(true)} style={{padding:'5px 12px',borderRadius:'6px',border:'1px solid #7C3AED',background:'#F5F3FF',color:'#7C3AED',cursor:'pointer',fontSize:'12px',fontWeight:600}}>
+              ⚙️ Quản lý danh mục ({danhMucLocal.length})
+            </button>
           </div>
         </div>
         <button onClick={moThem} style={{background:'var(--primary)',color:'white',border:'none',borderRadius:'8px',padding:'10px 18px',fontSize:'14px',fontWeight:600,cursor:'pointer'}}>+ Thêm sản phẩm</button>
@@ -272,6 +423,7 @@ export default function SanPhamClient({ danhSach, user }:{ danhSach:any[]; user:
               <tr style={{background:'#F0F4FF',borderBottom:'2px solid var(--border)'}}>
                 <th style={{textAlign:'left',fontWeight:700,whiteSpace:'nowrap'}}>Mã SP</th>
                 <th style={{textAlign:'left',fontWeight:700}}>Tên sản phẩm</th>
+                <th style={{textAlign:'center',fontWeight:700}}>Danh mục</th>
                 <th style={{textAlign:'center',fontWeight:700}}>Loại</th>
                 <th style={{textAlign:'center',fontWeight:700}}>ĐVT</th>
                 <th className="col-buon" style={{textAlign:'right',fontWeight:700,whiteSpace:'nowrap'}}>Giá bán buôn</th>
@@ -290,10 +442,18 @@ export default function SanPhamClient({ danhSach, user }:{ danhSach:any[]; user:
                 const sapHet  = ton <= canhBaoTon
                 return (
                   <tr key={sp._key} style={{borderBottom:'1px solid #F0F0F0',background:i%2===0?'white':'#FAFBFD'}}>
-                    <td style={{fontWeight:600,color:'#374151',whiteSpace:'nowrap',fontSize:'12px'}}>{sp['Mã SP']||'—'}</td>
-                    <td>
-                      <div style={{fontWeight:600}}>{sp['Tên sản phẩm']}</div>
+                    <td style={{fontWeight:600,color:'var(--primary)',whiteSpace:'nowrap',fontSize:'12px',cursor:'pointer',textDecoration:'underline'}} onClick={()=>moSua(sp)}>{sp['Mã SP']||'—'}</td>
+                    <td onClick={()=>!showNgungKD&&moSua(sp)} style={{cursor:showNgungKD?'default':'pointer'}}>
+                      <div style={{fontWeight:600,color:sp['Trạng thái']==='Ngừng kinh doanh'?'#9CA3AF':'#374151',textDecoration:sp['Trạng thái']==='Ngừng kinh doanh'?'line-through':'none'}}>
+                        {sp['Tên sản phẩm']}
+                        {sp['Trạng thái']==='Ngừng kinh doanh'&&<span style={{marginLeft:'6px',fontSize:'10px',padding:'1px 6px',borderRadius:'8px',background:'#FEE2E2',color:'#DC2626',fontWeight:700,textDecoration:'none',display:'inline-block'}}>Ngừng KD</span>}
+                      </div>
                       {sp['Ghi chú']&&<div style={{fontSize:'11px',color:'#9CA3AF',fontStyle:'italic'}}>{sp['Ghi chú']}</div>}
+                    </td>
+                    <td style={{textAlign:'center'}}>
+                      {sp['Danh mục']
+                        ?<span style={{padding:'2px 8px',borderRadius:'10px',background:'#F5F3FF',color:'#7C3AED',fontSize:'11px',fontWeight:600,whiteSpace:'nowrap'}}>{sp['Danh mục']}</span>
+                        :<span style={{fontSize:'11px',color:'#D1D5DB'}}>—</span>}
                     </td>
                     <td style={{textAlign:'center'}}>
                       <span style={{fontSize:'11px',color:sp['Loại SP']==='Theo yêu cầu'?'#A16207':'#6B7280',fontWeight:sp['Loại SP']==='Theo yêu cầu'?600:400,whiteSpace:'nowrap'}}>
@@ -318,7 +478,14 @@ export default function SanPhamClient({ danhSach, user }:{ danhSach:any[]; user:
                     <td style={{textAlign:'center'}}>
                       <div style={{display:'flex',gap:'4px',justifyContent:'center'}}>
                         <button onClick={()=>moSua(sp)} title="Sửa" style={{padding:'4px 10px',borderRadius:'5px',border:'1px solid #FCD34D',background:'#FFFBEB',color:'#92400E',fontSize:'11px',fontWeight:600,cursor:'pointer'}}>✏️ Sửa</button>
-                        <button onClick={()=>setXoaSP(sp)} title="Xóa" style={{padding:'4px 8px',borderRadius:'5px',border:'1px solid #FCA5A5',background:'#FEF2F2',color:'#DC2626',fontSize:'11px',cursor:'pointer',fontWeight:600}}>🗑️ Xóa</button>
+                        <button onClick={()=>setLichSuGiaSP(sp)} title="Lịch sử giá nhập" style={{padding:'4px 8px',borderRadius:'5px',border:'1px solid #BFDBFE',background:'#EFF6FF',color:'#1E40AF',fontSize:'11px',cursor:'pointer',fontWeight:600}}>📈</button>
+                        {user.vaiTro==='Chủ cửa hàng'&&(
+                          sp['Trạng thái']==='Ngừng kinh doanh'
+                            ?<button onClick={()=>khoiPhucKinhDoanh(sp)} title="Khôi phục kinh doanh"
+                              style={{padding:'4px 8px',borderRadius:'5px',border:'1px solid #6EE7B7',background:'#F0FDF4',color:'#16A34A',fontSize:'11px',cursor:'pointer',fontWeight:600}}>▶ Khôi phục</button>
+                            :<button onClick={()=>moXoa(sp)} title="Xóa hoặc ngừng KD"
+                              style={{padding:'4px 8px',borderRadius:'5px',border:'1px solid #FCA5A5',background:'#FEF2F2',color:'#DC2626',fontSize:'11px',cursor:'pointer',fontWeight:600}}>🗑️ Xóa</button>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -359,7 +526,14 @@ export default function SanPhamClient({ danhSach, user }:{ danhSach:any[]; user:
                   <input className="input" placeholder="Tên sản phẩm..." value={tenSP} onChange={e=>setTenSP(e.target.value)} autoFocus/>
                 </div>
               </div>
-              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr 1fr',gap:'10px'}}>
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:'10px'}}>
+                <div>
+                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'3px'}}>
+                    <label style={{fontSize:'11px',fontWeight:600}}>📂 Danh mục</label>
+                    <button type="button" onClick={()=>{setShowModal(false);setShowQLDM(true)}} style={{padding:'1px 6px',borderRadius:'4px',border:'1px solid #7C3AED',background:'#F5F3FF',color:'#7C3AED',fontSize:'10px',cursor:'pointer'}}>+ Thêm</button>
+                  </div>
+                  <DanhMucInputSP danhMucNames={danhMucNames} value={danhMucSP} onChange={setDanhMucSP}/>
+                </div>
                 <div>
                   <label style={{fontSize:'11px',fontWeight:600,display:'block',marginBottom:'3px'}}>Loại SP</label>
                   <select className="input" value={loaiSP} onChange={e=>setLoaiSP(e.target.value)}>
@@ -375,34 +549,31 @@ export default function SanPhamClient({ danhSach, user }:{ danhSach:any[]; user:
               </div>
               <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr 1fr',gap:'10px'}}>
                 <div>
-                  <label style={{fontSize:'11px',fontWeight:600,display:'block',marginBottom:'3px'}}>📦 Giá nhập NCC NCC (đ)</label>
-                  <input className="input" type="text" inputMode="numeric" placeholder="0"
-                    value={giaNhapNCC?giaNhapNCC.toLocaleString('vi-VN'):''}
-                    onChange={e=>{const v=e.target.value.replace(/\./g,'');const n=Number(v);if(!isNaN(n))setGiaNhapNCC(n)}}/>
+                  <label style={{fontSize:'11px',fontWeight:600,display:'block',marginBottom:'3px'}}>📦 Giá nhập NCC (đ)</label>
+                  <MoneyInput value={giaNhapNCC} onChange={setGiaNhapNCC}/>
                 </div>
                 <div>
                   <label style={{fontSize:'11px',fontWeight:600,display:'block',marginBottom:'3px'}}>🚚 CPVC về kho (đ)</label>
-                  <input className="input" type="text" inputMode="numeric" placeholder="0"
-                    value={cpvcKho?cpvcKho.toLocaleString('vi-VN'):''}
-                    onChange={e=>{const v=e.target.value.replace(/\./g,'');const n=Number(v);if(!isNaN(n))setCpvcKho(n)}}/>
+                  <MoneyInput value={cpvcKho} onChange={setCpvcKho}/>
                 </div>
                 <div>
                   <label style={{fontSize:'11px',fontWeight:600,display:'block',marginBottom:'3px'}}>💵 Giá bán buôn (đ)</label>
-                  <input className="input" type="text" inputMode="numeric" placeholder="0"
-                    value={giaBuon?giaBuon.toLocaleString('vi-VN'):''}
-                    onChange={e=>{const v=e.target.value.replace(/\./g,'');const n=Number(v);if(!isNaN(n))setGiaBuon(n)}}/>
+                  <MoneyInput value={giaBuon} onChange={setGiaBuon}/>
                 </div>
                 <div>
                   <label style={{fontSize:'11px',fontWeight:600,display:'block',marginBottom:'3px'}}>🏷️ Giá bán lẻ (đ)</label>
-                  <input className="input" type="text" inputMode="numeric" placeholder="0"
-                    value={giaLe?giaLe.toLocaleString('vi-VN'):''}
-                    onChange={e=>{const v=e.target.value.replace(/\./g,'');const n=Number(v);if(!isNaN(n))setGiaLe(n)}}/>
+                  <MoneyInput value={giaLe} onChange={setGiaLe}/>
                 </div>
               </div>
               <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'10px'}}>
                 <div>
                   <label style={{fontSize:'11px',fontWeight:600,display:'block',marginBottom:'3px'}}>📦 Tồn kho</label>
-                  <input className="input" type="number" min="0" value={tonKho||''} placeholder="0" onChange={e=>setTonKho(Number(e.target.value))}/>
+                  {editSP
+                    ? <div style={{padding:'8px 12px',background:'#F3F4F6',borderRadius:'6px',fontSize:'13px',fontWeight:600,color:'#374151',border:'1px solid #E5E7EB'}}>
+                        {tonKho} <span style={{fontSize:'11px',fontWeight:400,color:'#6B7280'}}>(không thể sửa trực tiếp)</span>
+                      </div>
+                    : <MoneyInput value={tonKho} onChange={setTonKho}/>
+                  }
                 </div>
                 <div>
                   <label style={{fontSize:'11px',fontWeight:600,display:'block',marginBottom:'3px'}}>⚠️ Ngưỡng cảnh báo</label>
@@ -429,20 +600,139 @@ export default function SanPhamClient({ danhSach, user }:{ danhSach:any[]; user:
         </div>
       )}
 
+      {/* MODAL QUẢN LÝ DANH MỤC */}
+      {showQLDM&&(()=>{
+        const danhMucSorted=[...danhMucLocal].sort((a,b)=>(a['Tên danh mục']||'')
+          .localeCompare(b['Tên danh mục']||'','vi'))
+        const danhMucFiltered=searchDM.trim()?danhMucSorted.filter((d)=>boDau(d['Tên danh mục']||'')
+          .includes(boDau(searchDM))):danhMucSorted
+        const tongTrangDM=Math.max(1,Math.ceil(danhMucFiltered.length/SO_DONG_DM))
+        const trangHTDM=Math.min(trangDM,tongTrangDM)
+        const dsDM=danhMucFiltered.slice((trangHTDM-1)*SO_DONG_DM,trangHTDM*SO_DONG_DM)
+        return (
+        <div className="ov" onClick={()=>setShowQLDM(false)}>
+          <div style={{background:'white',borderRadius:'12px',padding:'24px',width:'100%',maxWidth:'600px',maxHeight:'88vh',overflowY:'auto'}} onClick={(e:any)=>e.stopPropagation()}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'16px'}}>
+              <h2 style={{fontSize:'16px',fontWeight:700,margin:0}}>⚙️ Quản lý danh mục SP <span style={{fontSize:'13px',fontWeight:400,color:'#6B7280'}}>({danhMucLocal.length} danh mục)</span></h2>
+              <button onClick={()=>{setShowQLDM(false);setSearchDM('');setTrangDM(1)}} style={{background:'none',border:'none',cursor:'pointer',fontSize:'20px',color:'#6B7280'}}>✕</button>
+            </div>
+            {msgDM&&<div style={{padding:'8px 12px',borderRadius:'6px',marginBottom:'10px',fontSize:'13px',background:msgDM.startsWith('✅')?'#D1FAE5':'#FEE2E2',color:msgDM.startsWith('✅')?'#065F46':'#991B1B'}}>{msgDM}</div>}
+            <input className="input" placeholder="🔍 Tìm danh mục..." value={searchDM}
+              onChange={(e:any)=>{setSearchDM(e.target.value);setTrangDM(1)}}
+              style={{marginBottom:'10px'}}/>
+            <div style={{display:'flex',gap:'8px',marginBottom:'14px'}}>
+              <input className="input" placeholder="Tên danh mục mới... (Enter để thêm nhanh)" value={newTenDM}
+                onChange={(e:any)=>setNewTenDM(e.target.value)}
+                onKeyDown={(e:any)=>e.key==='Enter'&&themDanhMuc()}
+                style={{flex:1}}/>
+              <button onClick={themDanhMuc} disabled={loadingDM}
+                style={{padding:'8px 20px',borderRadius:'6px',border:'none',background:loadingDM?'#9CA3AF':'#7C3AED',color:'white',fontWeight:700,cursor:'pointer',whiteSpace:'nowrap'}}>
+                {loadingDM?'⏳':'+ Thêm'}
+              </button>
+            </div>
+            <div style={{display:'flex',flexDirection:'column',gap:'6px',minHeight:'300px'}}>
+              {danhMucLocal.length===0
+                ?<div style={{textAlign:'center',padding:'48px',color:'#9CA3AF',fontSize:'13px'}}>Chưa có danh mục nào — thêm danh mục đầu tiên bên trên</div>
+                :dsDM.map((dm:any)=>{
+                  const id=dm['Id']||dm['id']; const ten=dm['Tên danh mục']||''
+                  const soSP=thongKeDM[ten]||0; const isEdit=editDM?.id===id
+                  return (
+                    <div key={id} style={{display:'flex',alignItems:'center',gap:'10px',padding:'12px 14px',borderRadius:'8px',border:isEdit?'2px solid #7C3AED':'1px solid #E5E7EB',background:isEdit?'#F5F3FF':soSP>0?'white':'#FAFBFD'}}>
+                      {isEdit?(
+                        <>
+                          <input className="input" value={editDM.ten} autoFocus
+                            onChange={(e:any)=>setEditDM({...editDM,ten:e.target.value})}
+                            onKeyDown={(e:any)=>e.key==='Enter'&&suaDanhMuc()}
+                            style={{flex:1,fontSize:'13px'}}/>
+                          <button onClick={suaDanhMuc} style={{padding:'6px 12px',borderRadius:'6px',border:'none',background:'#7C3AED',color:'white',fontSize:'12px',fontWeight:600,cursor:'pointer'}}>✅ Lưu</button>
+                          <button onClick={()=>setEditDM(null)} style={{padding:'6px 12px',borderRadius:'6px',border:'1px solid var(--border)',background:'white',fontSize:'12px',cursor:'pointer'}}>✕</button>
+                        </>
+                      ):(
+                        <>
+                          <div style={{flex:1}}>
+                            <span style={{fontWeight:600,fontSize:'14px'}}>{ten}</span>
+                          </div>
+                          <span style={{fontSize:'12px',padding:'2px 10px',borderRadius:'10px',background:soSP>0?'#F5F3FF':'#F3F4F6',color:soSP>0?'#7C3AED':'#9CA3AF',fontWeight:600,whiteSpace:'nowrap',minWidth:'52px',textAlign:'center'}}>
+                            {soSP} SP
+                          </span>
+                          <button onClick={()=>setEditDM({id,ten})} style={{padding:'5px 12px',borderRadius:'6px',border:'1px solid #FCD34D',background:'#FFFBEB',color:'#92400E',fontSize:'12px',cursor:'pointer',fontWeight:600}}>✏️ Sửa</button>
+                          <button onClick={()=>xoaDanhMuc(id,ten)} style={{padding:'5px 12px',borderRadius:'6px',border:'1px solid #FCA5A5',background:'#FEF2F2',color:'#DC2626',fontSize:'12px',cursor:'pointer',fontWeight:600}}>🗑️ Xóa</button>
+                        </>
+                      )}
+                    </div>
+                  )
+                })}
+            </div>
+            {tongTrangDM>1&&(
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginTop:'12px',padding:'10px 0',borderTop:'1px solid #F0F0F0'}}>
+                <span style={{fontSize:'12px',color:'#6B7280'}}>{(trangHTDM-1)*SO_DONG_DM+1}–{Math.min(trangHTDM*SO_DONG_DM,danhMucFiltered.length)} / {danhMucFiltered.length} danh mục{searchDM?' (lọc)':''}</span>
+                <div style={{display:'flex',gap:'4px'}}>
+                  <button disabled={trangHTDM===1} onClick={()=>setTrangDM((t:number)=>t-1)}
+                    style={{padding:'4px 10px',borderRadius:'5px',border:'1px solid var(--border)',background:trangHTDM===1?'#F9FAFB':'white',color:trangHTDM===1?'#CCC':'var(--text-secondary)',cursor:trangHTDM===1?'not-allowed':'pointer',fontSize:'13px'}}>‹</button>
+                  {Array.from({length:tongTrangDM},(_:any,i:number)=>i+1).map((p:number)=>(
+                    <button key={p} onClick={()=>setTrangDM(p)}
+                      style={{padding:'4px 10px',borderRadius:'5px',border:'1px solid',borderColor:p===trangHTDM?'var(--primary)':'var(--border)',background:p===trangHTDM?'var(--primary)':'white',color:p===trangHTDM?'white':'var(--text-secondary)',cursor:'pointer',fontSize:'13px',fontWeight:p===trangHTDM?700:400,minWidth:'32px'}}>
+                      {p}
+                    </button>
+                  ))}
+                  <button disabled={trangHTDM===tongTrangDM} onClick={()=>setTrangDM((t:number)=>t+1)}
+                    style={{padding:'4px 10px',borderRadius:'5px',border:'1px solid var(--border)',background:trangHTDM===tongTrangDM?'#F9FAFB':'white',color:trangHTDM===tongTrangDM?'#CCC':'var(--text-secondary)',cursor:trangHTDM===tongTrangDM?'not-allowed':'pointer',fontSize:'13px'}}>›</button>
+                </div>
+              </div>
+            )}
+            <p style={{fontSize:'11px',color:'#9CA3AF',marginTop:'10px',textAlign:'center'}}>💡 Không thể xóa danh mục đang có SP. Cần đổi danh mục SP trước khi xóa.</p>
+          </div>
+        </div>
+        )
+      })()}
+
       {/* MODAL XÁC NHẬN XÓA */}
       {xoaSP&&(
-        <div className="ov" onClick={()=>setXoaSP(null)}>
-          <div style={{background:'white',borderRadius:'12px',padding:'24px',width:'100%',maxWidth:'360px',textAlign:'center'}} onClick={e=>e.stopPropagation()}>
+        <div className="ov" onClick={()=>{setXoaSP(null);setXoaCheck(null)}}>
+          <div style={{background:'white',borderRadius:'12px',padding:'24px',width:'100%',maxWidth:'400px',textAlign:'center'}} onClick={e=>e.stopPropagation()}>
             <div style={{fontSize:'36px',marginBottom:'8px'}}>🗑️</div>
-            <h2 style={{fontSize:'16px',fontWeight:700,margin:'0 0 8px'}}>Xác nhận xóa</h2>
-            <p style={{fontSize:'13px',color:'#6B7280',margin:'0 0 6px'}}>Xóa <strong>{xoaSP['Tên sản phẩm']}</strong>?</p>
-            <p style={{fontSize:'12px',color:'#DC2626',margin:'0 0 16px',background:'#FEF2F2',padding:'6px 10px',borderRadius:'6px'}}>⚠️ Không thể hoàn tác!</p>
-            <div style={{display:'flex',gap:'10px'}}>
-              <button onClick={xacNhanXoa} disabled={dangXoa} style={{flex:1,padding:'11px',borderRadius:'8px',border:'none',background:dangXoa?'#9CA3AF':'#DC2626',color:'white',fontWeight:700,fontSize:'14px',cursor:dangXoa?'not-allowed':'pointer'}}>
-                {dangXoa?'⏳':'🗑️ Xóa'}
-              </button>
-              <button onClick={()=>setXoaSP(null)} style={{flex:1,padding:'11px',borderRadius:'8px',border:'1px solid var(--border)',background:'white',cursor:'pointer',fontSize:'14px',fontWeight:600}}>Huỷ</button>
-            </div>
+            <h2 style={{fontSize:'16px',fontWeight:700,margin:'0 0 4px'}}>Xóa sản phẩm</h2>
+            <p style={{fontSize:'14px',fontWeight:700,color:'var(--primary)',margin:'0 0 4px'}}>{xoaSP['Tên sản phẩm']}</p>
+            <p style={{fontSize:'12px',color:'#6B7280',margin:'0 0 16px'}}>{xoaSP['Mã SP']||''}{xoaSP['Loại SP']?' · '+xoaSP['Loại SP']:''}</p>
+            {loadingXoaCheck&&<div style={{padding:'16px',color:'var(--text-secondary)',fontSize:'13px'}}>⏳ Đang kiểm tra dữ liệu...</div>}
+            {!loadingXoaCheck&&xoaCheck&&(
+              xoaCheck.coTheXoa?(
+                <div>
+                  <div style={{padding:'10px 14px',borderRadius:'8px',background:'#D1FAE5',border:'1px solid #6EE7B7',marginBottom:'14px',fontSize:'13px',color:'#065F46',fontWeight:600}}>
+                    ✅ Sản phẩm chưa có trong đơn hàng — có thể xóa an toàn
+                  </div>
+                  <p style={{fontSize:'12px',color:'#DC2626',background:'#FEF2F2',padding:'8px 12px',borderRadius:'6px',margin:'0 0 16px'}}>⚠️ Hành động này không thể hoàn tác!</p>
+                  <div style={{display:'flex',gap:'10px'}}>
+                    <button onClick={xacNhanXoa} disabled={dangXoa}
+                      style={{flex:1,padding:'11px',borderRadius:'8px',border:'none',background:dangXoa?'#9CA3AF':'#DC2626',color:'white',fontWeight:700,cursor:'pointer',fontSize:'14px'}}>
+                      {dangXoa?'⏳ Đang xóa...':'🗑️ Xác nhận xóa'}
+                    </button>
+                    <button onClick={()=>{setXoaSP(null);setXoaCheck(null)}}
+                      style={{padding:'11px 16px',borderRadius:'8px',border:'1px solid var(--border)',background:'white',cursor:'pointer',fontWeight:600}}>Huỷ</button>
+                  </div>
+                </div>
+              ):(
+                <div>
+                  <div style={{padding:'12px 14px',borderRadius:'8px',background:'#FEF3C7',border:'1px solid #FCD34D',marginBottom:'14px',fontSize:'13px',color:'#92400E',textAlign:'left'}}>
+                    <div style={{fontWeight:700,marginBottom:'6px'}}>❌ Không thể xóa vì:</div>
+                    <ul style={{margin:0,paddingLeft:'16px'}}>
+                      {xoaCheck.lyDo.map((l:string,i:number)=><li key={i}>{l}</li>)}
+                    </ul>
+                  </div>
+                  <div style={{padding:'10px 12px',borderRadius:'8px',background:'#EFF6FF',border:'1px solid #BFDBFE',marginBottom:'14px',fontSize:'12px',color:'#1E40AF',textAlign:'left'}}>
+                    💡 Thay vào đó, chuyển SP sang <strong>Ngừng kinh doanh</strong> để ẩn khỏi danh sách tạo đơn, vẫn giữ lịch sử.
+                  </div>
+                  <div style={{display:'flex',gap:'10px'}}>
+                    <button onClick={()=>ngungKinhDoanh(xoaSP)}
+                      style={{flex:1,padding:'11px',borderRadius:'8px',border:'none',background:'#D97706',color:'white',fontWeight:700,cursor:'pointer',fontSize:'13px'}}>
+                      ⛔ Ngừng kinh doanh
+                    </button>
+                    <button onClick={()=>{setXoaSP(null);setXoaCheck(null)}}
+                      style={{padding:'11px 16px',borderRadius:'8px',border:'1px solid var(--border)',background:'white',cursor:'pointer',fontWeight:600}}>Đóng</button>
+                  </div>
+                </div>
+              )
+            )}
           </div>
         </div>
       )}
@@ -450,6 +740,43 @@ export default function SanPhamClient({ danhSach, user }:{ danhSach:any[]; user:
   )
 }
 
+
 function Btn({children,active,disabled,onClick}:any){
   return <button onClick={onClick} disabled={disabled} style={{padding:'4px 10px',borderRadius:'5px',border:'1px solid',borderColor:active?'var(--primary)':'var(--border)',background:active?'var(--primary)':disabled?'#F9FAFB':'white',color:active?'white':disabled?'#CCC':'var(--text-secondary)',cursor:disabled?'not-allowed':'pointer',fontSize:'13px',fontWeight:active?700:400,minWidth:'32px'}}>{children}</button>
 }
+
+function DanhMucInputSP({danhMucNames,value,onChange}:{danhMucNames:string[];value:string;onChange:(v:string)=>void}){
+  const [show,setShow]=useState(false)
+  const [q,setQ]=useState(value)
+  useEffect(()=>{setQ(value)},[value])
+  function boDauLocal(s:string){return(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/đ/g,'d').replace(/Đ/g,'D').toLowerCase()}
+  const filtered=danhMucNames.filter(dm=>{const qb=boDauLocal(q);return !qb||boDauLocal(dm).includes(qb)}).slice(0,15)
+  return (
+    <div style={{position:'relative'}}>
+      <input className="input" placeholder="🔍 Gõ để tìm hoặc chọn danh mục..." value={q}
+        onChange={e=>{setQ(e.target.value);onChange(e.target.value);setShow(true)}}
+        onFocus={()=>setShow(true)}
+        onBlur={()=>setTimeout(()=>setShow(false),200)}
+        style={{background:value?'#F5F3FF':'',color:value?'#7C3AED':''}}/>
+      {value&&<div style={{fontSize:'11px',color:'#7C3AED',fontWeight:600,marginTop:'2px'}}>✅ {value}</div>}
+      {show&&(
+        <div style={{position:'absolute',top:'calc(100% + 2px)',left:0,right:0,zIndex:400,background:'white',border:'1px solid #E5E7EB',borderRadius:'8px',boxShadow:'0 4px 16px rgba(0,0,0,.15)',maxHeight:'200px',overflowY:'auto'}}>
+          <div style={{padding:'6px 12px',cursor:'pointer',borderBottom:'1px solid #F3F4F6',fontSize:'13px',color:'#9CA3AF',fontStyle:'italic'}}
+            onMouseDown={e=>{e.preventDefault();setQ('');onChange('');setShow(false)}}>
+            — Không chọn danh mục
+          </div>
+          {filtered.length===0
+            ?<div style={{padding:'10px 12px',fontSize:'12px',color:'#9CA3AF'}}>Không tìm thấy — nhập tên mới để thêm</div>
+            :filtered.map(dm=>(
+              <div key={dm} style={{padding:'8px 12px',cursor:'pointer',borderBottom:'1px solid #F3F4F6',fontSize:'13px',fontWeight:500,background:dm===value?'#F5F3FF':'white',color:dm===value?'#7C3AED':'#374151'}}
+                onMouseDown={e=>{e.preventDefault();setQ(dm);onChange(dm);setShow(false)}}>
+                📂 {dm} {dm===value&&'✓'}
+              </div>
+            ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+

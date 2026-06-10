@@ -1,4 +1,4 @@
-// app/api/khach-hang/route.ts — v4.0
+// app/api/khach-hang/route.ts — v5.0
 import { NextRequest, NextResponse } from 'next/server'
 import { createRecord, getRecords, updateRecord, deleteRecord, TABLES } from '@/lib/nocodb'
 import { getSession } from '@/lib/auth'
@@ -26,14 +26,25 @@ export async function GET(request: NextRequest) {
     if (!session) return NextResponse.json({ message: 'Chưa đăng nhập' }, { status: 401 })
 
     const { searchParams } = new URL(request.url)
+    const loai   = searchParams.get('loai')
+    const maKH   = searchParams.get('maKH')
     const q      = searchParams.get('q') || ''
     const limit  = Number(searchParams.get('limit')  || 500)
     const offset = Number(searchParams.get('offset') || 0)
-    const where  = q ? `(Tên khách hàng,like,%${q}%)` : undefined
 
+    // ── Kiểm tra có thể xóa KH không ──
+    if (loai === 'kiem-tra-xoa' && maKH) {
+      const donHang = await getRecords(TABLES.DON_HANG, {
+        where: `(Mã KH,eq,${maKH})`, limit: 1, fields: 'Id'
+      })
+      const coTheXoa = (donHang.list || []).length === 0
+      const lyDo = coTheXoa ? [] : ['khách hàng đã có đơn hàng']
+      return NextResponse.json({ coTheXoa, lyDo })
+    }
+
+    const where  = q ? `(Tên khách hàng,like,%${q}%)` : undefined
     const result = await getRecords(TABLES.KHACH_HANG, {
-      where, limit, offset,
-      sort: '-Id',   // KH mới nhất (Id lớn nhất) lên đầu
+      where, limit, offset, sort: '-Id',
       fields: 'Id,Mã KH,Tên khách hàng,Số điện thoại,Địa chỉ,Đối tượng khách hàng,Ghi chú,Ngày tạo',
     })
     return NextResponse.json(result)
@@ -59,7 +70,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      data:    result,          // result có đủ Id, Mã KH từ NocoDB
+      data:    result,
       'Mã KH': result['Mã KH'] || maKH,
     })
   } catch (error: any) {
@@ -88,9 +99,25 @@ export async function DELETE(request: NextRequest) {
     const session = await getSession()
     if (!session) return NextResponse.json({ message: 'Chưa đăng nhập' }, { status: 401 })
 
+    // Chỉ chủ cửa hàng mới được xóa
+    if (session.vaiTro !== 'Chủ cửa hàng')
+      return NextResponse.json({ message: 'Chỉ chủ cửa hàng mới được xóa khách hàng' }, { status: 403 })
+
     const { searchParams } = new URL(request.url)
-    const id = searchParams.get('id')
+    const id   = searchParams.get('id')
+    const maKH = searchParams.get('maKH')
     if (!id) return NextResponse.json({ message: 'Thiếu id' }, { status: 400 })
+
+    // Kiểm tra lần cuối trước khi xóa
+    if (maKH) {
+      const donHang = await getRecords(TABLES.DON_HANG, {
+        where: `(Mã KH,eq,${maKH})`, limit: 1, fields: 'Id'
+      })
+      if ((donHang.list || []).length > 0)
+        return NextResponse.json({
+          message: 'Không thể xóa — khách hàng đã có đơn hàng. Dữ liệu lịch sử cần được giữ lại.'
+        }, { status: 400 })
+    }
 
     const ok = await deleteRecord(TABLES.KHACH_HANG, Number(id))
     if (!ok) return NextResponse.json({ message: 'Lỗi xóa' }, { status: 500 })

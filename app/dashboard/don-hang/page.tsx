@@ -90,6 +90,10 @@ export default async function DonHangPage({
   for (const don of donHang) {
     const maDon   = don['Mã đơn hàng']
     if (!maDon) continue
+    // Ưu tiên Trạng thái Hủy từ NocoDB
+    if (don['Trạng thái']==='Hủy' || don['Trạng thái']==='Huỷ') {
+      trangThaiMap[maDon] = 'Hủy'; continue
+    }
 
     const spTong  = spTongMap[maDon]  || 0
     const spHuy   = spHuyMap[maDon]   || 0
@@ -161,6 +165,7 @@ export default async function DonHangPage({
       donHang={donHang}
       khachHangMap={khachHangMap}
       trangThaiMap={trangThaiMap}
+      thuKHMap={thuKHMap}
       user={session!}
       searchParams={searchParams}
     />

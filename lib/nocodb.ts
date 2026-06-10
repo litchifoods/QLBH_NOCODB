@@ -24,13 +24,19 @@ export const TABLES = {
   DOI_SOAT:       '9_Đối soát giao hàng',
   DAT_HANG_NCC:   '10_Đặt hàng NCC',
   NHAP_KHO:       '11_Nhập kho',
-  XU_LY_HANG:     '18_Xử lý hàng nhập',
-  THANH_TOAN_NCC: '12_Thanh toán NCC',
+  XU_LY_HANG:     '18_Xử lý hàng lỗi',
+  THANH_TOAN_NCC: '12_Lịch sử thanh toán NCC',
   CHI_TRA_NV:     '13_Chi trả nhân viên',
-  CHI_PHI:        '14_Chi phí hoạt động',
+  CHI_PHI:        '14_Thu chi hoạt động',
   BAO_CAO:        '15_Báo cáo tháng',
   TAI_KHOAN:      '16_Tài khoản',
   KIEM_KHO:       '17_Kiểm kho',
+  DOT_KIEM_KHO:   '17_Đợt kiểm kho',
+  CT_KIEM_KHO:    '17b_Chi tiết kiểm kho',
+  CHAM_CONG:      '3b_Chấm công',
+  TAM_UNG_NV:     '13b_Tạm ứng NV',
+  THUONG_KHAC:    '13c_Thưởng khác',
+  DANH_MUC:       'CaiDat_DanhMuc',
   CAI_DAT:        'CaiDat',
 }
 
@@ -78,7 +84,7 @@ export async function getRecord(tableName: string, rowId: number) {
       `${API_BASE}/db/data/noco/${BASE_ID}/${tableId}/${rowId}`,
       { headers, cache: 'no-store' }
     )
-    return res.ok ? await res.json() : null
+    if(!res.ok){const e=await res.json();console.error('NocoDB POST error:',tableName,JSON.stringify(e));return null};return await res.json()
   } catch { return null }
 }
 
@@ -94,7 +100,7 @@ export async function createRecord(tableName: string, body: Record<string, any>)
       `${API_BASE}/db/data/noco/${BASE_ID}/${tableId}`,
       { method: 'POST', headers, body: JSON.stringify(body) }
     )
-    return res.ok ? await res.json() : null
+    if(!res.ok){const e=await res.json();console.error('NocoDB POST error:',tableName,JSON.stringify(e));return null};return await res.json()
   } catch { return null }
 }
 
@@ -105,7 +111,7 @@ export async function updateRecord(tableName: string, rowId: number, body: Recor
       `${API_BASE}/db/data/noco/${BASE_ID}/${tableId}/${rowId}`,
       { method: 'PATCH', headers, body: JSON.stringify(body) }
     )
-    return res.ok ? await res.json() : null
+    if(!res.ok){const e=await res.json();console.error('NocoDB POST error:',tableName,JSON.stringify(e));return null};return await res.json()
   } catch { return null }
 }
 

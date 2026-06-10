@@ -9,19 +9,20 @@ async function taoMaDH(): Promise<string> {
     const list = r.list || []
     let maxSo = 0
     for (const item of list) {
-      const ma = (item['Mã đặt hàng'] as string || '')
-      // Tìm số ở cuối chuỗi DH-NCC-XXX hoặc DH-NCC-XXX-Y
-      // Lấy phần số thứ 3 (index 2) sau split '-'
+      const ma = (item['Mã đặt hàng'] as string || '').split('-')[0]==='DH'
+        ? (item['Mã đặt hàng'] as string || '')
+        : ''
+      if (!ma) continue
       const parts = ma.split('-')
-      // parts[0]=DH, parts[1]=NCC, parts[2]=số đơn, parts[3]=số SP (nếu có)
-      if (parts.length >= 3) {
+      // DH-NCC-001 hoặc DH-NCC-001-1 → lấy parts[2]
+      if (parts.length >= 3 && parts[0]==='DH' && parts[1]==='NCC') {
         const so = parseInt(parts[2] || '0')
         if (!isNaN(so) && so > maxSo) maxSo = so
       }
     }
     return `DH-NCC-${String(maxSo + 1).padStart(3,'0')}`
-  } catch { 
-    return `DH-NCC-${Date.now().toString().slice(-5)}` 
+  } catch {
+    return `DH-NCC-${Date.now().toString().slice(-4)}`
   }
 }
 
@@ -57,6 +58,7 @@ export async function POST(req: NextRequest) {
         'Ngày dự kiến về': item.ngayVe||null,
         'Trạng thái': 'Chờ xác nhận',
         'Ghi chú': item.ghiChu||body.ghiChu||'',
+        'Mã đơn gốc': body.maDonGoc||'',
       })
     }
     return NextResponse.json({ success:true, maDH, soSP:items.length })

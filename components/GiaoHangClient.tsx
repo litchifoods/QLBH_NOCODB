@@ -160,14 +160,14 @@ const VAI_TRO_CHUYEN = ['Vận chuyển+Lắp','Vận chuyển','Lắp đặt']
     if (!txt.trim()) return list.slice(0,10)
     const q=boDau(txt)
     return list.filter((nv:any)=>
-      boDau(nv['Họ tên']||'').includes(q) ||
+      boDau(nv['Họ và Tên']||nv['Họ tên']||'').includes(q) ||
       boDau(nv['Mã NV']||'').includes(q)
     ).slice(0,10)
   }
   function themNguoi() { setDanhSachNguoi(prev=>[...prev,{id:Date.now().toString(),hinhThuc:'NV cửa hàng',maNV:'',tenNV:'',vaiTroNocoDB:'',vaiTroChuyen:'Vận chuyển',ghiChu:'',showSearch:false,searchText:''}]) }
   function xoaNguoi(id:string) { setDanhSachNguoi(prev=>prev.filter(n=>n.id!==id)) }
   function updN(id:string,k:keyof Nguoi,v:any) { setDanhSachNguoi(prev=>prev.map(n=>n.id===id?{...n,[k]:v}:n)) }
-  function chonNguoi(nid:string,nv:any) { setDanhSachNguoi(prev=>prev.map(n=>n.id===nid?{...n,maNV:nv['Mã NV']||'',tenNV:nv['Họ tên']||'',vaiTroNocoDB:nv['Vai trò']||'',hinhThuc:(nv['Mã NV']||'').startsWith('DT-')?'Đối tác':'NV cửa hàng',searchText:nv['Họ tên']||'',showSearch:false}:n)) }
+  function chonNguoi(nid:string,nv:any) { setDanhSachNguoi(prev=>prev.map(n=>n.id===nid?{...n,tenNV:nv['Họ và Tên']||nv['Họ tên']||'',maNV:nv['Mã NV']||'',tenNV:nv['Họ tên']||'',vaiTroNocoDB:nv['Vai trò']||'',hinhThuc:(nv['Mã NV']||'').startsWith('DT-')?'Đối tác':'NV cửa hàng',searchText:nv['Họ tên']||'',showSearch:false}:n)) }
   function updSP(idx:number,k:keyof SPGiao,v:any) { setDanhSachSP(prev=>prev.map((sp,i)=>i===idx?{...sp,[k]:v}:sp)) }
   function showMsgModal2(t:string,ok=true){setMsgModal(t);setMsgModalOk(ok);setTimeout(()=>setMsgModal(''),5000)}
 
@@ -345,9 +345,9 @@ const VAI_TRO_CHUYEN = ['Vận chuyển+Lắp','Vận chuyển','Lắp đặt']
                       {(()=>{
                         // Ưu tiên _trangThaiTinh, nếu không có dùng logic local
                         const ttBase = don['_trangThaiTinh'] || don['Trạng thái'] || 'Chờ giao'
-                        // Nếu đã giao 1 phần → hiện "Đã giao 1 phần", nếu giao hết → hiện "Đang giao"
-                        const ttHienThi = (don['_daGiao1Phan'] && don['_conLai'] > 0) ? 'Đã giao 1 phần' : ttBase
+                        const ttHienThi = don['_choHangVe'] ? 'Chờ hàng về' : (don['_daGiao1Phan'] && don['_conLai'] > 0) ? 'Đã giao 1 phần' : ttBase
                         const ttColors: Record<string,{bg:string,c:string}> = {
+                          'Chờ hàng về':      {bg:'#F3E8FF',c:'#6D28D9'},
                           'Chờ giao':         {bg:'#FEF3C7',c:'#92400E'},
                           'Đang giao 1 phần': {bg:'#E0F2FE',c:'#0369A1'},
                           'Đang giao':        {bg:'#DBEAFE',c:'#1E40AF'},
@@ -528,7 +528,7 @@ const VAI_TRO_CHUYEN = ['Vận chuyển+Lắp','Vận chuyển','Lắp đặt']
                           onBlur={()=>setTimeout(()=>updN(nguoi.id,'showSearch',false),200)}/>
                         {nguoi.showSearch&&(
                           <div className="db">
-                            {nguoi.tenNV&&!dsTK.find((nv:any)=>nv['Họ tên']===nguoi.tenNV)&&(
+                            {nguoi.tenNV&&!dsTK.find((nv:any)=>(nv['Họ và Tên']||nv['Họ tên'])===nguoi.tenNV)&&(
                               <div className="di" onMouseDown={e=>{e.preventDefault();updN(nguoi.id,'showSearch',false)}} style={{background:'#FEF9C3',color:'#92400E',fontSize:'12px'}}>✏️ Dùng tên: <strong>"{nguoi.tenNV}"</strong></div>
                             )}
                             {dsTK.length===0
@@ -537,7 +537,7 @@ const VAI_TRO_CHUYEN = ['Vận chuyển+Lắp','Vận chuyển','Lắp đặt']
                               </div>
                               :dsTK.map((nv:any,idx:number)=>(
                                 <div key={`${nv['Mã NV']}-${idx}`} className="di" onMouseDown={e=>{e.preventDefault();chonNguoi(nguoi.id,nv)}}>
-                                  <div style={{fontWeight:600}}>{nv['Họ tên']} <span style={{fontSize:'11px',padding:'1px 6px',borderRadius:'10px',background:nv['Mã NV']?.startsWith('DT-')?'#FEF3C7':'#DBEAFE',color:nv['Mã NV']?.startsWith('DT-')?'#92400E':'#1E40AF',fontWeight:700}}>{nv['Mã NV']}</span></div>
+                                  <div style={{fontWeight:600}}>{nv['Họ và Tên']||nv['Họ tên']} <span style={{fontSize:'11px',padding:'1px 6px',borderRadius:'10px',background:nv['Mã NV']?.startsWith('DT-')?'#FEF3C7':'#DBEAFE',color:nv['Mã NV']?.startsWith('DT-')?'#92400E':'#1E40AF',fontWeight:700}}>{nv['Mã NV']}</span></div>
                                   <div style={{fontSize:'11px',color:'#6B7280'}}>Vai trò: {nv['Vai trò']||'—'}</div>
                                 </div>
                               ))}

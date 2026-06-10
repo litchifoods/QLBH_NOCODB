@@ -8,6 +8,8 @@ import { notFound } from 'next/navigation'
 import ChiTietDonHangClient from '@/components/ChiTietDonHangClient'
 
 function tinhTrangThai(chiTiet: any[], giaoHangList: any[], chiTietGiao: any[], donHang?: any): string {
+  // Ưu tiên field Trạng thái từ NocoDB nếu đã Huỷ
+  if (donHang && (donHang['Trạng thái']==='Hủy'||donHang['Trạng thái']==='Huỷ')) return 'Huỷ'
   const spTong = chiTiet.length
   const spHuy  = chiTiet.filter(ct => ct['Trạng thái SP'] === 'Huỷ').length
   if (spTong > 0 && spHuy === spTong) return 'Huỷ'
@@ -89,6 +91,17 @@ export default async function ChiTietDonHangPage({ params }: { params: { maDon: 
   const tongDaThu = Object.values(doiSoatMap)
     .reduce((s: number, ds: any) => s + Number(ds['Đã thu được'] || 0), 0)
 
+  // Set mã SP đã có trong chuyến đã đối soát
+  const maGHDaSoat = new Set(
+    ghList.filter((gh:any) => gh['Tình trạng đối soát'] === 'Đã đối soát').map((gh:any) => gh['Mã giao hàng'])
+  )
+  const spDaSoatSet = new Set(
+    (chiTietGiaoResult.list||[])
+      .filter((ct:any) => maGHDaSoat.has(ct['Mã giao hàng']))
+      .map((ct:any) => ct['Tên SP (ghi nhanh)']||ct['Mã SP']||'')
+      .filter(Boolean)
+  )
+
   const donHang = donHangResult.list?.[0]
   if (!donHang) notFound()
 
@@ -117,6 +130,7 @@ export default async function ChiTietDonHangPage({ params }: { params: { maDon: 
       trangThaiTinh={trangThaiTinh}
       doiSoatMap={doiSoatMap}
       tongDaThu={tongDaThu}
+      spDaSoatSet={spDaSoatSet}
       user={session!}
     />
   )

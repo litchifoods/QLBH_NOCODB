@@ -11,8 +11,9 @@ async function taoMaPhieu(): Promise<string> {
     for (const item of (r.list||[])) {
       const ma = item['Mã phiếu nhập'] as string||''
       const parts = ma.split('-')
+      const namMa = parseInt(parts[1]||'0')
       const so = parseInt(parts[parts.length-1]||'0')
-      if (!isNaN(so) && so > maxSo) maxSo = so
+      if (!isNaN(so) && so > maxSo && namMa===nam) maxSo = so
     }
     return `NK-${nam}-${String(maxSo+1).padStart(3,'0')}`
   } catch { return `NK-${Date.now().toString().slice(-6)}` }
@@ -36,7 +37,7 @@ export async function POST(req: NextRequest) {
       'Số lượng thực nhận': Number(body.slThucNhan||0),
       'Tổng tiền hàng': tongTien,
       'CP vận chuyển về kho': Number(body.cpVC||0),
-      'Tình trạng hàng': body.tinhTrang||'Đủ-đạt yêu cầu',
+      'Tình trạng hàng': (['Đủ','Thiếu','Thừa','Có hàng lỗi','Đã xử lý'].includes(body.tinhTrang) ? body.tinhTrang : 'Đủ'),
       'Ghi chú': body.ghiChu||'',
       'Người nhập': body.nguoiNhap||'',
     })
@@ -73,9 +74,9 @@ export async function PATCH(req: NextRequest) {
       data['Tổng tiền hàng'] = Number(data['Giá nhập thực tế'])*Number(data['Số lượng thực nhận'])
     }
     const r = await updateRecord(TABLES.NHAP_KHO, Number(id), data)
-    // Cập nhật tồn kho nếu SL thay đổi
-    if (data['Mã SP'] && data['Số lượng thực nhận'] !== undefined && slThucNhanCu !== undefined) {
-      const diff = Number(data['Số lượng thực nhận']) - Number(slThucNhanCu)
+    // Cập nhật tồn kho chỉ khi slThucNhanCu được truyền vào rõ ràng
+    if (data['Mã SP'] && slThucNhanCu !== undefined && slThucNhanCu !== null) {
+      const diff = Number(data['Số lượng thực nhận']||0) - Number(slThucNhanCu)
       if (diff !== 0) {
         const spResult = await getRecords(TABLES.SAN_PHAM, {
           where: `(Mã SP,eq,${data['Mã SP']})`, limit:1, fields:'Id,Tồn kho'
