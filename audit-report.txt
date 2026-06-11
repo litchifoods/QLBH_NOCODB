@@ -1,0 +1,526 @@
+================================================================
+ TỔNG KIỂM TRA NOCODB + CODE — 20:23:53 10/6/2026
+================================================================
+
+BƯỚC 1: Đọc cấu hình & kết nối NocoDB
+  ✅ OK   - NOCODB_URL = https://nocodb-production-200b.up.railway.app
+  ✅ OK   - Lấy danh sách bảng qua API v1 — 24 bảng
+
+BƯỚC 2: Quét cột + tỷ lệ có dữ liệu từng bảng (mẫu tối đa 200 dòng)
+
+──── BẢNG: 1_Khách hàng ────
+  ✅ OK   - Đọc meta: 9 cột
+  ✅ OK   - Đọc dữ liệu mẫu: 14 dòng
+    100%  [ID            ] Id
+    100%  [SingleLineText] Mã KH
+    100%  [SingleLineText] Tên khách hàng
+    100%  [PhoneNumber   ] Số điện thoại
+    100%  [LongText      ] Địa chỉ
+    100%  [SingleSelect  ] Đối tượng khách hàng
+           ↳ options: Cá nhân | Cơ quan | Công ty
+     50%  [LongText      ] Ghi chú
+    100%  [Date          ] Ngày tạo
+     64%  [SingleSelect  ] Kênh bán
+           ↳ options: Trực tiếp | Online
+
+──── BẢNG: 2_Sản phẩm ────
+  ✅ OK   - Đọc meta: 17 cột
+  ✅ OK   - Đọc dữ liệu mẫu: 11 dòng
+    100%  [ID            ] Id
+    100%  [SingleLineText] Mã SP
+    100%  [SingleLineText] Tên sản phẩm
+    100%  [SingleSelect  ] Loại SP
+           ↳ options: Phổ thông | Theo yêu cầu
+    100%  [SingleSelect  ] Đơn vị tính
+           ↳ options: Cái | Chiếc | Bộ
+    100%  [Currency      ] Giá bán buôn
+    100%  [Currency      ] Giá bán lẻ
+    100%  [Number        ] Tồn kho
+      9%  [LongText      ] Thông số kỹ thuật
+      9%  [LongText      ] Ghi chú
+    100%  [Formula       ] Cảnh báo tồn kho
+      0%  [Attachment    ] Ảnh sản phẩm   👈 CỘT TRỐNG 100% — nghi ghi sai tên hoặc cột thừa
+    100%  [Number        ] Ngưỡng cảnh báo
+    100%  [Currency      ] Giá nhập NCC
+    100%  [Number        ] CPVC về kho
+     36%  [SingleLineText] Danh mục
+      0%  [SingleSelect  ] Trạng thái   👈 CỘT TRỐNG 100% — nghi ghi sai tên hoặc cột thừa
+           ↳ options: Đang bán | Ngừng kinh doanh
+
+──── BẢNG: 3_Nhân viên ────
+  ✅ OK   - Đọc meta: 16 cột
+  ✅ OK   - Đọc dữ liệu mẫu: 8 dòng
+    100%  [ID            ] Id
+    100%  [SingleLineText] Họ và Tên
+    100%  [PhoneNumber   ] Số điện thoại
+    100%  [SingleSelect  ] Vai trò
+           ↳ options: Bán hàng | Kỹ thuật | Giao hàng | Quản lý
+    100%  [SingleLineText] Mã nhân viên
+    100%  [Currency      ] Lương cơ bản
+    100%  [SingleSelect  ] Trạng thái
+           ↳ options: Đang làm | Nghỉ việc
+      0%  [LongText      ] Ghi chú   👈 CỘT TRỐNG 100% — nghi ghi sai tên hoặc cột thừa
+    100%  [SingleSelect  ] Loại
+           ↳ options: Nhân viên | Đối tác
+    100%  [Number        ] % Thưởng DS
+      0%  [SingleLineText] Số TK ngân hàng   👈 CỘT TRỐNG 100% — nghi ghi sai tên hoặc cột thừa
+      0%  [SingleLineText] Ngân hàng   👈 CỘT TRỐNG 100% — nghi ghi sai tên hoặc cột thừa
+    100%  [SingleSelect  ] Hình thức TT
+           ↳ options: Tiền mặt | Chuyển khoản
+     25%  [SingleSelect  ] Hình thức lương
+           ↳ options: Theo ngày | Theo tháng
+     25%  [Number        ] Ngày phép/tháng
+      0%  [LongText      ] Địa chỉ   👈 CỘT TRỐNG 100% — nghi ghi sai tên hoặc cột thừa
+
+──── BẢNG: 4_Nhà cung cấp ────
+  ✅ OK   - Đọc meta: 8 cột
+  ✅ OK   - Đọc dữ liệu mẫu: 8 dòng
+    100%  [ID            ] Id
+    100%  [SingleLineText] Mã NCC
+    100%  [SingleLineText] Tên NCC
+    100%  [PhoneNumber   ] Số điện thoại
+    100%  [LongText      ] Địa chỉ
+     13%  [SingleLineText] Số TK ngân hàng
+      0%  [LongText      ] Ghi chú   👈 CỘT TRỐNG 100% — nghi ghi sai tên hoặc cột thừa
+     88%  [Currency      ] Công nợ NCC
+
+──── BẢNG: 5_Đơn hàng ────
+  ✅ OK   - Đọc meta: 21 cột
+  ✅ OK   - Đọc dữ liệu mẫu: 96 dòng
+    100%  [ID            ] Id
+    100%  [SingleLineText] Mã đơn hàng
+    100%  [Date          ] Ngày bán
+    100%  [SingleLineText] Mã KH
+    100%  [SingleSelect  ] Kênh bán
+           ↳ options: Trực tiếp | Online
+      3%  [DateTime      ] Ngày hẹn giao
+    100%  [Currency      ] Tổng tiền đơn
+    100%  [Currency      ] Đặt cọc
+    100%  [Currency      ] Còn phải thu
+    100%  [SingleSelect  ] Trạng thái
+           ↳ options: Chờ giao | Đang giao | Hoàn thành | Hủy | Đã thu chưa đối soát | Đã giao
+    100%  [SingleLineText] Nhân viên bán
+     23%  [LongText      ] Ghi chú
+    100%  [SingleLineText] Mã NV
+    100%  [SingleSelect  ] Hình thức giao hàng
+           ↳ options: Giao hàng cho khách | Bán tại cửa hàng
+    100%  [Number        ] CP giao hàng
+     24%  [Number        ] CP đổi trả
+     23%  [Number        ] Tiền hoàn cọc
+     25%  [SingleSelect  ] Tình trạng hoàn cọc
+           ↳ options: Không hoàn | Chờ hoàn | Đã hoàn
+     15%  [Currency      ] Giảm giá
+      7%  [SingleLineText] Loại giảm giá
+     15%  [Percent       ] Giá trị giảm
+
+──── BẢNG: 6_Chi tiết đơn hàng ────
+  ✅ OK   - Đọc meta: 13 cột
+  ✅ OK   - Đọc dữ liệu mẫu: 108 dòng
+    100%  [ID            ] Id
+      0%  [SingleLineText] Mã chi tiết   👈 CỘT TRỐNG 100% — nghi ghi sai tên hoặc cột thừa
+    100%  [SingleLineText] Mã đơn hàng
+    100%  [SingleLineText] Mã SP
+    100%  [SingleLineText] Tên SP (ghi nhanh)
+    100%  [Number        ] Số lượng
+    100%  [Currency      ] Đơn giá
+    100%  [Currency      ] Thành tiền
+      0%  [LongText      ] Ghi chú SP   👈 CỘT TRỐNG 100% — nghi ghi sai tên hoặc cột thừa
+      0%  [SingleLineText] Trạng thái SP   👈 CỘT TRỐNG 100% — nghi ghi sai tên hoặc cột thừa
+     54%  [Currency      ] Giá nhập
+      0%  [Currency      ] Sửa giá   👈 CỘT TRỐNG 100% — nghi ghi sai tên hoặc cột thừa
+      0%  [Number        ] Sửa số lượng   👈 CỘT TRỐNG 100% — nghi ghi sai tên hoặc cột thừa
+
+──── BẢNG: 7_Giao hàng ────
+  ✅ OK   - Đọc meta: 12 cột
+  ✅ OK   - Đọc dữ liệu mẫu: 65 dòng
+    100%  [ID            ] Id
+    100%  [SingleLineText] Mã giao hàng
+    100%  [SingleLineText] Mã đơn hàng
+    100%  [DateTime      ] Ngày giao
+    100%  [SingleSelect  ] Hình thức giao
+           ↳ options: NV cửa hàng | Đối tác
+    100%  [SingleLineText] Mã NV/đối tác
+    100%  [SingleLineText] Tên NV/đối tác
+    100%  [SingleSelect  ] Vai trò chuyến
+           ↳ options: Vận chuyển | Lắp đặt | Vận chuyển+Lắp
+    100%  [SingleSelect  ] Trạng thái
+           ↳ options: Chưa giao | Đang giao | Đã giao | Đổi hàng | Hoàn trả
+      0%  [LongText      ] Ghi chú   👈 CỘT TRỐNG 100% — nghi ghi sai tên hoặc cột thừa
+      0%  [Number        ] Đợt giao   👈 CỘT TRỐNG 100% — nghi ghi sai tên hoặc cột thừa
+    100%  [SingleLineText] Tình trạng đối soát
+
+──── BẢNG: 8_Chi tiết giao hàng ────
+  ✅ OK   - Đọc meta: 8 cột
+  ✅ OK   - Đọc dữ liệu mẫu: 74 dòng
+    100%  [ID            ] Id
+    100%  [SingleLineText] Mã CT giao hàng
+    100%  [SingleLineText] Mã giao hàng
+    100%  [SingleLineText] Mã đơn hàng
+    100%  [SingleLineText] Tên SP (ghi nhanh)
+    100%  [Number        ] Số lượng giao đợt này
+    100%  [SingleSelect  ] Trạng thái
+           ↳ options: Chờ hàng về | Chờ giao | Đã giao | Hủy
+      0%  [LongText      ] Ghi chú   👈 CỘT TRỐNG 100% — nghi ghi sai tên hoặc cột thừa
+
+──── BẢNG: 9_Đối soát giao hàng ────
+  ✅ OK   - Đọc meta: 21 cột
+  ✅ OK   - Đọc dữ liệu mẫu: 55 dòng
+    100%  [ID            ] Id
+    100%  [SingleLineText] Mã đối soát
+    100%  [SingleLineText] Tên NV/đối tác giao hàng
+    100%  [Currency      ] Còn phải thu KH
+    100%  [Currency      ] Đã thu được
+    100%  [SingleSelect  ] Hình thức thu
+           ↳ options: Tiền mặt | Chuyển khoản | KH nợ - chưa thu
+    100%  [Currency      ] Chi phí VC
+    100%  [Currency      ] Chi phí lắp đặt
+    100%  [SingleSelect  ] Kết quả
+           ↳ options: Thành công | Đổi hàng | Hoàn trả
+    100%  [SingleLineText] Tình trạng đối soát
+      0%  [LongText      ] Ghi chú   👈 CỘT TRỐNG 100% — nghi ghi sai tên hoặc cột thừa
+    100%  [SingleLineText] Mã NV/Đối tác
+    100%  [SingleLineText] Mã giao hàng
+     84%  [Currency      ] Thưởng chuyến
+    100%  [Date          ] Ngày đối soát
+    100%  [Checkbox      ] Đã chi trả
+      7%  [Date          ] Ngày chi trả
+     35%  [SingleSelect  ] Tình trạng nộp tiền
+           ↳ options: Chưa nộp | Đã nộp
+     33%  [Date          ] Ngày nộp tiền
+     24%  [SingleLineText] Mã đơn hàng
+      0%  [SingleSelect  ] Hình thức thanh toán   👈 CỘT TRỐNG 100% — nghi ghi sai tên hoặc cột thừa
+           ↳ options: Tiền mặt | Chuyển khoản
+
+──── BẢNG: 10_Đặt hàng NCC ────
+  ✅ OK   - Đọc meta: 11 cột
+  ✅ OK   - Đọc dữ liệu mẫu: 3 dòng
+    100%  [ID            ] Id
+    100%  [SingleLineText] Mã đặt hàng
+    100%  [Date          ] Ngày đặt
+    100%  [SingleLineText] Mã NCC
+    100%  [SingleLineText] Mã SP
+    100%  [Number        ] Số lượng đặt
+    100%  [Currency      ] Giá nhập dự kiến
+     33%  [Date          ] Ngày dự kiến về
+    100%  [SingleSelect  ] Trạng thái
+           ↳ options: Chờ xác nhận | Đã xác nhận | Đã nhập kho | Nhập thiếu | Nhập thừa
+      0%  [SingleLineText] Ghi chú   👈 CỘT TRỐNG 100% — nghi ghi sai tên hoặc cột thừa
+      0%  [SingleLineText] Mã đơn gốc   👈 CỘT TRỐNG 100% — nghi ghi sai tên hoặc cột thừa
+
+──── BẢNG: 11_Nhập kho ────
+  ✅ OK   - Đọc meta: 14 cột
+  ✅ OK   - Đọc dữ liệu mẫu: 16 dòng
+    100%  [ID            ] Id
+    100%  [SingleLineText] Mã phiếu nhập
+    100%  [Date          ] Ngày nhập
+     63%  [SingleLineText] Mã đặt hàng
+    100%  [SingleLineText] Mã NCC
+    100%  [SingleLineText] Mã SP
+    100%  [Number        ] Số lượng đặt
+    100%  [Number        ] Số lượng thực nhận
+    100%  [Currency      ] Giá nhập thực tế
+    100%  [Currency      ] Tổng tiền hàng
+    100%  [Currency      ] CP vận chuyển về kho
+    100%  [SingleSelect  ] Tình trạng hàng
+           ↳ options: Đủ | Có hàng lỗi | Đã xử lý | Thiếu | Thừa
+     19%  [LongText      ] Ghi chú
+    100%  [SingleLineText] Người nhập
+
+──── BẢNG: 12_Lịch sử thanh toán NCC ────
+  ✅ OK   - Đọc meta: 13 cột
+  ✅ OK   - Đọc dữ liệu mẫu: 12 dòng
+    100%  [ID            ] Id
+    100%  [SingleLineText] Mã thanh toán
+    100%  [Date          ] Ngày trả tiền NCC
+      8%  [SingleLineText] Mã phiếu nhập
+    100%  [SingleLineText] Mã NCC
+    100%  [SingleLineText] Nội dung
+    100%  [SingleSelect  ] Loại thanh toán
+           ↳ options: Thanh toán hết | Đặt cọc | Thanh toán một phần
+    100%  [Currency      ] Số tiền trả
+    100%  [SingleSelect  ] Hình thức
+           ↳ options: Chuyển khoản | Tiền mặt
+    100%  [SingleLineText] Người trả
+      0%  [LongText      ] Ghi chú   👈 CỘT TRỐNG 100% — nghi ghi sai tên hoặc cột thừa
+    100%  [Currency      ] Số tiền còn lại sau TT
+    100%  [SingleSelect  ] Trạng thái
+           ↳ options: Đã xác nhận | Chờ xác nhận | Huỷ
+
+──── BẢNG: 13_Chi trả nhân viên ────
+  ✅ OK   - Đọc meta: 21 cột
+  ✅ OK   - Đọc dữ liệu mẫu: 69 dòng
+    100%  [ID            ] Id
+     28%  [SingleLineText] Mã NV/đối tác
+     25%  [SingleLineText] Tháng
+     25%  [SingleLineText] Tên NV/đối tác
+     25%  [SingleSelect  ] Vai trò
+           ↳ options: Bán hàng | Kỹ thuật | Đối tác ngoài
+     25%  [Currency      ] Lương cơ bản
+     25%  [Number        ] Số ngày công
+     25%  [Currency      ] Lương thực nhận
+     25%  [Number        ] Số đơn bán được
+     25%  [Currency      ] Tổng doanh số
+     25%  [Percent       ] % Thưởng DS
+     25%  [Currency      ] Thưởng doanh số
+     25%  [Number        ] Số chuyến giao
+     25%  [Currency      ] Tổng chi phí chuyến
+     25%  [Currency      ] Tổng chi trả
+     25%  [SingleSelect  ] Hình thức TT
+           ↳ options: Chuyển khoản | Tiền mặt
+     25%  [SingleSelect  ] Trạng thái
+           ↳ options: Đã trả | Đã duyệt | Chờ duyệt
+     23%  [LongText      ] Ghi chú
+      1%  [Currency      ] Tạm ứng tháng
+      1%  [Date          ] Ngày thanh toán
+      1%  [SingleLineText] Người duyệt
+
+──── BẢNG: 14_Thu chi hoạt động ────
+  ✅ OK   - Đọc meta: 12 cột
+  ✅ OK   - Đọc dữ liệu mẫu: 2 dòng
+    100%  [ID            ] Id
+    100%  [SingleLineText] Mã chi phí
+    100%  [Date          ] Ngày phát sinh
+    100%  [SingleLineText] Nội dung
+    100%  [SingleSelect  ] Loại chi phí
+           ↳ options: Mặt bằng | Dịch vụ mua ngoài | Văn phòng phẩm | Xăng xe | Vật tư | Công cụ | Sửa chữa | Mua sắm tài sản | Thuế | Bảo hiểm | Tiếp khách | Marketing | Thất thoát | Khác
+    100%  [Currency      ] Số tiền
+    100%  [SingleSelect  ] Hình thức thanh toán
+           ↳ options: Chuyển khoản | Tiền mặt
+      0%  [LongText      ] Ghi chú   👈 CỘT TRỐNG 100% — nghi ghi sai tên hoặc cột thừa
+      0%  [SingleLineText] Người chi   👈 CỘT TRỐNG 100% — nghi ghi sai tên hoặc cột thừa
+    100%  [SingleSelect  ] Trạng thái
+           ↳ options: Đã thanh toán | Chưa thanh toán
+      0%  [SingleSelect  ] Loại giao dịch   👈 CỘT TRỐNG 100% — nghi ghi sai tên hoặc cột thừa
+           ↳ options: Chi | Thu
+      0%  [SingleLineText] Loại thu   👈 CỘT TRỐNG 100% — nghi ghi sai tên hoặc cột thừa
+
+──── BẢNG: 15_Báo cáo tháng ────
+  ✅ OK   - Đọc meta: 28 cột
+  ✅ OK   - Đọc dữ liệu mẫu: 24 dòng
+    100%  [ID            ] Id
+     17%  [SingleLineText] Tháng
+     17%  [SingleSelect  ] Qúy
+           ↳ options: Quý 1 | Qúy 2 | Qúy 3 | Qúy 4
+     17%  [SingleSelect  ] Năm
+           ↳ options: 2025
+     17%  [Number        ] Tổng đơn hàng
+     17%  [Number        ] Đơn hoàn thành
+     17%  [Number        ] Đơn hủy
+     17%  [Currency      ] DT trực tiếp
+     17%  [Currency      ] DT online
+     17%  [Currency      ] Tổng doanh thu
+     17%  [Currency      ] Đã thu được
+     17%  [Currency      ] Khách còn nợ
+     17%  [Currency      ] Lương thưởng NV
+     17%  [Currency      ] CP chuyến giao
+     17%  [Currency      ] Điện nước
+     17%  [Currency      ] Internet+ĐT
+     17%  [Currency      ] Thuê mặt bằng
+     17%  [Currency      ] Vật tu+VPP
+     17%  [Currency      ] Phần mềm
+     17%  [Currency      ] Tiếp khách
+     17%  [Currency      ] Thuế
+     17%  [Currency      ] CP đổi trả hàng
+     17%  [Currency      ] Chi khác
+     17%  [Currency      ] Tổng chi phí
+     17%  [Currency      ] Tổng nợ NCC
+     17%  [Currency      ] Đã trả NCC tháng này
+     17%  [Currency      ] Lợi nhuận gộp
+     17%  [LongText      ] Ghi chú/nhận xét
+
+──── BẢNG: 16_Tài khoản ────
+  ✅ OK   - Đọc meta: 13 cột
+  ✅ OK   - Đọc dữ liệu mẫu: 47 dòng
+    100%  [ID            ] Id
+     57%  [SingleLineText] Mã tài khoản
+     55%  [SingleLineText] Tên đăng nhập
+     47%  [SingleLineText] Họ tên
+     45%  [SingleLineText] Mã NV
+     15%  [SingleSelect  ] Vai trò
+           ↳ options: Chủ cửa hàng | Nhân viên
+     15%  [LongText      ] Quyền hạn
+     15%  [SingleSelect  ] Trạng thái
+           ↳ options: Hoạt động | Khóa
+     15%  [SingleSelect  ] Cho phép Voice
+           ↳ options: Có | Không
+     15%  [SingleSelect  ] Cho phép chụp ảnh
+           ↳ options: Có | Không
+      0%  [SingleLineText] Telegram ID   👈 CỘT TRỐNG 100% — nghi ghi sai tên hoặc cột thừa
+     15%  [Date          ] Ngày tạo
+      9%  [LongText      ] Ghi chú
+
+──── BẢNG: 18_Xử lý hàng lỗi ────
+  ✅ OK   - Đọc meta: 14 cột
+  ✅ OK   - Đọc dữ liệu mẫu: 11 dòng
+    100%  [ID            ] Id
+    100%  [SingleLineText] Mã xử lý
+    100%  [Date          ] Ngày xử lý
+    100%  [SingleLineText] Mã phiếu nhập
+    100%  [SingleLineText] Mã NCC
+    100%  [SingleLineText] Mã SP
+    100%  [Number        ] Số lượng
+    100%  [SingleSelect  ] Loại vấn đề
+           ↳ options: Lỗi | Thiếu phụ kiện | Hỏng phụ kiện | Sai màu | Sai kích thước
+    100%  [SingleSelect  ] Hướng xử lý
+           ↳ options: Trả lại NCC | Bán giảm giá | Bổ sung phụ kiện | Nhập kho để bán
+    100%  [SingleSelect  ] Trạng thái
+           ↳ options: Chờ xử lý | Đang xử lý | Đã xử lý
+      0%  [LongText      ] Ghi chú   👈 CỘT TRỐNG 100% — nghi ghi sai tên hoặc cột thừa
+    100%  [SingleLineText] Người báo cáo
+     91%  [SingleLineText] Người xử lý
+     82%  [Date          ] Ngày hoàn thành
+
+──── BẢNG: CaiDat ────
+  ✅ OK   - Đọc meta: 7 cột
+  ✅ OK   - Đọc dữ liệu mẫu: 23 dòng
+    100%  [ID            ] Id
+     78%  [SingleLineText] key
+     78%  [LongText      ] value
+     78%  [SingleLineText] moTa
+      0%  [Currency      ] so_du_tien_mat   👈 CỘT TRỐNG 100% — nghi ghi sai tên hoặc cột thừa
+      0%  [Currency      ] so_du_ngan_hang   👈 CỘT TRỐNG 100% — nghi ghi sai tên hoặc cột thừa
+      0%  [Date          ] ngay_bat_dau   👈 CỘT TRỐNG 100% — nghi ghi sai tên hoặc cột thừa
+
+──── BẢNG: 17_Đợt kiểm kho ────
+  ✅ OK   - Đọc meta: 12 cột
+  ✅ OK   - Đọc dữ liệu mẫu: 9 dòng
+    100%  [ID            ] Id
+    100%  [SingleLineText] Mã đợt kiểm
+    100%  [SingleSelect  ] Loại kiểm
+           ↳ options: Tháng | Qúy | Năm | Bất thường
+    100%  [Date          ] Ngày kiểm
+    100%  [SingleLineText] Người kiểm
+    100%  [Number        ] Tổng SP kiểm
+    100%  [Number        ] Tổng SP chênh
+    100%  [SingleSelect  ] Trạng thái
+           ↳ options: Nháp | Chờ duyệt | Đã duyệt
+     22%  [SingleLineText] Người duyệt
+     22%  [Date          ] Ngày duyệt
+      0%  [LongText      ] Ghi chú   👈 CỘT TRỐNG 100% — nghi ghi sai tên hoặc cột thừa
+     78%  [SingleLineText] Danh mục kiểm
+
+──── BẢNG: 17b_Chi tiết kiểm kho ────
+  ✅ OK   - Đọc meta: 14 cột
+  ✅ OK   - Đọc dữ liệu mẫu: 22 dòng
+    100%  [ID            ] Id
+    100%  [SingleLineText] Mã chi tiết
+    100%  [SingleLineText] Mã đợt kiểm
+    100%  [SingleLineText] Mã SP
+    100%  [SingleLineText] Tên SP
+    100%  [Number        ] Tồn hệ thống
+    100%  [Number        ] Tồn thực tế
+    100%  [Number        ] Chênh lệch
+    100%  [Number        ] Hàng hỏng
+    100%  [Number        ] Tồn sau điều chỉnh
+    100%  [SingleSelect  ] Nguyên nhân
+           ↳ options: Không chênh lệch | Có nguyên nhân | Không rõ nguyên nhân
+      0%  [SingleLineText] Người chịu trách nhiệm   👈 CỘT TRỐNG 100% — nghi ghi sai tên hoặc cột thừa
+      0%  [LongText      ] Ghi chú   👈 CỘT TRỐNG 100% — nghi ghi sai tên hoặc cột thừa
+    100%  [Checkbox      ] Đã điều chỉnh
+
+──── BẢNG: CaiDat_DanhMuc ────
+  ✅ OK   - Đọc meta: 3 cột
+  ✅ OK   - Đọc dữ liệu mẫu: 13 dòng
+    100%  [ID            ] Id
+    100%  [SingleLineText] Tên danh mục
+    100%  [Number        ] Thứ tự
+
+──── BẢNG: 3b_Chấm công ────
+  ✅ OK   - Đọc meta: 9 cột
+  ✅ OK   - Đọc dữ liệu mẫu: 3 dòng
+    100%  [ID            ] Id
+    100%  [SingleLineText] Mã chấm công
+    100%  [SingleLineText] Tháng
+    100%  [SingleLineText] Mã NV
+    100%  [SingleLineText] Tên NV
+    100%  [Number        ] Tổng ngày công chuẩn
+    100%  [Number        ] Số ngày công thực tế
+    100%  [Number        ] Số ngày nghỉ
+     33%  [LongText      ] Ghi chú
+
+──── BẢNG: 13b_Tạm ứng NV ────
+  ✅ OK   - Đọc meta: 9 cột
+  ✅ OK   - Đọc dữ liệu mẫu: 5 dòng
+    100%  [ID            ] Id
+    100%  [SingleLineText] Mã tạm ứng
+    100%  [SingleLineText] Tháng
+     60%  [SingleLineText] Mã NV/đối tác
+    100%  [SingleLineText] Tên NV
+    100%  [Date          ] Ngày tạm ứng
+    100%  [Number        ] Số tiền
+    100%  [SingleLineText] Người duyệt
+     60%  [LongText      ] Ghi chú
+
+──── BẢNG: 13c_Thưởng khác ────
+  ✅ OK   - Đọc meta: 10 cột
+  ✅ OK   - Đọc dữ liệu mẫu: 0 dòng
+     n/a  [ID            ] Id
+     n/a  [SingleLineText] Mã thưởng
+     n/a  [SingleLineText] Tháng
+     n/a  [SingleLineText] Mã nhân viên
+     n/a  [SingleLineText] Tên NV
+     n/a  [SingleSelect  ] Loại thưởng
+           ↳ options: Thưởng nóng | Thưởng tết | Khác
+     n/a  [Number        ] Số tiền
+     n/a  [LongText      ] Lý do
+     n/a  [SingleLineText] Người duyệt
+     n/a  [Date          ] Ngày thưởng
+
+BƯỚC 3: Đối chiếu checklist Sổ quỹ (Phương án B)
+  ❌ FAIL - 5_Đơn hàng → THIẾU cột "Hình thức cọc"
+  ❌ FAIL - 5_Đơn hàng → THIẾU cột "Hình thức hoàn trả"
+  ❌ FAIL - 5_Đơn hàng → THIẾU cột "Ngày hủy"
+  ✅ OK   - 9_Đối soát giao hàng → có cột "Hình thức thu" (dữ liệu 100%)
+  ❌ FAIL - 9_Đối soát giao hàng → THIẾU cột "Hình thức chi"
+  ✅ OK   - 12_Lịch sử thanh toán NCC → có cột "Hình thức" (dữ liệu 100%)
+  ❌ FAIL - 13_Chi trả nhân viên → THIẾU cột "Hình thức"
+  ❌ FAIL - 14_Thu chi hoạt động → THIẾU cột "Loại"
+  ❌ FAIL - 14_Thu chi hoạt động → THIẾU cột "Hình thức"
+  ❌ FAIL - CHƯA có bảng "18_Quỹ đầu kỳ" (số dư đầu kỳ Tiền mặt / Ngân hàng)
+
+BƯỚC 4: Quét code (app/, components/, lib/) đối chiếu tên field
+  ✅ OK   - Tìm thấy 1006 chuỗi tiếng Việt trong code
+
+  --- Chuỗi trong code KHÔNG khớp chính xác với NocoDB ---
+  ❌ FAIL - Code dùng "Khoá" — NocoDB lại là "Khóa"
+         tại: app\api\auth\login\route.ts:33
+  ❌ FAIL - Code dùng "Mã Nhân Viên" — NocoDB lại là "Mã nhân viên"
+         tại: app\dashboard\don-hang\tao\page.tsx:45
+  ❌ FAIL - Code dùng "đối tác" — NocoDB lại là "Đối tác"
+         tại: components\GiaoHangClient.tsx:524
+  ❌ FAIL - Code dùng "nhân viên" — NocoDB lại là "Nhân viên"
+         tại: components\GiaoHangClient.tsx:524
+  ❌ FAIL - Code dùng "Quý" — NocoDB lại là "Qúy"
+         tại: components\KiemKhoClient.tsx:20
+  ❌ FAIL - Code dùng "cái" — NocoDB lại là "Cái"
+         tại: components\NhapKhoClient.tsx:112 ; components\NhapKhoClient.tsx:1059
+  ❌ FAIL - Code dùng "BÁN HÀNG" — NocoDB lại là "Bán hàng"
+         tại: components\Sidebar.tsx:9
+  ❌ FAIL - Code dùng "GIAO HÀNG" — NocoDB lại là "Giao hàng"
+         tại: components\Sidebar.tsx:17
+
+  --- Cột tồn tại trên NocoDB nhưng KHÔNG xuất hiện trong code ---
+  ⚠️  CHÚ Ý - 2_Sản phẩm → cột "Cảnh báo tồn kho" không thấy trong code (dữ liệu 100%)
+  ⚠️  CHÚ Ý - 2_Sản phẩm → cột "Ảnh sản phẩm" không thấy trong code (và TRỐNG 100% → ứng viên ẩn/xóa)
+  ⚠️  CHÚ Ý - 7_Giao hàng → cột "Đợt giao" không thấy trong code (và TRỐNG 100% → ứng viên ẩn/xóa)
+  ⚠️  CHÚ Ý - 15_Báo cáo tháng → cột "DT online" không thấy trong code (dữ liệu 17%)
+  ⚠️  CHÚ Ý - 15_Báo cáo tháng → cột "Điện nước" không thấy trong code (dữ liệu 17%)
+  ⚠️  CHÚ Ý - 15_Báo cáo tháng → cột "Internet+ĐT" không thấy trong code (dữ liệu 17%)
+  ⚠️  CHÚ Ý - 15_Báo cáo tháng → cột "Vật tu+VPP" không thấy trong code (dữ liệu 17%)
+  ⚠️  CHÚ Ý - 15_Báo cáo tháng → cột "Phần mềm" không thấy trong code (dữ liệu 17%)
+  ⚠️  CHÚ Ý - 15_Báo cáo tháng → cột "CP đổi trả hàng" không thấy trong code (dữ liệu 17%)
+  ⚠️  CHÚ Ý - 15_Báo cáo tháng → cột "Chi khác" không thấy trong code (dữ liệu 17%)
+  ⚠️  CHÚ Ý - 15_Báo cáo tháng → cột "Tổng nợ NCC" không thấy trong code (dữ liệu 17%)
+  ⚠️  CHÚ Ý - 16_Tài khoản → cột "Cho phép Voice" không thấy trong code (dữ liệu 15%)
+  ⚠️  CHÚ Ý - 16_Tài khoản → cột "Cho phép chụp ảnh" không thấy trong code (dữ liệu 15%)
+  ⚠️  CHÚ Ý - 16_Tài khoản → cột "Telegram ID" không thấy trong code (và TRỐNG 100% → ứng viên ẩn/xóa)
+  ⚠️  CHÚ Ý - CaiDat → cột "key" không thấy trong code (dữ liệu 78%)
+  ⚠️  CHÚ Ý - CaiDat → cột "value" không thấy trong code (dữ liệu 78%)
+  ⚠️  CHÚ Ý - CaiDat → cột "moTa" không thấy trong code (dữ liệu 78%)
+  ⚠️  CHÚ Ý - CaiDat → cột "so_du_tien_mat" không thấy trong code (và TRỐNG 100% → ứng viên ẩn/xóa)
+  ⚠️  CHÚ Ý - CaiDat → cột "so_du_ngan_hang" không thấy trong code (và TRỐNG 100% → ứng viên ẩn/xóa)
+  ⚠️  CHÚ Ý - CaiDat → cột "ngay_bat_dau" không thấy trong code (và TRỐNG 100% → ứng viên ẩn/xóa)
+
+================================================================
+ KẾT THÚC. Hãy gửi file audit-report.txt cho Claude để phân tích.
+================================================================

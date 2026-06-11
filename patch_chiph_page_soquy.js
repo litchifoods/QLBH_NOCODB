@@ -1,4 +1,22 @@
-// app/dashboard/chi-phi/page.tsx
+const fs = require('fs')
+const f = 'app/dashboard/chi-phi/page.tsx'
+let c = fs.readFileSync(f, 'utf8')
+
+const old1 = `// app/dashboard/chi-phi/page.tsx
+export const dynamic = 'force-dynamic'
+import { getRecords, TABLES } from '@/lib/nocodb'
+import { getSession } from '@/lib/auth'
+import ChiPhiClient from '@/components/ChiPhiClient'
+
+export default async function ChiPhiPage() {
+  const session = await getSession()
+  const [data, nvData] = await Promise.all([
+    getRecords(TABLES.CHI_PHI, { limit: 500, sort: '-Ngày phát sinh' }),
+    getRecords(TABLES.NHAN_VIEN, { limit: 200, fields: 'Mã nhân viên,Họ và Tên,Loại' }),
+  ])
+  return <ChiPhiClient chiPhiList={data.list || []} nvList={nvData.list || []} user={session!} />
+}`
+const new1 = `// app/dashboard/chi-phi/page.tsx
 export const dynamic = 'force-dynamic'
 import { getRecords, TABLES } from '@/lib/nocodb'
 import { getSession } from '@/lib/auth'
@@ -15,11 +33,11 @@ export default async function ChiPhiPage() {
     }),
     getRecords(TABLES.DOI_SOAT, {
       limit: 1000, sort: '-Id',
-      fields: 'Mã giao hàng,Mã đơn hàng,Đã thu được,Hình thức thu,Chi phí VC,Chi phí lắp đặt,Kết quả,Id,Tên NV/đối tác',
+      fields: 'Mã giao hàng,Mã đơn hàng,Đã thu được,Hình thức thu,Chi phí VC,Chi phí lắp đặt,Kết quả,Id',
     }),
     getRecords(TABLES.THANH_TOAN_NCC, {
       limit: 500, sort: '-Ngày trả tiền NCC',
-      fields: 'Mã thanh toán,Mã NCC,Ngày trả tiền NCC,Số tiền trả,Hình thức,Nội dung,Trạng thái,Người trả',
+      fields: 'Mã thanh toán,Mã NCC,Ngày trả tiền NCC,Số tiền trả,Hình thức,Nội dung,Trạng thái',
     }),
     getRecords(TABLES.CHI_TRA_NV, {
       limit: 500, sort: '-Id',
@@ -29,15 +47,6 @@ export default async function ChiPhiPage() {
   ])
 
   const caiDat = caiDatData.list?.[0] || {}
-
-  // Map Mã NCC → Tên NCC
-  const nccData = await getRecords(TABLES.NHA_CUNG_CAP, { limit: 200, fields: 'Mã NCC,Tên NCC' })
-  const nccMap: Record<string,string> = {}
-  for (const ncc of (nccData.list||[])) { nccMap[ncc['Mã NCC']] = ncc['Tên NCC'] }
-
-  // Map Mã đơn hàng → Tên KH (từ donHangData)
-  const donHangMap: Record<string,string> = {}
-  for (const don of (donHangData.list||[])) { donHangMap[don['Mã đơn hàng']] = don['Tên khách hàng']||'' }
 
   return (
     <ChiPhiClient
@@ -51,9 +60,12 @@ export default async function ChiPhiPage() {
       soDuNganHang={Number(caiDat['so_du_ngan_hang'] || 0)}
       ngayBatDau={caiDat['ngay_bat_dau'] || ''}
       caiDatId={caiDat['Id'] || caiDat['id'] || null}
-      nccMap={nccMap}
-      donHangMap={donHangMap}
       user={session!}
     />
   )
-}
+}`
+if (c.includes(old1)) { c = c.replace(old1, new1); console.log('OK') }
+else console.log('FAIL')
+
+fs.writeFileSync(f, c, 'utf8')
+console.log('Done!')

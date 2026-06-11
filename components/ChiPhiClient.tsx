@@ -44,13 +44,29 @@ const EMPTY_THU = {
 }
 
 export default function ChiPhiClient({
-  chiPhiList, nvList, user
+  chiPhiList, nvList, donHangList=[], doiSoatList=[], ttNccList=[], chiTraNvList=[],
+  soDuTienMat=0, soDuNganHang=0, ngayBatDau='', caiDatId=null,
+  nccMap={} as Record<string,string>, donHangMap={} as Record<string,string>, user
 }:{
-  chiPhiList:any[]; nvList:any[]; user:UserSession
+  chiPhiList:any[]; nvList:any[]
+  donHangList?:any[]; doiSoatList?:any[]; ttNccList?:any[]; chiTraNvList?:any[]
+  soDuTienMat?:number; soDuNganHang?:number; ngayBatDau?:string; caiDatId?:any
+  nccMap?:Record<string,string>; donHangMap?:Record<string,string>
+  user:UserSession
 }) {
   const isOwner = user.vaiTro === 'Chủ cửa hàng'
   const now = new Date()
-  const [tab, setTab] = useState<'chi'|'thu'>('chi')
+  const [tab, setTab] = useState<'chi'|'thu'|'soquy'>('chi')
+  const [tabSoQuy, setTabSoQuy] = useState<'tienmat'|'nganhang'>('tienmat')
+  const [editSoDu, setEditSoDu] = useState(false)
+  const [sqTrang, setSqTrang] = useState(1)
+  const SQ_SO_DONG = 10
+  const now2 = new Date()
+  const [sqTuNgay, setSqTuNgay] = useState(now2.getFullYear()+'-'+String(now2.getMonth()+1).padStart(2,'0')+'-01')
+  const [sqDenNgay, setSqDenNgay] = useState(now2.toISOString().split('T')[0])
+  const [newSoDuTM, setNewSoDuTM] = useState(soDuTienMat)
+  const [newSoDuNH, setNewSoDuNH] = useState(soDuNganHang)
+  const [savingSoDu, setSavingSoDu] = useState(false)
   const [tuNgay, setTuNgay] = useState(`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-01`)
   const [denNgay, setDenNgay] = useState(now.toISOString().split('T')[0])
   const [search, setSearch] = useState('')
@@ -121,6 +137,116 @@ export default function ChiPhiClient({
     filteredThu.forEach(c=>{const l=c['Loại thu']||'Thu khác';m[l]=(m[l]||0)+Number(c['Số tiền']||0)})
     return Object.entries(m).sort((a,b)=>b[1]-a[1])
   },[filteredThu])
+
+  // Tổng hợp giao dịch sổ quỹ
+  const giaoDichSoQuy = useMemo(()=>{
+    const list:any[] = []
+    const isTM = (ht:string) => (ht||'').toLowerCase().includes('tiền mặt') || (ht||'').toLowerCase().includes('tien mat') || ht==='TM'
+    const isCK = (ht:string) => (ht||'').toLowerCase().includes('chuyển khoản') || (ht||'').toLowerCase().includes('chuyen khoan') || ht==='CK'
+
+    // 1. Đặt cọc từ đơn hàng
+    for (const don of donHangList) {
+      const coc = Number(don['Đặt cọc']||0)
+      const ht = don['Hình thức cọc']||''
+      if (coc > 0 && don['Ngày bán']) {
+        const ngay = (don['Ngày bán']||'').split('T')[0]
+        const tenKH = don['Tên khách hàng']||''
+        const maDon = don['Mã đơn hàng']
+        if (ht.includes('TM') || isTM(ht)) {
+          list.push({ ngay, loai:'Thu', soTien:isTM(ht)&&!ht.includes('+')?coc:Math.round(coc/2), dienGiai:'Đặt cọc', maDon, tenKH, hinhThuc:'Tiền mặt' })
+        }
+        if (ht.includes('CK') || isCK(ht)) {
+          list.push({ ngay, loai:'Thu', soTien:isCK(ht)&&!ht.includes('+')?coc:Math.round(coc/2), dienGiai:'Đặt cọc', maDon, tenKH, hinhThuc:'Chuyển khoản' })
+        }
+        if (ht.includes('+')) {
+          const tmMatch = ht.match(/TMs+([d.]+)/)
+          const ckMatch = ht.match(/CKs+([d.]+)/)
+          if (tmMatch) list.push({ ngay, loai:'Thu', soTien:Number(tmMatch[1].replace(/./g,'')), dienGiai:'Đặt cọc', maDon, tenKH, hinhThuc:'Tiền mặt' })
+          if (ckMatch) list.push({ ngay, loai:'Thu', soTien:Number(ckMatch[1].replace(/./g,'')), dienGiai:'Đặt cọc', maDon, tenKH, hinhThuc:'Chuyển khoản' })
+        }
+      }
+      // Hoàn tiền KH
+      const hoan = Number(don['Tiền hoàn cọc']||0)
+      const htHoan = don['Hình thức hoàn cọc']||''
+      if (hoan > 0 && don['Tình trạng hoàn cọc']==='Đã hoàn' && htHoan) {
+        const ngayH = (don['Ngày bán']||'').split('T')[0]
+        list.push({ ngay:ngayH, loai:'Chi', soTien:hoan, dienGiai:'Hoàn tiền KH', maDon:don['Mã đơn hàng'], tenKH:don['Tên khách hàng']||'', hinhThuc:htHoan })
+      }
+    }
+
+    // 2. Thu tiền từ đối soát
+    for (const ds of doiSoatList) {
+      const maDon = ds['Mã đơn hàng']||''
+      const tenKH = donHangMap[maDon]||maDon
+      const tenNV = ds['Tên NV/đối tác']||''
+      const thu = Number(ds['Đã thu được']||0)
+      const ht = ds['Hình thức thu']||''
+      if (thu > 0 && ht !== 'KH nợ-chưa thu') {
+        list.push({ ngay:'', loai:'Thu', soTien:thu, dienGiai:'Thu tiền KH', maDon, tenKH, tenNV, hinhThuc:isTM(ht)?'Tiền mặt':'Chuyển khoản' })
+      }
+      const cpVC = Number(ds['Chi phí VC']||0)
+      const cpLap = Number(ds['Chi phí lắp đặt']||0)
+      if (cpVC > 0) list.push({ ngay:'', loai:'Chi', soTien:cpVC, dienGiai:'CP vận chuyển', maDon, tenKH, tenNV, hinhThuc:'Tiền mặt' })
+      if (cpLap > 0) list.push({ ngay:'', loai:'Chi', soTien:cpLap, dienGiai:'CP lắp đặt', maDon, tenKH, tenNV, hinhThuc:'Tiền mặt' })
+    }
+
+    // 3. Thanh toán NCC
+    for (const tt of ttNccList) {
+      if (tt['Trạng thái']==='Huỷ') continue
+      const ht = tt['Hình thức']||''
+      const tenNCC = nccMap[tt['Mã NCC']]||tt['Mã NCC']||''
+      list.push({ ngay:(tt['Ngày trả tiền NCC']||'').split('T')[0], loai:'Chi', soTien:Number(tt['Số tiền trả']||0), dienGiai:'Trả NCC', tenNCC, nguoiThucHien:tt['Người trả']||'', hinhThuc:isTM(ht)?'Tiền mặt':'Chuyển khoản' })
+    }
+
+    // 4. Chi trả nhân viên
+    for (const nv of chiTraNvList) {
+      const ht = nv['Hình thức TT']||''
+      const ngay = nv['Ngày thanh toán'] ? (nv['Ngày thanh toán']||'').split('T')[0] : ''
+      list.push({ ngay, loai:'Chi', soTien:Number(nv['Tổng lương']||0), dienGiai:'Lương NV', nguoiThucHien:nv['Họ và Tên']||nv['Mã nhân viên']||'', hinhThuc:isTM(ht)?'Tiền mặt':'Chuyển khoản' })
+    }
+
+    // 5. Thu chi hoạt động
+    for (const cp of chiPhiList) {
+      const ht = cp['Hình thức thanh toán']||''
+      const loai = cp['Loại giao dịch']==='Thu'?'Thu':'Chi'
+      list.push({ ngay:(cp['Ngày phát sinh']||'').split('T')[0], loai, soTien:Number(cp['Số tiền']||0), dienGiai:(loai==='Thu'?cp['Loại thu']:cp['Loại chi phí'])||cp['Nội dung']||'Thu chi HĐ', nguoiThucHien:cp['Người chi']||'', hinhThuc:isTM(ht)?'Tiền mặt':'Chuyển khoản' })
+    }
+
+    return list.filter(g=>g.soTien>0).sort((a,b)=>(a.ngay||'')>(b.ngay||'')?1:-1)
+  },[donHangList,doiSoatList,ttNccList,chiTraNvList,chiPhiList])
+
+  const gdTienMat = useMemo(()=>giaoDichSoQuy.filter(g=>g.hinhThuc==='Tiền mặt'&&(!g.ngay||g.ngay>=sqTuNgay)&&(!g.ngay||g.ngay<=sqDenNgay)),[giaoDichSoQuy,sqTuNgay,sqDenNgay])
+  const gdNganHang = useMemo(()=>giaoDichSoQuy.filter(g=>g.hinhThuc==='Chuyển khoản'&&(!g.ngay||g.ngay>=sqTuNgay)&&(!g.ngay||g.ngay<=sqDenNgay)),[giaoDichSoQuy,sqTuNgay,sqDenNgay])
+
+  function tinhSoDu(list:any[], soDuDau:number) {
+    let soDu = soDuDau
+    return list.map(g => {
+      soDu = g.loai==='Thu' ? soDu+g.soTien : soDu-g.soTien
+      return {...g, soDu}
+    })
+  }
+
+  const gdTMVoiSoDu = useMemo(()=>{setSqTrang(1);return tinhSoDu(gdTienMat, soDuTienMat)},[gdTienMat,soDuTienMat])
+  const gdNHVoiSoDu = useMemo(()=>{setSqTrang(1);return tinhSoDu(gdNganHang, soDuNganHang)},[gdNganHang,soDuNganHang])
+
+  const tongThuTM = gdTienMat.filter(g=>g.loai==='Thu').reduce((s,g)=>s+g.soTien,0)
+  const tongChiTM = gdTienMat.filter(g=>g.loai==='Chi').reduce((s,g)=>s+g.soTien,0)
+  const tongThuNH = gdNganHang.filter(g=>g.loai==='Thu').reduce((s,g)=>s+g.soTien,0)
+  const tongChiNH = gdNganHang.filter(g=>g.loai==='Chi').reduce((s,g)=>s+g.soTien,0)
+  const tonQuyCuoiTM = soDuTienMat + tongThuTM - tongChiTM
+  const tonQuyCuoiNH = soDuNganHang + tongThuNH - tongChiNH
+
+  async function luuSoDu() {
+    if (!caiDatId) return
+    setSavingSoDu(true)
+    try {
+      await fetch('/api/cai-dat', { method:'PATCH', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ id: caiDatId, so_du_tien_mat: newSoDuTM, so_du_ngan_hang: newSoDuNH }) })
+      setEditSoDu(false)
+      window.location.reload()
+    } catch(e) { console.error(e) }
+    finally { setSavingSoDu(false) }
+  }
 
   const nvLoc = useMemo(()=>{
     if(!nvSearch.trim()) return nvList.slice(0,10)
@@ -324,6 +450,13 @@ export default function ChiPhiClient({
             fontWeight:tab==='thu'?700:400,cursor:'pointer',fontSize:'13px'}}>
           💰 Khoản thu ({filteredThu.length})
         </button>
+        <button onClick={()=>setTab('soquy')}
+          style={{padding:'9px 20px',borderRadius:'8px 8px 0 0',border:'none',
+            background:tab==='soquy'?'#7C3AED':'transparent',
+            color:tab==='soquy'?'white':'var(--text-secondary)',
+            fontWeight:tab==='soquy'?700:400,cursor:'pointer',fontSize:'13px'}}>
+          💵 Sổ quỹ
+        </button>
       </div>
 
       {/* Phân bổ theo loại */}
@@ -498,6 +631,190 @@ export default function ChiPhiClient({
           <button disabled={trangHT===tongTrang} onClick={()=>setTrang(t=>t+1)} style={{padding:'4px 10px',borderRadius:'5px',border:'1px solid var(--border)',background:trangHT===tongTrang?'#F9FAFB':'white',color:trangHT===tongTrang?'#CCC':'var(--text-secondary)',cursor:trangHT===tongTrang?'not-allowed':'pointer',fontSize:'13px'}}>›</button>
         </div>
       </div>}
+
+      {/* Sổ quỹ */}
+      {tab==='soquy'&&(
+        <div>
+          {/* Số dư đầu kỳ */}
+          <div className="card" style={{padding:'16px',marginBottom:'16px'}}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'12px'}}>
+              <div style={{fontSize:'13px',fontWeight:700,color:'var(--primary)'}}>💰 Số dư đầu kỳ</div>
+              {isOwner&&!editSoDu&&<button onClick={()=>{setEditSoDu(true);setNewSoDuTM(soDuTienMat);setNewSoDuNH(soDuNganHang)}}
+                style={{padding:'4px 12px',borderRadius:'6px',border:'1px solid var(--border)',background:'white',fontSize:'12px',cursor:'pointer'}}>✏️ Sửa</button>}
+            </div>
+            {editSoDu?(
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'12px'}}>
+                <div>
+                  <label style={{fontSize:'11px',fontWeight:600,display:'block',marginBottom:'4px'}}>💵 Tiền mặt (đ)</label>
+                  <input className="input" type="text" inputMode="numeric"
+                    value={newSoDuTM>0?newSoDuTM.toLocaleString('vi-VN'):''}
+                    onChange={e=>setNewSoDuTM(Number(e.target.value.replace(/./g,'').replace(/[^0-9]/g,''))||0)}
+                    placeholder="0"/>
+                </div>
+                <div>
+                  <label style={{fontSize:'11px',fontWeight:600,display:'block',marginBottom:'4px'}}>🏦 Ngân hàng (đ)</label>
+                  <input className="input" type="text" inputMode="numeric"
+                    value={newSoDuNH>0?newSoDuNH.toLocaleString('vi-VN'):''}
+                    onChange={e=>setNewSoDuNH(Number(e.target.value.replace(/./g,'').replace(/[^0-9]/g,''))||0)}
+                    placeholder="0"/>
+                </div>
+                <div style={{gridColumn:'1/-1',display:'flex',gap:'8px'}}>
+                  <button onClick={luuSoDu} disabled={savingSoDu}
+                    style={{padding:'8px 16px',borderRadius:'6px',border:'none',background:'var(--primary)',color:'white',fontWeight:700,fontSize:'13px',cursor:'pointer'}}>
+                    {savingSoDu?'⏳ Đang lưu...':'✅ Lưu'}
+                  </button>
+                  <button onClick={()=>setEditSoDu(false)}
+                    style={{padding:'8px 12px',borderRadius:'6px',border:'1px solid var(--border)',background:'white',cursor:'pointer',fontSize:'13px'}}>Huỷ</button>
+                </div>
+              </div>
+            ):(
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'12px'}}>
+                <div style={{background:'#F0F4FF',borderRadius:'8px',padding:'12px'}}>
+                  <div style={{fontSize:'11px',color:'#6B7280',marginBottom:'4px'}}>💵 Tiền mặt đầu kỳ</div>
+                  <div style={{fontSize:'16px',fontWeight:800,color:'var(--primary)'}}>{fVND(soDuTienMat)}đ</div>
+                </div>
+                <div style={{background:'#F0F4FF',borderRadius:'8px',padding:'12px'}}>
+                  <div style={{fontSize:'11px',color:'#6B7280',marginBottom:'4px'}}>🏦 Ngân hàng đầu kỳ</div>
+                  <div style={{fontSize:'16px',fontWeight:800,color:'var(--primary)'}}>{fVND(soDuNganHang)}đ</div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Thống kê tồn quỹ */}
+          <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:'10px',marginBottom:'16px'}}>
+            {[
+              {icon:'💵',label:'Tồn quỹ TM',val:fVND(tonQuyCuoiTM)+'đ',c:tonQuyCuoiTM>=0?'#16A34A':'#DC2626'},
+              {icon:'🏦',label:'Tồn TK NH',val:fVND(tonQuyCuoiNH)+'đ',c:tonQuyCuoiNH>=0?'#16A34A':'#DC2626'},
+              {icon:'📈',label:'Tổng thu (lọc)',val:fVND(tabSoQuy==='tienmat'?tongThuTM:tongThuNH)+'đ',c:'#16A34A'},
+              {icon:'📉',label:'Tổng chi (lọc)',val:fVND(tabSoQuy==='tienmat'?tongChiTM:tongChiNH)+'đ',c:'#DC2626'},
+            ].map(({icon,label,val,c})=>(
+              <div key={label} className="card" style={{padding:'12px 14px'}}>
+                <div style={{fontSize:'18px',marginBottom:'2px'}}>{icon}</div>
+                <div style={{fontSize:'15px',fontWeight:800,color:c}}>{val}</div>
+                <div style={{fontSize:'11px',color:'var(--text-secondary)'}}>{label}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Bộ lọc ngày */}
+          <div className="card" style={{padding:'10px 14px',marginBottom:'12px'}}>
+            <div style={{display:'flex',gap:'8px',alignItems:'center',flexWrap:'wrap'}}>
+              <span style={{fontSize:'12px',fontWeight:600,color:'var(--text-secondary)'}}>📅 Từ:</span>
+              <input type="date" value={sqTuNgay} onChange={e=>setSqTuNgay(e.target.value)}
+                style={{padding:'6px 10px',borderRadius:'6px',border:'1px solid var(--border)',fontSize:'12px'}}/>
+              <span style={{fontSize:'12px',fontWeight:600,color:'var(--text-secondary)'}}>Đến:</span>
+              <input type="date" value={sqDenNgay} onChange={e=>setSqDenNgay(e.target.value)}
+                style={{padding:'6px 10px',borderRadius:'6px',border:'1px solid var(--border)',fontSize:'12px'}}/>
+              <button onClick={()=>{const n=new Date();setSqTuNgay(n.getFullYear()+'-'+String(n.getMonth()+1).padStart(2,'0')+'-01');setSqDenNgay(n.toISOString().split('T')[0])}}
+                style={{padding:'6px 12px',borderRadius:'6px',border:'1px solid var(--border)',background:'white',fontSize:'12px',cursor:'pointer'}}>
+                📅 Tháng này
+              </button>
+            </div>
+          </div>
+
+          {/* Tab TM / NH */}
+          <div style={{display:'flex',gap:'4px',marginBottom:'12px'}}>
+            {([['tienmat','💵 Tiền mặt'],['nganhang','🏦 Ngân hàng']] as const).map(([k,label])=>(
+              <button key={k} onClick={()=>setTabSoQuy(k)}
+                style={{padding:'7px 18px',borderRadius:'8px',border:'2px solid',
+                  borderColor:tabSoQuy===k?'#7C3AED':'var(--border)',
+                  background:tabSoQuy===k?'#F5F3FF':'white',
+                  color:tabSoQuy===k?'#7C3AED':'var(--text-secondary)',
+                  fontWeight:tabSoQuy===k?700:400,cursor:'pointer',fontSize:'13px'}}>
+                {label} ({(tabSoQuy===k?tabSoQuy==='tienmat'?gdTienMat:gdNganHang:k==='tienmat'?gdTienMat:gdNganHang).length})
+              </button>
+            ))}
+          </div>
+
+          {/* Bảng giao dịch */}
+          <div className="card" style={{overflow:'hidden'}}>
+            <div style={{overflowX:'auto'}}>
+              <table className="cp-t" style={{width:'100%',borderCollapse:'collapse',fontSize:'13px'}}>
+                <thead>
+                  <tr style={{background:tabSoQuy==='tienmat'?'#F5F3FF':'#F0F4FF',borderBottom:'2px solid var(--border)'}}>
+                    <th style={{textAlign:'left',fontWeight:700,whiteSpace:'nowrap'}}>Ngày</th>
+                    <th style={{textAlign:'left',fontWeight:700}}>Diễn giải</th>
+                    <th style={{textAlign:'left',fontWeight:700,whiteSpace:'nowrap'}}>Mã đơn</th>
+                    <th style={{textAlign:'left',fontWeight:700,whiteSpace:'nowrap'}}>Khách hàng</th>
+                    <th style={{textAlign:'left',fontWeight:700,whiteSpace:'nowrap'}}>NV/Đối tác</th>
+                    <th style={{textAlign:'left',fontWeight:700,whiteSpace:'nowrap'}}>Nhà CC</th>
+                    <th style={{textAlign:'right',fontWeight:700,whiteSpace:'nowrap',color:'#16A34A'}}>Thu</th>
+                    <th style={{textAlign:'right',fontWeight:700,whiteSpace:'nowrap',color:'#DC2626'}}>Chi</th>
+                    <th style={{textAlign:'right',fontWeight:700,whiteSpace:'nowrap'}}>Tồn quỹ</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {/* Dòng số dư đầu kỳ */}
+                  <tr style={{borderBottom:'1px solid #F0F0F0',background:'#FFFBEB'}}>
+                    <td style={{fontSize:'11px',color:'#6B7280'}}>{ngayBatDau?fDate(ngayBatDau):'—'}</td>
+                    <td style={{fontWeight:600,color:'#92400E'}}>📌 Số dư đầu kỳ</td>
+                    <td>—</td><td>—</td><td>—</td><td>—</td>
+                    <td style={{textAlign:'right',fontWeight:700,color:'#92400E'}}>{fVND(tabSoQuy==='tienmat'?soDuTienMat:soDuNganHang)}đ</td>
+                    <td></td>
+                    <td style={{textAlign:'right',fontWeight:700,color:'#92400E'}}>{fVND(tabSoQuy==='tienmat'?soDuTienMat:soDuNganHang)}đ</td>
+                  </tr>
+                  {(()=>{
+                    const allData = tabSoQuy==='tienmat'?gdTMVoiSoDu:gdNHVoiSoDu
+                    const sqTongTrang = Math.max(1,Math.ceil(allData.length/SQ_SO_DONG))
+                    const sqTrangHT = Math.min(sqTrang,sqTongTrang)
+                    const sqDanhSach = allData.slice((sqTrangHT-1)*SQ_SO_DONG, sqTrangHT*SQ_SO_DONG)
+                    return null
+                  })()}
+                  {(tabSoQuy==='tienmat'?gdTMVoiSoDu:gdNHVoiSoDu).slice((Math.min(sqTrang,Math.max(1,Math.ceil((tabSoQuy==='tienmat'?gdTMVoiSoDu:gdNHVoiSoDu).length/SQ_SO_DONG)))-1)*SQ_SO_DONG,(Math.min(sqTrang,Math.max(1,Math.ceil((tabSoQuy==='tienmat'?gdTMVoiSoDu:gdNHVoiSoDu).length/SQ_SO_DONG))))*SQ_SO_DONG).length===0?(
+                    <tr><td colSpan={9} style={{textAlign:'center',padding:'40px',color:'var(--text-muted)'}}>Chưa có giao dịch nào</td></tr>
+                  ):(tabSoQuy==='tienmat'?gdTMVoiSoDu:gdNHVoiSoDu).slice((Math.min(sqTrang,Math.max(1,Math.ceil((tabSoQuy==='tienmat'?gdTMVoiSoDu:gdNHVoiSoDu).length/SQ_SO_DONG)))-1)*SQ_SO_DONG,(Math.min(sqTrang,Math.max(1,Math.ceil((tabSoQuy==='tienmat'?gdTMVoiSoDu:gdNHVoiSoDu).length/SQ_SO_DONG))))*SQ_SO_DONG).map((g,i)=>(
+                    <tr key={i} style={{borderBottom:'1px solid #F0F0F0',background:i%2===0?'white':'#FAFBFD'}}>
+                      <td style={{fontSize:'11px',color:'#6B7280',whiteSpace:'nowrap'}}>{g.ngay?fDate(g.ngay):'—'}</td>
+                      <td style={{fontSize:'12px',maxWidth:'160px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{g.dienGiai}</td>
+                      <td style={{fontSize:'11px',color:'var(--primary)',whiteSpace:'nowrap'}}>{g.maDon||'—'}</td>
+                      <td style={{fontSize:'11px',maxWidth:'120px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{g.tenKH||'—'}</td>
+                      <td style={{fontSize:'11px',maxWidth:'100px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{g.tenNV||g.nguoiThucHien||'—'}</td>
+                      <td style={{fontSize:'11px',maxWidth:'100px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{g.tenNCC||'—'}</td>
+                      <td style={{textAlign:'right',fontWeight:600,color:'#16A34A',whiteSpace:'nowrap'}}>{g.loai==='Thu'?fVND(g.soTien)+'đ':''}</td>
+                      <td style={{textAlign:'right',fontWeight:600,color:'#DC2626',whiteSpace:'nowrap'}}>{g.loai==='Chi'?fVND(g.soTien)+'đ':''}</td>
+                      <td style={{textAlign:'right',fontWeight:700,color:g.soDu>=0?'#1E40AF':'#DC2626',whiteSpace:'nowrap'}}>{fVND(g.soDu)}đ</td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr style={{background:'#F5F3FF',borderTop:'2px solid var(--border)'}}>
+                    <td colSpan={6} style={{padding:'8px 10px',textAlign:'right',fontWeight:700,fontSize:'13px'}}>Tồn quỹ cuối kỳ:</td>
+                    <td style={{padding:'8px 10px',textAlign:'right',fontWeight:700,color:'#16A34A',fontSize:'12px'}}>{fVND(tabSoQuy==='tienmat'?tongThuTM:tongThuNH)}đ</td>
+                    <td style={{padding:'8px 10px',textAlign:'right',fontWeight:700,color:'#DC2626',fontSize:'12px'}}>{fVND(tabSoQuy==='tienmat'?tongChiTM:tongChiNH)}đ</td>
+                    <td style={{padding:'8px 10px',textAlign:'right',fontWeight:800,color:((tabSoQuy==='tienmat'?tonQuyCuoiTM:tonQuyCuoiNH))>=0?'#16A34A':'#DC2626',fontSize:'15px',whiteSpace:'nowrap'}}>{fVND(tabSoQuy==='tienmat'?tonQuyCuoiTM:tonQuyCuoiNH)}đ</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </div>
+        {/* Phân trang sổ quỹ */}
+        {(()=>{
+          const allData = tabSoQuy==='tienmat'?gdTMVoiSoDu:gdNHVoiSoDu
+          const sqTongTrang = Math.max(1,Math.ceil(allData.length/SQ_SO_DONG))
+          const sqTrangHT = Math.min(sqTrang,sqTongTrang)
+          if (sqTongTrang<=1) return null
+          return (
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'10px 14px',borderTop:'1px solid #F0F0F0',flexWrap:'wrap',gap:'8px',marginTop:'0'}}>
+              <span style={{fontSize:'12px',color:'var(--text-secondary)'}}>
+                {(sqTrangHT-1)*SQ_SO_DONG+1}–{Math.min(sqTrangHT*SQ_SO_DONG,allData.length)} / {allData.length} giao dịch
+              </span>
+              <div style={{display:'flex',gap:'4px'}}>
+                <button disabled={sqTrangHT===1} onClick={()=>setSqTrang(t=>t-1)}
+                  style={{padding:'4px 10px',borderRadius:'5px',border:'1px solid var(--border)',background:sqTrangHT===1?'#F9FAFB':'white',color:sqTrangHT===1?'#CCC':'var(--text-secondary)',cursor:sqTrangHT===1?'not-allowed':'pointer',fontSize:'13px'}}>‹</button>
+                {Array.from({length:Math.min(sqTongTrang,7)},(_,i)=>{
+                  const p = sqTongTrang<=7 ? i+1 : sqTrangHT<=4 ? i+1 : sqTrangHT>=sqTongTrang-3 ? sqTongTrang-6+i : sqTrangHT-3+i
+                  return <button key={p} onClick={()=>setSqTrang(p)}
+                    style={{padding:'4px 10px',borderRadius:'5px',border:'1px solid',borderColor:p===sqTrangHT?'#7C3AED':'var(--border)',background:p===sqTrangHT?'#7C3AED':'white',color:p===sqTrangHT?'white':'var(--text-secondary)',cursor:'pointer',fontSize:'13px',fontWeight:p===sqTrangHT?700:400}}>{p}</button>
+                })}
+                <button disabled={sqTrangHT===sqTongTrang} onClick={()=>setSqTrang(t=>t+1)}
+                  style={{padding:'4px 10px',borderRadius:'5px',border:'1px solid var(--border)',background:sqTrangHT===sqTongTrang?'#F9FAFB':'white',color:sqTrangHT===sqTongTrang?'#CCC':'var(--text-secondary)',cursor:sqTrangHT===sqTongTrang?'not-allowed':'pointer',fontSize:'13px'}}>›</button>
+              </div>
+            </div>
+          )
+        })()}
+        </div>
+      )}
 
       {/* Modal thêm/sửa Chi */}
       {showForm&&tab==='chi'&&(

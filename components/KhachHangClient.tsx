@@ -232,11 +232,19 @@ export default function KhachHangClient({ khachHang, donHuyCanHoan, congNoMap, d
     const hoan = donHuyCanHoan[popupHoanKH['Mã KH']]
     const donHuy = (donHangTheoKH[popupHoanKH['Mã KH']]||[])
       .find((d:any) => d['Tiền hoàn cọc']>0 && d['Tình trạng hoàn cọc']!=='Đã hoàn')
+    const donAm = (donHangTheoKH[popupHoanKH['Mã KH']]||[])
+      .find((d:any) => Number(d['Còn phải thu']||0)<0 && d['Trạng thái']!=='Hủy' && d['Trạng thái']!=='Huỷ')
     try {
       if (donHuy) {
         await fetch('/api/don-hang', {
           method:'PATCH', headers:{'Content-Type':'application/json'},
           body: JSON.stringify({ id: donHuy['Id']||donHuy['id'], 'Tình trạng hoàn cọc':'Đã hoàn', 'Hình thức hoàn cọc': hinhThucHoan }),
+        })
+      }
+            if (!donHuy && donAm) {
+        await fetch('/api/don-hang', {
+          method:'PATCH', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ id: donAm['Id']||donAm['id'], 'Còn phải thu': 0, 'Tình trạng hoàn cọc': 'Đã hoàn', 'Hình thức hoàn cọc': hinhThucHoan }),
         })
       }
       showMsg(`✅ Đã hoàn ${hoan?.tienHoan.toLocaleString('vi-VN')}đ cho ${popupHoanKH['Tên khách hàng']}`, true)

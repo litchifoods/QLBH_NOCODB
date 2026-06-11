@@ -58,6 +58,7 @@ export async function POST(req: NextRequest) {
       'Chi phí VC':               chiPhiVC || 0,
       'Chi phí lắp đặt':          chiPhiLap || 0,
       'Thưởng chuyến':            thuongChuyen || 0,
+      'Hình thức thanh toán':     body.hinhThucChi || 'Tiền mặt',
       'Kết quả':                  ketQua || 'Thành công',
       'Tình trạng đối soát':      'Đã đối soát',
       'Ghi chú':                  ghiChu || '',

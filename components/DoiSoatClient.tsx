@@ -59,6 +59,7 @@ export default function DoiSoatClient({
   const [ngayDoiSoat,    setNgayDoiSoat]    = useState(new Date().toISOString().split('T')[0])
   const [thanhToanNgay,  setThanhToanNgay]  = useState(false)
   const [hinhThucTTDT,   setHinhThucTTDT]   = useState('Tiền mặt')
+  const [hinhThucChi,    setHinhThucChi]    = useState('Tiền mặt')
   const [hoanThanhDon,   setHoanThanhDon]   = useState(false)
   const [daNopTienThuHo, setDaNopTienThuHo] = useState(false) // ← MỚI
   const [chiTietGH,      setChiTietGH]      = useState<any>(null)
@@ -125,7 +126,8 @@ export default function DoiSoatClient({
     setThuongChuyen(Number(gh['Thưởng chuyến']||0))
     setKetQua('Thành công'); setGhiChu(''); setHoanThanhDon(false)
     setNgayDoiSoat(new Date().toISOString().split('T')[0])
-    setThanhToanNgay(false); setHinhThucTTDT('Tiền mặt')
+    setThanhToanNgay(false)
+    setHinhThucChi('Tiền mặt'); setHinhThucTTDT('Tiền mặt')
     setDaNopTienThuHo(false) // reset
   }
 
@@ -499,6 +501,23 @@ export default function DoiSoatClient({
                   ))}
                 </div>
                 {tongPhaiTra>0&&<div style={{marginTop:'6px',fontSize:'12px',fontWeight:700,color:laDT?'#DC2626':'#0369A1'}}>Tổng: {fVND(tongPhaiTra)}</div>}
+                {tongPhaiTra>0&&(
+                  <div style={{marginTop:'8px'}}>
+                    <label style={{fontSize:'11px',fontWeight:600,display:'block',marginBottom:'4px'}}>Hình thức chi trả</label>
+                    <div style={{display:'flex',gap:'8px'}}>
+                      {['Tiền mặt','Chuyển khoản'].map(ht=>(
+                        <button key={ht} onClick={()=>setHinhThucChi(ht)}
+                          style={{flex:1,padding:'6px',borderRadius:'6px',border:'2px solid',
+                            borderColor:hinhThucChi===ht?(laDT?'#C2410C':'#0369A1'):'var(--border)',
+                            background:hinhThucChi===ht?(laDT?'#FFF7ED':'#F0F9FF'):'white',
+                            color:hinhThucChi===ht?(laDT?'#C2410C':'#0369A1'):'var(--text-secondary)',
+                            fontWeight:hinhThucChi===ht?700:400,fontSize:'12px',cursor:'pointer'}}>
+                          {ht==='Tiền mặt'?'💵':'🏦'} {ht}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Ngày đối soát + Ghi chú */}
