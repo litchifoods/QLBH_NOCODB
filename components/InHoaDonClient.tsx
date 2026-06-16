@@ -28,6 +28,10 @@ const MAC_DINH = {
   coChuBang:    '12',
   coChuND:      '11',
   canChanTrang: 'center',
+  showBorder:     'true',
+  canThongTinCH:  'left',
+  canTieuDe:      'center',
+  logoPart:       'left',
 }
 type Settings = typeof MAC_DINH
 
