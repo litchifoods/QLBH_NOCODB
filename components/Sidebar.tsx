@@ -49,6 +49,7 @@ const MENU = [
     items: [
       { href: '/dashboard/chi-phi', icon: '💹', label: 'Thu Chi' },
       { href: '/dashboard/bao-cao', icon: '📈', label: 'Báo cáo' },
+      { href: '/dashboard/nhat-ky', icon: '📋', label: 'Nhật ký' },
     ],
   },
 ]
@@ -81,7 +82,7 @@ export default function Sidebar({ user }: { user: UserSession }) {
     <aside style={{
       position: 'fixed', left: 0, top: 0, bottom: 0,
       width: 'var(--sidebar-w)',
-      background: 'linear-gradient(180deg, #0F172A 0%, #1B3A6B 100%)',
+      background: 'linear-gradient(180deg, #0F172A 0%, var(--primary) 100%)',
       display: 'flex', flexDirection: 'column',
       zIndex: 100, overflowY: 'auto',
     }}>
@@ -95,7 +96,7 @@ export default function Sidebar({ user }: { user: UserSession }) {
         }}>
           <div style={{
             width: '40px', height: '40px',
-            background: 'linear-gradient(135deg, #C8860A, #F5A623)',
+            background: 'linear-gradient(135deg, var(--accent), var(--accent-light))',
             borderRadius: '10px', display: 'flex', alignItems: 'center',
             justifyContent: 'center', fontSize: '20px', flexShrink: 0,
           }}>🏠</div>
@@ -156,7 +157,7 @@ export default function Sidebar({ user }: { user: UserSession }) {
                 {isActive(item.href) && (
                   <div style={{
                     marginLeft: 'auto', width: '4px', height: '4px',
-                    background: '#F5A623', borderRadius: '50%',
+                    background: 'var(--accent-light)', borderRadius: '50%',
                   }} />
                 )}
               </Link>

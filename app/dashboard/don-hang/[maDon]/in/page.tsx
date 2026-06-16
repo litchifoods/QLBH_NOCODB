@@ -37,7 +37,7 @@ export default async function InHoaDonPage({
   if (!don) notFound()
 
   // Lấy chi tiết đơn và danh sách KH song song
-  const [chiTietResult, khachHangResult] = await Promise.all([
+  const [chiTietResult, khachHangResult, caiDatResult] = await Promise.all([
     getRecords(TABLES.CHI_TIET_DON, {
       where: `(Mã đơn hàng,eq,${maDon})`,
       limit: 50,
@@ -46,6 +46,7 @@ export default async function InHoaDonPage({
       limit: 500,
       fields: 'Mã KH,Tên khách hàng,Số điện thoại,Địa chỉ',
     }),
+    getRecords(TABLES.CAI_DAT, { limit: 1 }),
   ])
 
   const khMap: Record<string, any> = {}
@@ -56,12 +57,18 @@ export default async function InHoaDonPage({
   const maKH   = don['Mã KH'] || ''
   const khInfo = khMap[maKH] || {}
 
+  const caiDat = caiDatResult.list?.[0] || {}
+  let initSettings = {}
+  try { if (caiDat['theme']) initSettings = JSON.parse(caiDat['theme']) } catch {}
+
   return (
     <InHoaDonClient
       don={don}
       chiTiet={chiTietResult.list || []}
       khInfo={khInfo}
       user={session!}
+      caiDatId={Number(caiDat['Id']||caiDat['id']||0)}
+      initSettings={initSettings}
     />
   )
 }

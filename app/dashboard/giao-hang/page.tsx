@@ -101,8 +101,7 @@ export default async function GiaoHangPage() {
   const donChuaGiao = (donHang.list || [])
     .filter((d: any) =>
       d['Mã đơn hàng']?.trim() &&
-      d['Trạng thái'] !== 'Hoàn thành' &&
-      d['Trạng thái'] !== 'Huỷ'
+      !['Hoàn thành','Huỷ','Hủy','Đã giao','Hoàn trả'].includes(d['Trạng thái'])
     )
     .map((d: any) => {
       const kh = khachHangMap[d['Mã KH']] || {}
@@ -120,7 +119,7 @@ export default async function GiaoHangPage() {
     .filter((d: any) => {
       if (!d['Mã đơn hàng']?.trim()) return false
       if (d['Hình thức giao hàng'] !== 'Giao hàng cho khách') return false
-      if (d['Trạng thái'] === 'Hoàn thành' || d['Trạng thái'] === 'Huỷ') return false
+      if (['Hoàn thành','Huỷ','Hủy','Đã giao','Hoàn trả'].includes(d['Trạng thái'])) return false
 
       // Đơn "Đang giao"
       if (d['Trạng thái'] === 'Đang giao') {

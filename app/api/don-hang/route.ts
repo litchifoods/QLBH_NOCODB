@@ -1,7 +1,7 @@
-﻿// app/api/don-hang/route.ts — v5.0
+// app/api/don-hang/route.ts — v5.0
 import { NextRequest, NextResponse } from 'next/server'
 import { revalidatePath } from 'next/cache'
-import { createRecord, getRecords, updateRecord, deleteRecord, TABLES } from '@/lib/nocodb'
+import { createRecord, getRecords, updateRecord, deleteRecord, TABLES, writeLog } from '@/lib/nocodb'
 import { getSession } from '@/lib/auth'
 
 async function taoMaDonMoi(): Promise<string> {
@@ -46,6 +46,10 @@ export async function POST(request: NextRequest) {
     console.log('[CREATE don-hang] fields:', Object.keys({...body,'Mã đơn hàng':maDon}).join(', '))
     const result = await createRecord(TABLES.DON_HANG, {...body,'Mã đơn hàng':maDon})
     if (!result) return NextResponse.json({message:'Lỗi tạo đơn hàng'},{status:500})
+    writeLog({maNV:session.maNV||'',tenNV:session.hoTen||'',hanhDong:'Tạo',bang:'Đơn hàng',
+      maBanGhi:result['Mã đơn hàng']||maDon,
+      moTa:'Tạo đơn hàng — KH: '+(body['Tên khách hàng']||body['Mã KH']||''),
+      duLieuMoi:{maDon:result['Mã đơn hàng']||maDon,tongTien:body['Tổng tiền đơn'],trangThai:body['Trạng thái']}})
     return NextResponse.json({success:true,data:result,maDon:result['Mã đơn hàng']||maDon})
   } catch(e:any) { return NextResponse.json({message:e.message},{status:500}) }
 }
@@ -61,6 +65,10 @@ export async function PATCH(request: NextRequest) {
     const result = await updateRecord(TABLES.DON_HANG, id, updateData)
     revalidatePath('/dashboard/don-hang')
     revalidatePath('/dashboard/khach-hang')
+    const _hd=updateData['Trạng thái']==='Huỷ'||updateData['Trạng thái']==='Hủy'?'Hủy':'Sửa'
+    writeLog({maNV:session.maNV||'',tenNV:session.hoTen||'',hanhDong:_hd,bang:'Đơn hàng',
+      maBanGhi:updateData['Mã đơn hàng']||String(id),
+      moTa:(_hd==='Hủy'?'Hủy':'Sửa')+' đơn hàng',duLieuMoi:updateData})
     return NextResponse.json({success:true,data:result})
   } catch(e:any) { return NextResponse.json({message:e.message},{status:500}) }
 }

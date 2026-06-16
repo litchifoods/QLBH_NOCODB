@@ -1,15 +1,14 @@
 'use client'
-import { useState, useMemo, useEffect, useLayoutEffect } from 'react'
+import { useState, useMemo } from 'react'
 import { UserSession } from '@/lib/auth'
 
 const LOAI_CHI_PHI = [
   'Mặt bằng','Dịch vụ mua ngoài','Văn phòng phẩm','Xăng xe',
   'Vật tư','Công cụ','Sửa chữa','Mua sắm tài sản',
-  'Thuế','Bảo hiểm','Tiếp khách','Marketing',
-  'CPVC+lắp đặt bổ sung','Chi phí thất thoát','Khác'
+  'Thuế','Bảo hiểm','Tiếp khách','Marketing','Khác'
 ]
 const LOAI_THU = [
-  'Thu nợ KH','Thu đổi/trả hàng','Thu phí vận chuyển thêm','Thu phí lắp đặt thêm',
+  'Thu đổi/trả hàng','Thu phí vận chuyển thêm','Thu phí lắp đặt thêm',
   'Thu phí tư vấn thiết kế','Thu bán phế liệu','Thu bồi thường',
   'Thu lãi tiền gửi','Thu khác'
 ]
@@ -22,7 +21,7 @@ const LOAI_ICONS: Record<string,string> = {
   'Mặt bằng':'🏠','Dịch vụ mua ngoài':'⚡','Văn phòng phẩm':'📎',
   'Xăng xe':'⛽','Vật tư':'🔩','Công cụ':'🔧','Sửa chữa':'🛠️',
   'Mua sắm tài sản':'🖥️','Thuế':'📋','Bảo hiểm':'🛡️',
-  'Tiếp khách':'🍽️','Marketing':'📣','CPVC+lắp đặt bổ sung':'🔧','Chi phí thất thoát':'⚠️','Khác':'💼'
+  'Tiếp khách':'🍽️','Marketing':'📣','Khác':'💼'
 }
 
 function fVND(n:any){return Number(n||0).toLocaleString('vi-VN')}
@@ -46,39 +45,18 @@ const EMPTY_THU = {
 
 export default function ChiPhiClient({
   chiPhiList, nvList, donHangList=[], doiSoatList=[], ttNccList=[], chiTraNvList=[],
-  tamUngNVList=[], thuongKhacNVList=[], nhapKhoList=[],
   soDuTienMat=0, soDuNganHang=0, ngayBatDau='', caiDatId=null,
   nccMap={} as Record<string,string>, donHangMap={} as Record<string,string>, user
 }:{
   chiPhiList:any[]; nvList:any[]
   donHangList?:any[]; doiSoatList?:any[]; ttNccList?:any[]; chiTraNvList?:any[]
-  tamUngNVList?:any[]; thuongKhacNVList?:any[]; nhapKhoList?:any[]
   soDuTienMat?:number; soDuNganHang?:number; ngayBatDau?:string; caiDatId?:any
   nccMap?:Record<string,string>; donHangMap?:Record<string,string>
   user:UserSession
 }) {
   const isOwner = user.vaiTro === 'Chủ cửa hàng'
-  const [nhapKhoLocal, setNhapKhoLocal] = useState<any[]>(nhapKhoList||[])
   const now = new Date()
   const [tab, setTab] = useState<'chi'|'thu'|'soquy'>('chi')
-
-  // Tự fetch nhapKhoList mỗi khi vào tab sổ quỹ
-  useEffect(()=>{
-    if(tab!=='soquy') return
-    fetch('/api/nhap-kho-list')
-      .then(r=>r.json())
-      .then(d=>{ if(d.list) setNhapKhoLocal(d.list) })
-      .catch(()=>{})
-  },[tab])
-  const [mounted, setMounted] = useState(false)
-  // Đọc hash từ URL sau khi mount (tránh hydration error)
-  useEffect(()=>{
-    const h=window.location.hash.replace('#','')
-    const s=sessionStorage.getItem('chiphi_tab')
-    if(['chi','thu','soquy'].includes(h)) setTab(h as any)
-    else if(s&&['chi','thu','soquy'].includes(s)) setTab(s as any)
-    setMounted(true)
-  },[]) 
   const [tabSoQuy, setTabSoQuy] = useState<'tienmat'|'nganhang'>('tienmat')
   const [editSoDu, setEditSoDu] = useState(false)
   const [sqTrang, setSqTrang] = useState(1)
@@ -103,7 +81,7 @@ export default function ChiPhiClient({
   const [msgOk, setMsgOk] = useState(true)
   const [deleteConfirm, setDeleteConfirm] = useState<any>(null)
   const [trang, setTrang] = useState(1)
-  const SO_DONG = 10
+  const SO_DONG = 15
   const [showNVSearch, setShowNVSearch] = useState(false)
   const [nvSearch, setNVSearch] = useState('')
 
@@ -172,27 +150,27 @@ export default function ChiPhiClient({
       const ht = don['Hình thức cọc']||''
       if (coc > 0 && don['Ngày bán']) {
         const ngay = (don['Ngày bán']||'').split('T')[0]
-        const tenKH = donHangMap[don['Mã đơn hàng']]||don['Mã KH']||''
+        const tenKH = don['Tên khách hàng']||''
         const maDon = don['Mã đơn hàng']
-        const cocTM = Number(don['Cọc tiền mặt']||0)
-        const cocCK = Number(don['Cọc chuyển khoản']||0)
-        if (cocTM > 0 || cocCK > 0) {
-          // Đơn mới: có dữ liệu tách chính xác
-          if (cocTM > 0) list.push({ ngay, loai:'Thu', soTien:cocTM, dienGiai:'Đặt cọc', maDon, tenKH, hinhThuc:'Tiền mặt' })
-          if (cocCK > 0) list.push({ ngay, loai:'Thu', soTien:cocCK, dienGiai:'Đặt cọc', maDon, tenKH, hinhThuc:'Chuyển khoản' })
-        } else if (ht === 'Chuyển khoản') {
-          list.push({ ngay, loai:'Thu', soTien:coc, dienGiai:'Đặt cọc', maDon, tenKH, hinhThuc:'Chuyển khoản' })
-        } else {
-          // Đơn cũ thiếu dữ liệu hình thức: mặc định Tiền mặt
-          list.push({ ngay, loai:'Thu', soTien:coc, dienGiai:'Đặt cọc', maDon, tenKH, hinhThuc:'Tiền mặt' })
+        if (ht.includes('TM') || isTM(ht)) {
+          list.push({ ngay, loai:'Thu', soTien:isTM(ht)&&!ht.includes('+')?coc:Math.round(coc/2), dienGiai:'Đặt cọc', maDon, tenKH, hinhThuc:'Tiền mặt' })
+        }
+        if (ht.includes('CK') || isCK(ht)) {
+          list.push({ ngay, loai:'Thu', soTien:isCK(ht)&&!ht.includes('+')?coc:Math.round(coc/2), dienGiai:'Đặt cọc', maDon, tenKH, hinhThuc:'Chuyển khoản' })
+        }
+        if (ht.includes('+')) {
+          const tmMatch = ht.match(/TMs+([d.]+)/)
+          const ckMatch = ht.match(/CKs+([d.]+)/)
+          if (tmMatch) list.push({ ngay, loai:'Thu', soTien:Number(tmMatch[1].replace(/./g,'')), dienGiai:'Đặt cọc', maDon, tenKH, hinhThuc:'Tiền mặt' })
+          if (ckMatch) list.push({ ngay, loai:'Thu', soTien:Number(ckMatch[1].replace(/./g,'')), dienGiai:'Đặt cọc', maDon, tenKH, hinhThuc:'Chuyển khoản' })
         }
       }
       // Hoàn tiền KH
       const hoan = Number(don['Tiền hoàn cọc']||0)
       const htHoan = don['Hình thức hoàn cọc']||''
-      if (hoan > 0 && don['Tình trạng hoàn cọc']==='Đã hoàn') {
-        const ngayH = (don['Ngày hoàn cọc']||don['Ngày bán']||'').split('T')[0]
-        list.push({ ngay:ngayH, loai:'Chi', soTien:hoan, dienGiai:'Hoàn tiền KH', maDon:don['Mã đơn hàng'], tenKH:donHangMap[don['Mã đơn hàng']]||don['Mã KH']||'', hinhThuc:htHoan==='Chuyển khoản'?'Chuyển khoản':'Tiền mặt' })
+      if (hoan > 0 && don['Tình trạng hoàn cọc']==='Đã hoàn' && htHoan) {
+        const ngayH = (don['Ngày bán']||'').split('T')[0]
+        list.push({ ngay:ngayH, loai:'Chi', soTien:hoan, dienGiai:'Hoàn tiền KH', maDon:don['Mã đơn hàng'], tenKH:don['Tên khách hàng']||'', hinhThuc:htHoan })
       }
     }
 
@@ -201,124 +179,50 @@ export default function ChiPhiClient({
       const maDon = ds['Mã đơn hàng']||''
       const tenKH = donHangMap[maDon]||maDon
       const tenNV = ds['Tên NV/đối tác']||''
-      const ngayDS = (ds['Ngày đối soát']||'').split('T')[0]
       const thu = Number(ds['Đã thu được']||0)
       const ht = ds['Hình thức thu']||''
-      const thuTM = Number(ds['Thu tiền mặt']||0)
-      const thuCK = Number(ds['Thu chuyển khoản']||0)
-      if (thu > 0 && ht !== 'KH nợ - chưa thu') {
-        if (thuTM > 0 || thuCK > 0) {
-          // Đối soát mới: có dữ liệu tách chính xác
-          if (thuTM > 0) list.push({ ngay:ngayDS, loai:'Thu', soTien:thuTM, dienGiai:'Thu tiền KH', maDon, tenKH, tenNV, hinhThuc:'Tiền mặt' })
-          if (thuCK > 0) list.push({ ngay:ngayDS, loai:'Thu', soTien:thuCK, dienGiai:'Thu tiền KH', maDon, tenKH, tenNV, hinhThuc:'Chuyển khoản' })
-        } else {
-          list.push({ ngay:ngayDS, loai:'Thu', soTien:thu, dienGiai:'Thu tiền KH', maDon, tenKH, tenNV, hinhThuc:ht==='Chuyển khoản'?'Chuyển khoản':'Tiền mặt' })
-        }
+      if (thu > 0 && ht !== 'KH nợ-chưa thu') {
+        list.push({ ngay:'', loai:'Thu', soTien:thu, dienGiai:'Thu tiền KH', maDon, tenKH, tenNV, hinhThuc:isTM(ht)?'Tiền mặt':'Chuyển khoản' })
       }
-      // Chi phí chuyến: chỉ tính ĐỐI TÁC (DT-xxx) đã chi trả — NV cửa hàng trả qua lương bảng 13
-      const laDoiTac = String(ds['Mã NV/Đối tác']||'').startsWith('DT')
-      if (laDoiTac && ds['Đã chi trả']) {
-        const ngayChi = (ds['Ngày chi trả']||ds['Ngày đối soát']||'').split('T')[0]
-        const htChi = ds['Hình thức thanh toán']==='Chuyển khoản'?'Chuyển khoản':'Tiền mặt'
-        const cpVC = Number(ds['Chi phí VC']||0)
-        const cpLap = Number(ds['Chi phí lắp đặt']||0)
-        const thuongCh = Number(ds['Thưởng chuyến']||0)
-        if (cpVC > 0) list.push({ ngay:ngayChi, loai:'Chi', soTien:cpVC, dienGiai:'CP vận chuyển (đối tác)', maDon, tenKH, tenNV, hinhThuc:htChi })
-        if (cpLap > 0) list.push({ ngay:ngayChi, loai:'Chi', soTien:cpLap, dienGiai:'CP lắp đặt (đối tác)', maDon, tenKH, tenNV, hinhThuc:htChi })
-        if (thuongCh > 0) list.push({ ngay:ngayChi, loai:'Chi', soTien:thuongCh, dienGiai:'Thưởng chuyến (đối tác)', maDon, tenKH, tenNV, hinhThuc:htChi })
-      }
+      const cpVC = Number(ds['Chi phí VC']||0)
+      const cpLap = Number(ds['Chi phí lắp đặt']||0)
+      if (cpVC > 0) list.push({ ngay:'', loai:'Chi', soTien:cpVC, dienGiai:'CP vận chuyển', maDon, tenKH, tenNV, hinhThuc:'Tiền mặt' })
+      if (cpLap > 0) list.push({ ngay:'', loai:'Chi', soTien:cpLap, dienGiai:'CP lắp đặt', maDon, tenKH, tenNV, hinhThuc:'Tiền mặt' })
     }
 
     // 3. Thanh toán NCC
     for (const tt of ttNccList) {
-      if (tt['Trạng thái']==='Huỷ' || tt['Trạng thái']==='Chờ xác nhận') continue
+      if (tt['Trạng thái']==='Huỷ') continue
       const ht = tt['Hình thức']||''
       const tenNCC = nccMap[tt['Mã NCC']]||tt['Mã NCC']||''
       list.push({ ngay:(tt['Ngày trả tiền NCC']||'').split('T')[0], loai:'Chi', soTien:Number(tt['Số tiền trả']||0), dienGiai:'Trả NCC', tenNCC, nguoiThucHien:tt['Người trả']||'', hinhThuc:isTM(ht)?'Tiền mặt':'Chuyển khoản' })
     }
 
-    // 4. Chi trả nhân viên — chỉ dòng Đã trả; đối tác ngoài đã tính ở bảng 9 nên bỏ qua
+    // 4. Chi trả nhân viên
     for (const nv of chiTraNvList) {
-      if (nv['Trạng thái'] && nv['Trạng thái'] !== 'Đã trả') continue
-      if (nv['Vai trò'] === 'Đối tác ngoài') continue
-      if (String(nv['Mã NV/đối tác']||'').startsWith('DT')) continue
       const ht = nv['Hình thức TT']||''
       const ngay = nv['Ngày thanh toán'] ? (nv['Ngày thanh toán']||'').split('T')[0] : ''
-      const soTienNV = Number(nv['Tổng chi trả']||0)
-      if (soTienNV > 0) list.push({ ngay, loai:'Chi', soTien:soTienNV, dienGiai:'Lương/chi trả NV', nguoiThucHien:nv['Tên NV/đối tác']||nv['Mã NV/đối tác']||'', hinhThuc:ht==='Chuyển khoản'?'Chuyển khoản':'Tiền mặt' })
+      list.push({ ngay, loai:'Chi', soTien:Number(nv['Tổng lương']||0), dienGiai:'Lương NV', nguoiThucHien:nv['Họ và Tên']||nv['Mã nhân viên']||'', hinhThuc:isTM(ht)?'Tiền mặt':'Chuyển khoản' })
     }
 
-    // 5. Tạm ứng nhân viên (chi từ quỹ)
-    for (const tu of tamUngNVList) {
-      const ht = tu['Hình thức']||'Tiền mặt'
-      const ngay = (tu['Ngày tạm ứng']||'').split('T')[0]
-      const soTien = Number(tu['Số tiền']||0)
-      if (soTien > 0) list.push({
-        ngay, loai:'Chi', soTien,
-        dienGiai:'Tạm ứng NV',
-        nguoiThucHien: tu['Tên NV']||tu['Mã NV/đối tác']||'',
-        hinhThuc: ht==='Chuyển khoản'?'Chuyển khoản':'Tiền mặt'
-      })
-    }
-
-    // 5c. CP vận chuyển nhập kho (Đã trả)
-    for (const nk of (nhapKhoLocal as any[])) {
-      const cpvc = Number(nk['CP vận chuyển về kho']||0)
-      if (cpvc <= 0) continue
-      if (nk['Trạng thái CP VC'] !== 'Đã trả') continue
-      const ngay = (nk['Ngày trả CP VC']||nk['Ngày nhập']||'').split('T')[0]
-      const httt = nk['Hình thức TT CP VC']||'Tiền mặt'
-      list.push({
-        ngay, loai:'Chi', soTien:cpvc,
-        dienGiai:'🚚 VC kho '+(nk['Mã phiếu nhập']||'').replace('NK-2026-','#').replace('NK-2025-','#'),
-        maDon:'', tenKH:'', tenNV:'',
-        hinhThuc: httt==='Chuyển khoản'?'Chuyển khoản':'Tiền mặt'
-      })
-    }
-
-    // 5b. Thưởng khác nhân viên (chi từ quỹ)
-    for (const tk of thuongKhacNVList) {
-      const ht = tk['Hình thức']||'Tiền mặt'
-      const ngay = (tk['Ngày thưởng']||'').split('T')[0]
-      const soTien = Number(tk['Số tiền']||0)
-      if (soTien > 0) list.push({
-        ngay, loai:'Chi', soTien,
-        dienGiai:'Thưởng '+( tk['Loại thưởng']||'khác'),
-        nguoiThucHien: tk['Tên NV']||tk['Mã nhân viên']||'',
-        hinhThuc: ht==='Chuyển khoản'?'Chuyển khoản':'Tiền mặt'
-      })
-    }
-
-    // 6. Thu chi hoạt động
+    // 5. Thu chi hoạt động
     for (const cp of chiPhiList) {
       const ht = cp['Hình thức thanh toán']||''
       const loai = cp['Loại giao dịch']==='Thu'?'Thu':'Chi'
       list.push({ ngay:(cp['Ngày phát sinh']||'').split('T')[0], loai, soTien:Number(cp['Số tiền']||0), dienGiai:(loai==='Thu'?cp['Loại thu']:cp['Loại chi phí'])||cp['Nội dung']||'Thu chi HĐ', nguoiThucHien:cp['Người chi']||'', hinhThuc:isTM(ht)?'Tiền mặt':'Chuyển khoản' })
     }
 
-    const filtered = list.filter(g=>g.soTien>0 && (!ngayBatDau || !g.ngay || g.ngay>=ngayBatDau)).map((g,i)=>({...g,_idx:list.length-i}))
-    return filtered.sort((a,b)=>(b.ngay||'')>(a.ngay||'')?-1:(b.ngay||'')<(a.ngay||'')?1:b._idx-a._idx)
-  },[donHangList,doiSoatList,ttNccList,chiTraNvList,chiPhiList,tamUngNVList,thuongKhacNVList,nhapKhoLocal,ngayBatDau])
+    return list.filter(g=>g.soTien>0).sort((a,b)=>(a.ngay||'')>(b.ngay||'')?1:-1)
+  },[donHangList,doiSoatList,ttNccList,chiTraNvList,chiPhiList])
 
   const gdTienMat = useMemo(()=>giaoDichSoQuy.filter(g=>g.hinhThuc==='Tiền mặt'&&(!g.ngay||g.ngay>=sqTuNgay)&&(!g.ngay||g.ngay<=sqDenNgay)),[giaoDichSoQuy,sqTuNgay,sqDenNgay])
   const gdNganHang = useMemo(()=>giaoDichSoQuy.filter(g=>g.hinhThuc==='Chuyển khoản'&&(!g.ngay||g.ngay>=sqTuNgay)&&(!g.ngay||g.ngay<=sqDenNgay)),[giaoDichSoQuy,sqTuNgay,sqDenNgay])
 
   function tinhSoDu(list:any[], soDuDau:number) {
-    // Bước 1: Sort cũ→mới để tính số dư lũy kế đúng
-    const sorted = [...list].sort((a,b)=>(a.ngay||'')<(b.ngay||'')?-1:(a.ngay||'')===(b.ngay||'')?((a._idx||0)-(b._idx||0)):1)
     let soDu = soDuDau
-    const withSoDu = sorted.map(g => {
+    return list.map(g => {
       soDu = g.loai==='Thu' ? soDu+g.soTien : soDu-g.soTien
       return {...g, soDu}
-    })
-    // Bước 2: Sort mới→cũ để hiển thị, cùng ngày sort theo maDon giảm dần (đơn mới hơn lên trên)
-    return withSoDu.sort((a,b)=>{
-      if((b.ngay||'')>(a.ngay||'')) return 1
-      if((b.ngay||'')<(a.ngay||'')) return -1
-      // Cùng ngày: so theo maDon (DH-2026-005 > DH-2026-004)
-      const ma = (b.maDon||'').localeCompare(a.maDon||'')
-      if(ma!==0) return ma
-      return (b._idx||0)-(a._idx||0)
     })
   }
 
@@ -388,7 +292,7 @@ export default function ChiPhiClient({
       }
       showMsg(editItem?'✅ Đã cập nhật':'✅ Đã thêm chi phí')
       setShowForm(false);setEditItem(null);setFormChi({...EMPTY_CHI})
-      window.location.href=window.location.pathname+'?t='+Date.now()+'#chi'
+      window.location.reload()
     } catch(e:any){showMsg('❌ '+(e.message||'Lỗi'),false)}
     finally{setLoading(false)}
   }
@@ -430,7 +334,7 @@ export default function ChiPhiClient({
       }
       showMsg(editItem?'✅ Đã cập nhật':'✅ Đã thêm khoản thu')
       setShowForm(false);setEditItem(null);setFormThu({...EMPTY_THU})
-      window.location.href=window.location.pathname+'?t='+Date.now()+'#thu'
+      window.location.reload()
     } catch(e:any){showMsg('❌ '+(e.message||'Lỗi'),false)}
     finally{setLoading(false)}
   }
@@ -479,7 +383,6 @@ export default function ChiPhiClient({
     setShowForm(true)
   }
 
-  if(!mounted) return null
   return (
     <div style={{padding:'20px'}}>
       <style>{`
@@ -506,7 +409,7 @@ export default function ChiPhiClient({
             style={{padding:'6px 12px',borderRadius:'6px',border:'1px solid var(--border)',background:'white',fontSize:'12px',cursor:'pointer'}}>
             📅 Tháng này
           </button>
-          {isOwner&&tab!=='soquy'&&<button onClick={()=>{setShowForm(true);setEditItem(null);setFormChi({...EMPTY_CHI});setFormThu({...EMPTY_THU});setNVSearch('')}}
+          {isOwner&&<button onClick={()=>{setShowForm(true);setEditItem(null);setFormChi({...EMPTY_CHI});setFormThu({...EMPTY_THU});setNVSearch('')}}
             style={{padding:'8px 16px',borderRadius:'8px',border:'none',background:tab==='chi'?'var(--primary)':'#16A34A',color:'white',fontWeight:700,fontSize:'13px',cursor:'pointer'}}>
             + {tab==='chi'?'Thêm chi phí':'Thêm khoản thu'}
           </button>}
@@ -533,21 +436,21 @@ export default function ChiPhiClient({
 
       {/* Tab Chi / Thu */}
       <div style={{display:'flex',gap:'4px',marginBottom:'16px',borderBottom:'2px solid var(--border)'}}>
-        <button onClick={()=>{setTab('chi');setSearch('');setFilterLoai('Tất cả');setFilterTT('Tất cả');window.location.hash='chi';sessionStorage.setItem('chiphi_tab','chi')}}
+        <button onClick={()=>{setTab('chi');setSearch('');setFilterLoai('Tất cả');setFilterTT('Tất cả')}}
           style={{padding:'9px 20px',borderRadius:'8px 8px 0 0',border:'none',
             background:tab==='chi'?'var(--primary)':'transparent',
             color:tab==='chi'?'white':'var(--text-secondary)',
             fontWeight:tab==='chi'?700:400,cursor:'pointer',fontSize:'13px'}}>
           💸 Chi phí ({filteredChi.length})
         </button>
-        <button onClick={()=>{setTab('thu');setSearch('');setFilterLoai('Tất cả');setFilterTT('Tất cả');window.location.hash='thu';sessionStorage.setItem('chiphi_tab','thu')}}
+        <button onClick={()=>{setTab('thu');setSearch('');setFilterLoai('Tất cả');setFilterTT('Tất cả')}}
           style={{padding:'9px 20px',borderRadius:'8px 8px 0 0',border:'none',
             background:tab==='thu'?'#16A34A':'transparent',
             color:tab==='thu'?'white':'var(--text-secondary)',
             fontWeight:tab==='thu'?700:400,cursor:'pointer',fontSize:'13px'}}>
           💰 Khoản thu ({filteredThu.length})
         </button>
-        <button onClick={()=>{setTab('soquy');window.location.hash='soquy';sessionStorage.setItem('chiphi_tab','soquy')}}
+        <button onClick={()=>setTab('soquy')}
           style={{padding:'9px 20px',borderRadius:'8px 8px 0 0',border:'none',
             background:tab==='soquy'?'#7C3AED':'transparent',
             color:tab==='soquy'?'white':'var(--text-secondary)',
@@ -601,10 +504,6 @@ export default function ChiPhiClient({
               <option>Chưa thanh toán</option>
             </select>
           </>}
-          {tab==='thu'&&<select className="input" value={filterLoai} onChange={e=>setFilterLoai(e.target.value)} style={{width:'200px'}}>
-            <option value="Tất cả">Tất cả loại thu</option>
-            {LOAI_THU.map(l=><option key={l}>{l}</option>)}
-          </select>}
         </div>
       </div>
 
@@ -932,16 +831,10 @@ export default function ChiPhiClient({
               </div>
               <div>
                 <label style={{fontSize:'12px',fontWeight:600,display:'block',marginBottom:'5px'}}>💼 Loại chi phí *</label>
-                {editItem&&editItem['Loại chi phí']==='Thanh toán NCC'?(
-                  <div style={{padding:'10px 12px',borderRadius:'8px',background:'#F3F4F6',border:'1px solid var(--border)',fontSize:'13px',fontWeight:600,color:'#374151'}}>
-                    🏭 Thanh toán NCC
-                  </div>
-                ):(
-                  <select className="input" value={formChi.loaiChiPhi} onChange={e=>updChi('loaiChiPhi',e.target.value)}>
-                    <option value="">-- Chọn loại --</option>
-                    {LOAI_CHI_PHI.map(l=><option key={l} value={l}>{LOAI_ICONS[l]} {l}</option>)}
-                  </select>
-                )}
+                <select className="input" value={formChi.loaiChiPhi} onChange={e=>updChi('loaiChiPhi',e.target.value)}>
+                  <option value="">-- Chọn loại --</option>
+                  {LOAI_CHI_PHI.map(l=><option key={l}>{LOAI_ICONS[l]} {l}</option>)}
+                </select>
               </div>
             </div>
             <div style={{marginBottom:'14px'}}>
@@ -951,21 +844,10 @@ export default function ChiPhiClient({
             <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'14px',marginBottom:'14px'}}>
               <div>
                 <label style={{fontSize:'12px',fontWeight:600,display:'block',marginBottom:'5px'}}>💰 Số tiền *</label>
-                {editItem&&editItem['Loại chi phí']==='Thanh toán NCC'?(
-                  <div>
-                    <div style={{padding:'10px 12px',borderRadius:'8px',background:'#FEF3C7',border:'1px solid #FCD34D',fontWeight:700,fontSize:'14px',color:'#92400E'}}>
-                      {Number(formChi.soTien||0).toLocaleString('vi-VN')}đ
-                    </div>
-                    <div style={{fontSize:'11px',color:'#92400E',marginTop:'4px'}}>
-                      ⚠️ Không thể sửa số tiền — vui lòng huỷ thanh toán trong trang <strong>Nhà cung cấp</strong>
-                    </div>
-                  </div>
-                ):(
-                  <input className="input" type="text" inputMode="numeric" placeholder="0"
-                    value={formChi.soTien?Number(String(formChi.soTien).replace(/[^0-9]/g,'')).toLocaleString('vi-VN'):''}
-                    onChange={e=>updChi('soTien',e.target.value.replace(/[^0-9]/g,''))}
-                    style={{fontSize:'14px',padding:'10px 12px',fontWeight:700,color:'#DC2626'}}/>
-                )}
+                <input className="input" type="text" inputMode="numeric" placeholder="0"
+                  value={formChi.soTien?Number(String(formChi.soTien).replace(/[^0-9]/g,'')).toLocaleString('vi-VN'):''}
+                  onChange={e=>updChi('soTien',e.target.value.replace(/[^0-9]/g,''))}
+                  style={{fontSize:'14px',padding:'10px 12px',fontWeight:700,color:'#DC2626'}}/>
               </div>
               <div>
                 <label style={{fontSize:'12px',fontWeight:600,display:'block',marginBottom:'5px'}}>👤 Người chi</label>

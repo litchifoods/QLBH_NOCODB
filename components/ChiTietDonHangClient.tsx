@@ -545,11 +545,11 @@ export default function ChiTietDonHangClient({
         body: JSON.stringify({
           id: donHang['Id']||donHang['id'],
           'Trạng thái': 'Hủy',
+          'Còn phải thu': 0,
           'CP đổi trả': cpTraHang,
           'Tiền hoàn cọc': tienHoan,
           'Tình trạng hoàn cọc': tienHoan > 0 ? 'Chờ hoàn' : 'Không hoàn',
           'Hình thức hoàn cọc': hinhThucHoanDon,
-          'Còn phải thu': 0,
           'Ghi chú': (donHang['Ghi chú']||'') + ' ' + ghiChuHuy,
         }),
       })
@@ -557,6 +557,18 @@ export default function ChiTietDonHangClient({
       setDaHuy(true)
       setTienHoanCoc(tienHoan)
       setTinhTrangHoanCoc(tienHoan > 0 ? 'Chờ hoàn' : 'Không hoàn')
+      if (cpTraHang > 0) {
+        await fetch('/api/chi-phi', {
+          method: 'POST', headers: {'Content-Type':'application/json'},
+          body: JSON.stringify({
+            ngayPhatSinh: new Date().toISOString().split('T')[0],
+            loaiGiaoDich: 'Thu', loaiThu: 'Thu bù CP đổi trả',
+            noiDung: 'Thu CP đổi trả đơn ' + maDon,
+            soTien: cpTraHang, hinhThuc: hinhThucHoanDon,
+            trangThai: 'Đã thanh toán', maDonHang: maDon,
+          }),
+        })
+      }
       setShowHuyDon(false)
       showMsg('✅ Đã hủy đơn hàng thành công')
       router.refresh()

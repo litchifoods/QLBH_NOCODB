@@ -1,6 +1,6 @@
 // app/api/nhap-kho/route.ts
 import { NextRequest, NextResponse } from 'next/server'
-import { createRecord, getRecords, updateRecord, deleteRecord, TABLES } from '@/lib/nocodb'
+import { createRecord, getRecords, updateRecord, deleteRecord, TABLES, writeLog } from '@/lib/nocodb'
 import { getSession } from '@/lib/auth'
 
 async function taoMaPhieu(): Promise<string> {
@@ -30,6 +30,7 @@ export async function POST(req: NextRequest) {
       'Mã phiếu nhập': maPhieu,
       'Ngày nhập': body.ngayNhap || new Date().toISOString().split('T')[0],
       'Mã đặt hàng': body.maDatHang||'',
+      'Mã CT': body.maCT||'',
       'Mã NCC': body.maNCC||'',
       'Mã SP': body.maSP||'',
       'Số lượng đặt': Number(body.slDat||0),
@@ -37,6 +38,8 @@ export async function POST(req: NextRequest) {
       'Số lượng thực nhận': Number(body.slThucNhan||0),
       'Tổng tiền hàng': tongTien,
       'CP vận chuyển về kho': Number(body.cpVC||0),
+      'Hình thức TT CP VC': body.hinhThucCPVC||'',
+      'Trạng thái CP VC':   body.trangThaiCPVC||'',
       'Tình trạng hàng': (['Đủ','Thiếu','Thừa','Có hàng lỗi','Đã xử lý'].includes(body.tinhTrang) ? body.tinhTrang : 'Đủ'),
       'Ghi chú': body.ghiChu||'',
       'Người nhập': body.nguoiNhap||'',
@@ -58,6 +61,19 @@ export async function POST(req: NextRequest) {
           await updateRecord(TABLES.SAN_PHAM, Number(sp['Id']||sp['id']), {'Tồn kho': tonMoi})
         }
       }
+    }
+    // Cap nhat Da tich luy trong CT neu co Ma CT
+    if (body.maCT && tongTien > 0) {
+      try {
+        const ctResult = await getRecords('19_Chương trình NCC', {
+          where: `(Mã CT,eq,${body.maCT})`, limit: 1, fields: 'Id,Đã tích lũy'
+        })
+        const ct = ctResult.list?.[0]
+        if (ct) {
+          const daTLMoi = Number(ct['Đã tích lũy']||0) + tongTien
+          await updateRecord('19_Chương trình NCC', Number(ct['Id']||ct['id']), {'Đã tích lũy': daTLMoi})
+        }
+      } catch(e) { /* bo qua */ }
     }
     return NextResponse.json({ success:true, maPhieu, data:r })
   } catch(e:any) { return NextResponse.json({message:e.message},{status:500}) }
@@ -89,6 +105,8 @@ export async function PATCH(req: NextRequest) {
         }
       }
     }
+    writeLog({maNV:session.maNV||'',tenNV:session.hoTen||'',hanhDong:'Cập nhật nhập kho',bang:'Nhập kho',
+      maBanGhi:String(id),moTa:'Cập nhật phiếu SP: '+(data['Mã SP']||'')+' SL: '+(data['Số lượng thực nhận']||0)})
     return NextResponse.json({ success:true, data:r })
   } catch(e:any) { return NextResponse.json({message:e.message},{status:500}) }
 }
@@ -115,6 +133,8 @@ export async function DELETE(req: NextRequest) {
         })
       }
     }
+    writeLog({maNV:session.maNV||'',tenNV:session.hoTen||'',hanhDong:'Xóa',bang:'Nhập kho',
+      maBanGhi:String(id),moTa:'Xóa phiếu nhập kho id='+id})
     return NextResponse.json({ success:true })
   } catch(e:any) { return NextResponse.json({message:e.message},{status:500}) }
 }

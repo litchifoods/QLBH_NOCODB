@@ -75,10 +75,15 @@ export default function NhanVienClient({nvList,doiSoatList,donHangList,donHangMa
 
   // Form tạm ứng
   const [showTUModal, setShowTUModal] = useState(false)
+  const [editTU, setEditTU] = useState<any>(null)
   const [tuThang,     setTuThang]     = useState(thangHienTai())
   const [tuNgay,      setTuNgay]      = useState(new Date().toISOString().split('T')[0])
   const [tuSoTien,    setTuSoTien]    = useState(0)
   const [tuGhiChu,    setTuGhiChu]    = useState('')
+
+  // Hình thức chi tạm ứng và thưởng khác
+  const [hinhThucTU, setHinhThucTU] = useState<'Tiền mặt'|'Chuyển khoản'>('Tiền mặt')
+  const [hinhThucTK, setHinhThucTK] = useState<'Tiền mặt'|'Chuyển khoản'>('Tiền mặt')
 
   // Form thưởng khác
   const [showTKModal, setShowTKModal] = useState(false)
@@ -287,19 +292,32 @@ export default function NhanVienClient({nvList,doiSoatList,donHangList,donHangMa
     if(!nvChon||tuSoTien<=0){showMsg2('Nhập số tiền > 0',false);return}
     setLoading(true)
     try{
+      if(editTU){
+        const res=await fetch('/api/nhan-vien',{method:'PATCH',headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({id:Number(editTU['Id']||editTU['id']),loai:'tam-ung',
+            'Ngày tạm ứng':tuNgay,'Số tiền':tuSoTien,'Ghi chú':tuGhiChu,'Hình thức':hinhThucTU})})
+        if(!res.ok) throw new Error((await res.json()).message)
+        setTamUngList((p:any[])=>p.map(t=>(t['Id']||t['id'])===(editTU['Id']||editTU['id'])
+          ?{...t,'Ngày tạm ứng':tuNgay,'Số tiền':tuSoTien,'Ghi chú':tuGhiChu,'Hình thức':hinhThucTU}:t))
+        showMsg2('✅ Đã cập nhật tạm ứng')
+        setShowTUModal(false);setEditTU(null);setTuSoTien(0);setTuGhiChu('')
+        setTuNgay(new Date().toISOString().split('T')[0])
+        return
+      }
       const res=await fetch('/api/nhan-vien',{method:'POST',headers:{'Content-Type':'application/json'},
         body:JSON.stringify({loai:'tam-ung',thang:tuThang,maNV:nvChon['Mã nhân viên'],
-          tenNV:nvChon['Họ và Tên'],ngayTamUng:tuNgay,soTien:tuSoTien,ghiChu:tuGhiChu})})
+          tenNV:nvChon['Họ và Tên'],ngayTamUng:tuNgay,soTien:tuSoTien,ghiChu:tuGhiChu,hinhThuc:hinhThucTU})})
       const d=await res.json()
       if(!res.ok) throw new Error(d.message)
       setTamUngList((p:any[])=>[{...d.data,'Mã tạm ứng':d.maTU,'Tháng':tuThang,
-        'Mã NV/đối tác':nvChon['Mã nhân viên'],'Ngày tạm ứng':tuNgay,'Số tiền':tuSoTien,'Ghi chú':tuGhiChu},...p])
+        'Mã NV/đối tác':nvChon['Mã nhân viên'],'Ngày tạm ứng':tuNgay,'Số tiền':tuSoTien,'Ghi chú':tuGhiChu,'Hình thức':hinhThucTU},...p])
       showMsg2('✅ Đã ghi tạm ứng '+fVND(tuSoTien)+'đ')
-      setShowTUModal(false);setTuSoTien(0);setTuGhiChu('')
+      setShowTUModal(false);setEditTU(null);setTuSoTien(0);setTuGhiChu('')
       setTuNgay(new Date().toISOString().split('T')[0])
     }catch(e:any){showMsg2('❌ '+(e.message||'Lỗi'),false)}
     finally{setLoading(false)}
   }
+  
 
   async function xoaTamUng(tu:any){
     if(!confirm('Xóa tạm ứng '+fVND(tu['Số tiền'])+'đ?')) return
@@ -315,7 +333,7 @@ export default function NhanVienClient({nvList,doiSoatList,donHangList,donHangMa
   async function xacNhanNopTien(item:any){
     setLoadingNop(true)
     try{
-      const ngayNop = new Date().toISOString().split('T')[0]
+      const ngayNop = tuNgay || new Date().toISOString().split('T')[0]
       const res = await fetch('/api/doi-soat', {
         method:'PATCH', headers:{'Content-Type':'application/json'},
         body: JSON.stringify({
@@ -361,7 +379,7 @@ export default function NhanVienClient({nvList,doiSoatList,donHangList,donHangMa
     return localDS.filter((ds:any)=>
       ds['Mã NV/Đối tác']===nvChon['Mã nhân viên'] &&
       Number(ds['Đã thu được']||0) > 0
-    ).sort((a:any,b:any)=>((b['Ngày đối soát']||'') > (a['Ngày đối soát']||''))?1:-1)
+    ).sort((a:any,b:any)=>((b['Ngày đối soát']||'') > (a['Ngày đối soát']||''))?-1:1)
   },[localDS,nvChon])
 
   const tongChuaNop = useMemo(()=>dsThuHo.filter((d:any)=>d['Tình trạng nộp tiền']!=='Đã nộp').reduce((s:number,d:any)=>s+Number(d['Đã thu được']||0),0),[dsThuHo])
@@ -767,7 +785,7 @@ export default function NhanVienClient({nvList,doiSoatList,donHangList,donHangMa
           <div className="card" style={{overflow:'hidden'}}>
             <div style={{padding:'12px 14px',borderBottom:'1px solid var(--border)',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
               <span style={{fontWeight:600,fontSize:'13px'}}>💸 Lịch sử tạm ứng · Tháng {thangChon}: <strong style={{color:'#D97706'}}>{fVND(tongTamUng)}đ</strong></span>
-              <button onClick={()=>{setTuThang(thangChon);setTuSoTien(0);setTuGhiChu('');setTuNgay(new Date().toISOString().split('T')[0]);setShowTUModal(true)}}
+              <button onClick={()=>{setEditTU(null);setTuThang(thangChon);setTuSoTien(0);setTuGhiChu('');setTuNgay(new Date().toISOString().split('T')[0]);setHinhThucTU('Tiền mặt');setShowTUModal(true)}}
                 style={{padding:'6px 14px',borderRadius:'6px',border:'none',background:'#D97706',color:'white',fontWeight:600,cursor:'pointer',fontSize:'12px'}}>
                 + Ghi tạm ứng
               </button>
@@ -781,13 +799,14 @@ export default function NhanVienClient({nvList,doiSoatList,donHangList,donHangMa
                     <th style={{textAlign:'left',fontWeight:700}}>Ngày tạm ứng</th>
                     <th style={{textAlign:'right',fontWeight:700}}>Số tiền</th>
                     <th style={{textAlign:'left',fontWeight:700}}>Người duyệt</th>
+                    <th style={{textAlign:'center',fontWeight:700}}>Hình thức</th>
                     <th style={{textAlign:'left',fontWeight:700}}>Ghi chú</th>
                     <th style={{textAlign:'center',fontWeight:700,width:'70px'}}>Xóa</th>
                   </tr>
                 </thead>
                 <tbody>
                   {tamUngList.length===0?(
-                    <tr><td colSpan={7} style={{textAlign:'center',padding:'32px',color:'var(--text-muted)'}}>Chưa có tạm ứng</td></tr>
+                    <tr><td colSpan={8} style={{textAlign:'center',padding:'32px',color:'var(--text-muted)'}}>Chưa có tạm ứng</td></tr>
                   ):tamUngList.map((tu:any,i:number)=>(
                     <tr key={tu['Id']||i} style={{borderBottom:'1px solid #F0F0F0',background:i%2===0?'white':'#FAFBFD'}}>
                       <td style={{fontSize:'12px',color:'var(--primary)',fontWeight:600}}>{tu['Mã tạm ứng']||'—'}</td>
@@ -795,10 +814,28 @@ export default function NhanVienClient({nvList,doiSoatList,donHangList,donHangMa
                       <td style={{fontSize:'12px',color:'var(--text-secondary)'}}>{fDate(tu['Ngày tạm ứng'])}</td>
                       <td style={{textAlign:'right',fontWeight:700,color:'#D97706'}}>{fVND(tu['Số tiền'])}đ</td>
                       <td style={{fontSize:'12px',color:'#6B7280'}}>{tu['Người duyệt']||'—'}</td>
+                      <td style={{textAlign:'center'}}>
+                        <span style={{padding:'2px 8px',borderRadius:'10px',fontSize:'11px',fontWeight:600,
+                          background:tu['Hình thức']==='Chuyển khoản'?'#EFF6FF':'#FFFBEB',
+                          color:tu['Hình thức']==='Chuyển khoản'?'#1E40AF':'#D97706'}}>
+                          {tu['Hình thức']==='Chuyển khoản'?'🏦 CK':'💵 TM'}
+                        </span>
+                      </td>
                       <td style={{fontSize:'12px',color:'#6B7280'}}>{tu['Ghi chú']||'—'}</td>
                       <td style={{textAlign:'center'}}>
-                        {isOwner&&<button onClick={()=>xoaTamUng(tu)}
-                          style={{padding:'4px 8px',borderRadius:'5px',border:'1px solid #FCA5A5',background:'#FEF2F2',color:'#DC2626',fontSize:'11px',cursor:'pointer',fontWeight:600}}>🗑️</button>}
+                        <div style={{display:'flex',gap:'4px',justifyContent:'center'}}>
+                          <button onClick={()=>{
+                            setEditTU(tu);
+                            setTuThang(tu['Tháng']||thangChon);
+                            setTuSoTien(Number(tu['Số tiền']||0));
+                            setTuGhiChu(tu['Ghi chú']||'');
+                            setTuNgay((tu['Ngày tạm ứng']||'').split('T')[0]||new Date().toISOString().split('T')[0]);
+                            setHinhThucTU(tu['Hình thức']==='Chuyển khoản'?'Chuyển khoản':'Tiền mặt');
+                            setShowTUModal(true)
+                          }} style={{padding:'4px 8px',borderRadius:'5px',border:'1px solid #FCD34D',background:'#FFFBEB',color:'#92400E',fontSize:'11px',cursor:'pointer',fontWeight:600}}>✏️</button>
+                          {isOwner&&<button onClick={()=>xoaTamUng(tu)}
+                            style={{padding:'4px 8px',borderRadius:'5px',border:'1px solid #FCA5A5',background:'#FEF2F2',color:'#DC2626',fontSize:'11px',cursor:'pointer',fontWeight:600}}>🗑️</button>}
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -828,9 +865,8 @@ export default function NhanVienClient({nvList,doiSoatList,donHangList,donHangMa
               <table className="nv-t" style={{width:'100%',borderCollapse:'collapse',fontSize:'13px'}}>
                 <thead>
                   <tr style={{background:'#F0F4FF',borderBottom:'2px solid var(--border)'}}>
-                    <th style={{textAlign:'left',fontWeight:700}}>Mã đối soát</th>
-                    <th style={{textAlign:'left',fontWeight:700}}>Ngày ĐS</th>
-                    <th style={{textAlign:'left',fontWeight:700}}>Mã đơn</th>
+                    <th style={{textAlign:'left',fontWeight:700}}>Mã đơn hàng</th>
+                    <th style={{textAlign:'left',fontWeight:700}}>Ngày đối soát</th>
                     <th style={{textAlign:'right',fontWeight:700}}>CP VC</th>
                     <th style={{textAlign:'right',fontWeight:700}}>CP lắp</th>
                     <th style={{textAlign:'right',fontWeight:700}}>Thưởng</th>
@@ -840,18 +876,15 @@ export default function NhanVienClient({nvList,doiSoatList,donHangList,donHangMa
                 </thead>
                 <tbody>
                   {filteredDS.length===0?(
-                    <tr><td colSpan={8} style={{textAlign:'center',padding:'32px',color:'var(--text-muted)'}}>Không có chuyến nào tháng {thangChon}</td></tr>
+                    <tr><td colSpan={7} style={{textAlign:'center',padding:'32px',color:'var(--text-muted)'}}>Không có chuyến nào tháng {thangChon}</td></tr>
                   ):dsTrangCG.map((ds:any,i:number)=>{
                     const gh=giaoHangMap[ds['Mã giao hàng']||'']
                     const don=donHangMap[ds['Mã đơn hàng']||'']
                     return (
                     <tr key={ds['Id']||i} style={{borderBottom:'1px solid #F0F0F0',background:i%2===0?'white':'#FAFBFD',cursor:'pointer'}}
                       onClick={()=>setPopupChiTiet({gh:{...gh,'Mã đơn hàng':ds['Mã đơn hàng'],'Tên NV/đối tác':ds['Tên NV/đối tác giao hàng'],'Mã giao hàng':ds['Mã giao hàng']},ds,don})}>
-                      <td style={{fontSize:'12px',fontWeight:600,color:'var(--primary)',whiteSpace:'nowrap'}}>
-                        <span title={ds['Mã đối soát']||''}>{rutGonMa(ds['Mã đối soát']||ds['Mã giao hàng']||'—')}</span>
-                      </td>
-                      <td style={{fontSize:'12px',whiteSpace:'nowrap'}}>{fDateShort(ds['Ngày đối soát'])}</td>
-                      <td style={{fontSize:'12px',color:'#374151'}}>{rutGonMa(ds['Mã đơn hàng']||'—')}</td>
+                      <td style={{fontSize:'12px',fontWeight:700,color:'var(--primary)',whiteSpace:'nowrap'}}>{ds['Mã đơn hàng']||'—'}</td>
+                      <td style={{fontSize:'12px',whiteSpace:'nowrap'}}>{fDate(ds['Ngày đối soát'])}</td>
                       <td style={{textAlign:'right',fontSize:'12px'}}>{Number(ds['Chi phí VC']||0)>0?fVND(ds['Chi phí VC'])+'đ':'—'}</td>
                       <td style={{textAlign:'right',fontSize:'12px'}}>{Number(ds['Chi phí lắp đặt']||0)>0?fVND(ds['Chi phí lắp đặt'])+'đ':'—'}</td>
                       <td style={{textAlign:'right',fontSize:'12px',color:'#7C3AED',fontWeight:600}}>{Number(ds['Thưởng chuyến']||0)>0?fVND(ds['Thưởng chuyến'])+'đ':'—'}</td>
@@ -887,7 +920,7 @@ export default function NhanVienClient({nvList,doiSoatList,donHangList,donHangMa
           <div className="card" style={{overflow:'hidden'}}>
             <div style={{padding:'12px 14px',borderBottom:'1px solid var(--border)',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
               <span style={{fontWeight:600,fontSize:'13px'}}>🎁 Thưởng khác · Tháng {thangChon}: <strong style={{color:'#7C3AED'}}>{fVND(thuNhapThang.tongTK)}đ</strong></span>
-              <button onClick={()=>{setTkThang(thangChon);setTkSoTien(0);setTkLyDo('');setTkLoai('Thưởng nóng');setTkNgay(new Date().toISOString().split('T')[0]);setShowTKModal(true)}}
+              <button onClick={()=>{setTkThang(thangChon);setTkSoTien(0);setTkLyDo('');setTkLoai('Thưởng nóng');setTkNgay(new Date().toISOString().split('T')[0]);setHinhThucTK('Tiền mặt');setShowTKModal(true)}}
                 style={{padding:'6px 14px',borderRadius:'6px',border:'none',background:'#7C3AED',color:'white',fontWeight:600,cursor:'pointer',fontSize:'12px'}}>
                 + Thêm thưởng
               </button>
@@ -900,6 +933,7 @@ export default function NhanVienClient({nvList,doiSoatList,donHangList,donHangMa
                   <th style={{textAlign:'left',fontWeight:700}}>Ngày</th>
                   <th style={{textAlign:'left',fontWeight:700}}>Loại</th>
                   <th style={{textAlign:'right',fontWeight:700}}>Số tiền</th>
+                  <th style={{textAlign:'center',fontWeight:700}}>Hình thức</th>
                   <th style={{textAlign:'left',fontWeight:700}}>Lý do</th>
                   <th style={{textAlign:'left',fontWeight:700}}>Người duyệt</th>
                   <th style={{textAlign:'center',fontWeight:700,width:'70px'}}>Xóa</th>
@@ -907,7 +941,7 @@ export default function NhanVienClient({nvList,doiSoatList,donHangList,donHangMa
               </thead>
               <tbody>
                 {tkList.filter((tk:any)=>tk['Tháng']===thangChon).length===0?(
-                  <tr><td colSpan={8} style={{textAlign:'center',padding:'32px',color:'var(--text-muted)'}}>Chưa có thưởng nào tháng {thangChon}</td></tr>
+                  <tr><td colSpan={9} style={{textAlign:'center',padding:'32px',color:'var(--text-muted)'}}>Chưa có thưởng nào tháng {thangChon}</td></tr>
                 ):tkList.filter((tk:any)=>tk['Tháng']===thangChon).map((tk:any,i:number)=>(
                   <tr key={tk['Id']||i} style={{borderBottom:'1px solid #F0F0F0',background:i%2===0?'white':'#FAFBFD'}}>
                     <td style={{fontSize:'12px',color:'var(--primary)',fontWeight:600}}>{tk['Mã thưởng']||'—'}</td>
@@ -915,6 +949,13 @@ export default function NhanVienClient({nvList,doiSoatList,donHangList,donHangMa
                     <td style={{fontSize:'12px',color:'var(--text-secondary)',whiteSpace:'nowrap'}}>{fDate(tk['Ngày thưởng'])}</td>
                     <td><span style={{padding:'2px 8px',borderRadius:'10px',fontSize:'11px',fontWeight:700,background:'#F5F3FF',color:'#7C3AED'}}>{tk['Loại thưởng']||'—'}</span></td>
                     <td style={{textAlign:'right',fontWeight:700,color:'#7C3AED'}}>{fVND(tk['Số tiền'])}đ</td>
+                    <td style={{textAlign:'center'}}>
+                      <span style={{padding:'2px 8px',borderRadius:'10px',fontSize:'11px',fontWeight:600,
+                        background:tk['Hình thức']==='Chuyển khoản'?'#EFF6FF':'#F5F3FF',
+                        color:tk['Hình thức']==='Chuyển khoản'?'#1E40AF':'#7C3AED'}}>
+                        {tk['Hình thức']==='Chuyển khoản'?'🏦 CK':'💵 TM'}
+                      </span>
+                    </td>
                     <td style={{fontSize:'12px',color:'#6B7280',maxWidth:'200px'}}>{tk['Lý do']||'—'}</td>
                     <td style={{fontSize:'12px',color:'#6B7280'}}>{tk['Người duyệt']||'—'}</td>
                     <td style={{textAlign:'center'}}>
@@ -961,9 +1002,8 @@ export default function NhanVienClient({nvList,doiSoatList,donHangList,donHangMa
               <table className="nv-t" style={{width:'100%',borderCollapse:'collapse',fontSize:'13px'}}>
                 <thead>
                   <tr style={{background:'#F0F4FF',borderBottom:'2px solid var(--border)'}}>
-                    <th style={{textAlign:'left',fontWeight:700}}>Mã đối soát</th>
-                    <th style={{textAlign:'left',fontWeight:700}}>Mã đơn</th>
-                    <th style={{textAlign:'left',fontWeight:700}}>Ngày đối soát</th>
+                    <th style={{textAlign:'left',fontWeight:700}}>Mã đơn hàng</th>
+                    <th style={{textAlign:'left',fontWeight:700,whiteSpace:'nowrap'}}>Ngày đối soát</th>
                     <th style={{textAlign:'right',fontWeight:700}}>Số tiền thu hộ</th>
                     <th style={{textAlign:'center',fontWeight:700}}>Tình trạng nộp</th>
                     <th style={{textAlign:'left',fontWeight:700}}>Ngày nộp</th>
@@ -972,7 +1012,7 @@ export default function NhanVienClient({nvList,doiSoatList,donHangList,donHangMa
                 </thead>
                 <tbody>
                   {dsThuHo.length===0?(
-                    <tr><td colSpan={7} style={{textAlign:'center',padding:'40px',color:'var(--text-muted)'}}>Không có chuyến nào có thu tiền từ khách</td></tr>
+                    <tr><td colSpan={6} style={{textAlign:'center',padding:'40px',color:'var(--text-muted)'}}>Không có chuyến nào có thu tiền từ khách</td></tr>
                   ):dsTrangTH2.map((ds:any,i:number)=>{
                     const daNop = ds['Tình trạng nộp tiền']==='Đã nộp'
                     const ghTH=giaoHangMap[ds['Mã giao hàng']||'']
@@ -980,11 +1020,8 @@ export default function NhanVienClient({nvList,doiSoatList,donHangList,donHangMa
                     return (
                       <tr key={ds['Id']||i} style={{borderBottom:'1px solid #F0F0F0',background:daNop?'white':i%2===0?'#FFFBF0':'#FEF9E7',cursor:'pointer'}}
                         onClick={()=>setPopupChiTiet({gh:{...ghTH,'Mã đơn hàng':ds['Mã đơn hàng'],'Tên NV/đối tác':ds['Tên NV/đối tác giao hàng'],'Mã giao hàng':ds['Mã giao hàng']},ds,don:donTH})}>
-                        <td style={{fontWeight:600,color:'var(--primary)',fontSize:'12px',whiteSpace:'nowrap'}}>
-                          <span title={ds['Mã đối soát']||''}>{rutGonMa(ds['Mã đối soát']||ds['Mã giao hàng']||'—')}</span>
-                        </td>
-                        <td style={{fontSize:'12px'}}>{rutGonMa(ds['Mã đơn hàng']||'—')}</td>
-                        <td style={{fontSize:'12px',color:'#6B7280',whiteSpace:'nowrap'}}>{fDateShort(ds['Ngày đối soát'])}</td>
+                        <td style={{fontWeight:600,color:'var(--primary)',fontSize:'12px'}}>{ds['Mã đơn hàng']||'—'}</td>
+                        <td style={{fontSize:'12px',color:'#6B7280',whiteSpace:'nowrap'}}>{fDate(ds['Ngày đối soát'])}</td>
                         <td style={{textAlign:'right',fontWeight:700,color:'#16A34A',fontSize:'13px'}}>{fVND(ds['Đã thu được'])}đ</td>
                         <td style={{textAlign:'center'}}>
                           <span style={{padding:'3px 10px',borderRadius:'20px',fontSize:'11px',fontWeight:700,
@@ -996,7 +1033,7 @@ export default function NhanVienClient({nvList,doiSoatList,donHangList,donHangMa
                         <td style={{fontSize:'12px',color:'#6B7280'}}>{daNop?fDate(ds['Ngày nộp tiền']):'—'}</td>
                         <td style={{textAlign:'center'}}>
                           {!daNop&&isOwner&&(
-                            <button onClick={()=>setXacNhanNopItem(ds)}
+                            <button onClick={(e)=>{e.stopPropagation();setXacNhanNopItem(ds)}}
                               style={{padding:'5px 10px',borderRadius:'6px',border:'none',background:'#16A34A',color:'white',fontSize:'11px',fontWeight:700,cursor:'pointer',whiteSpace:'nowrap'}}>
                               ✅ Xác nhận nộp
                             </button>
@@ -1010,7 +1047,7 @@ export default function NhanVienClient({nvList,doiSoatList,donHangList,donHangMa
                 {dsThuHo.length>0&&(
                   <tfoot>
                     <tr style={{background:'#F0F4FF',borderTop:'2px solid var(--border)'}}>
-                      <td colSpan={3} style={{padding:'8px 10px',fontWeight:700,fontSize:'13px'}}>Tổng ({dsThuHo.length} chuyến)</td>
+                      <td colSpan={2} style={{padding:'8px 10px',fontWeight:700,fontSize:'13px'}}>Tổng ({dsThuHo.length} chuyến)</td>
                       <td style={{padding:'8px 10px',textAlign:'right',fontWeight:800,color:'#16A34A'}}>
                         {fVND(dsThuHo.reduce((s:number,d:any)=>s+Number(d['Đã thu được']||0),0))}đ
                       </td>
@@ -1140,13 +1177,31 @@ export default function NhanVienClient({nvList,doiSoatList,donHangList,donHangMa
             <div style={{fontSize:'36px',marginBottom:'8px'}}>💵</div>
             <h2 style={{fontSize:'16px',fontWeight:700,margin:'0 0 8px'}}>Xác nhận đã nộp tiền</h2>
             <p style={{fontSize:'13px',color:'#6B7280',margin:'0 0 6px'}}>
-              Mã đối soát: <strong>{xacNhanNopItem['Mã đối soát']||xacNhanNopItem['Mã giao hàng']||'—'}</strong>
+              Mã đơn: <strong>{xacNhanNopItem['Mã đơn hàng']||'—'}</strong>
             </p>
-            <div style={{background:'#F0FDF4',borderRadius:'8px',padding:'12px',margin:'10px 0 16px',border:'1px solid #BBF7D0'}}>
+            <div style={{background:'#F0FDF4',borderRadius:'8px',padding:'12px',margin:'10px 0 12px',border:'1px solid #BBF7D0'}}>
               <div style={{fontSize:'22px',fontWeight:800,color:'#16A34A'}}>{fVND(xacNhanNopItem['Đã thu được'])}đ</div>
               <div style={{fontSize:'12px',color:'#065F46',marginTop:'4px'}}>{nvChon?.['Họ và Tên']} đã nộp về cửa hàng</div>
             </div>
-            <p style={{fontSize:'12px',color:'#6B7280',margin:'0 0 16px'}}>Ngày nộp: <strong>{new Date().toLocaleDateString('vi-VN')}</strong></p>
+            <div style={{marginBottom:'12px'}}>
+              <label style={{fontSize:'11px',fontWeight:600,display:'block',marginBottom:'4px'}}>📅 Ngày nộp</label>
+              <input className="input" type="date" value={tuNgay} onChange={e=>setTuNgay(e.target.value)}/>
+            </div>
+            <div style={{marginBottom:'14px'}}>
+              <label style={{fontSize:'11px',fontWeight:600,display:'block',marginBottom:'6px'}}>Hình thức nộp</label>
+              <div style={{display:'flex',gap:'8px'}}>
+                {(['Tiền mặt','Chuyển khoản'] as const).map(ht=>(
+                  <button key={ht} onClick={()=>setHinhThucTU(ht)}
+                    style={{flex:1,padding:'8px',borderRadius:'7px',border:'2px solid',
+                      borderColor:hinhThucTU===ht?'#16A34A':'var(--border)',
+                      background:hinhThucTU===ht?'#F0FDF4':'white',
+                      color:hinhThucTU===ht?'#16A34A':'var(--text-secondary)',
+                      fontWeight:hinhThucTU===ht?700:400,fontSize:'13px',cursor:'pointer'}}>
+                    {ht==='Tiền mặt'?'💵 Tiền mặt':'🏦 Chuyển khoản'}
+                  </button>
+                ))}
+              </div>
+            </div>
             <div style={{display:'flex',gap:'10px'}}>
               <button onClick={()=>xacNhanNopTien(xacNhanNopItem)} disabled={loadingNop}
                 style={{flex:1,padding:'11px',borderRadius:'8px',border:'none',background:loadingNop?'#9CA3AF':'#16A34A',color:'white',fontWeight:700,cursor:'pointer',fontSize:'14px'}}>
@@ -1185,6 +1240,21 @@ export default function NhanVienClient({nvList,doiSoatList,donHangList,donHangMa
                   style={{fontWeight:700,fontSize:'15px',color:'#7C3AED'}}/></div>
               <div><label className="lbl">Lý do</label>
                 <textarea className="input" rows={3} placeholder="Lý do thưởng..." value={tkLyDo} onChange={e=>setTkLyDo(e.target.value)} style={{resize:'vertical'}}/></div>
+              <div>
+                <label className="lbl">Hình thức chi</label>
+                <div style={{display:'flex',gap:'8px'}}>
+                  {(['Tiền mặt','Chuyển khoản'] as const).map(ht=>(
+                    <button key={ht} onClick={()=>setHinhThucTK(ht)}
+                      style={{flex:1,padding:'8px',borderRadius:'7px',border:'2px solid',
+                        borderColor:hinhThucTK===ht?'#7C3AED':'var(--border)',
+                        background:hinhThucTK===ht?'#F5F3FF':'white',
+                        color:hinhThucTK===ht?'#7C3AED':'var(--text-secondary)',
+                        fontWeight:hinhThucTK===ht?700:400,fontSize:'13px',cursor:'pointer'}}>
+                      {ht==='Tiền mặt'?'💵 Tiền mặt':'🏦 Chuyển khoản'}
+                    </button>
+                  ))}
+                </div>
+              </div>
               <div style={{display:'flex',gap:'10px',marginTop:'4px'}}>
                 <button onClick={async()=>{
                   if(!tkSoTien||tkSoTien<=0){showMsg2('Nhập số tiền > 0',false);return}
@@ -1192,12 +1262,12 @@ export default function NhanVienClient({nvList,doiSoatList,donHangList,donHangMa
                   try{
                     const res=await fetch('/api/nhan-vien',{method:'POST',headers:{'Content-Type':'application/json'},
                       body:JSON.stringify({loai:'thuong-khac',thang:tkThang,maNV:nvChon['Mã nhân viên'],
-                        tenNV:nvChon['Họ và Tên'],loaiThuong:tkLoai,soTien:tkSoTien,lyDo:tkLyDo,ngayThuong:tkNgay})})
+                        tenNV:nvChon['Họ và Tên'],loaiThuong:tkLoai,soTien:tkSoTien,lyDo:tkLyDo,ngayThuong:tkNgay,hinhThuc:hinhThucTK})})
                     const d=await res.json()
                     if(!res.ok) throw new Error(d.message)
                     setTkList((p:any[])=>[{...d.data,'Mã thưởng':d.maTK,'Tháng':tkThang,
                       'Mã nhân viên':nvChon['Mã nhân viên'],'Loại thưởng':tkLoai,
-                      'Số tiền':tkSoTien,'Lý do':tkLyDo,'Ngày thưởng':tkNgay},...p])
+                      'Số tiền':tkSoTien,'Lý do':tkLyDo,'Ngày thưởng':tkNgay,'Hình thức':hinhThucTK},...p])
                     showMsg2('✅ Đã thêm thưởng '+fVND(tkSoTien)+'đ')
                     setShowTKModal(false);setTkSoTien(0);setTkLyDo('')
                   }catch(e:any){showMsg2('❌ '+(e.message||'Lỗi'),false)}
@@ -1270,14 +1340,15 @@ export default function NhanVienClient({nvList,doiSoatList,donHangList,donHangMa
         <div className="ov">
           <div className="mk" style={{maxWidth:'420px'}}>
             <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'16px'}}>
-              <h2 style={{fontSize:'16px',fontWeight:700,margin:0}}>💸 Ghi tạm ứng — {nvChon['Họ và Tên']}</h2>
+              <h2 style={{fontSize:'16px',fontWeight:700,margin:0}}>{editTU?'✏️ Sửa tạm ứng':'💸 Ghi tạm ứng'} — {nvChon['Họ và Tên']}</h2>
               <button onClick={()=>setShowTUModal(false)} style={{background:'none',border:'none',cursor:'pointer',fontSize:'20px',color:'#6B7280'}}>✕</button>
             </div>
             <div style={{display:'flex',flexDirection:'column',gap:'10px'}}>
               <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'10px'}}>
                 <div><label className="lbl">Tháng</label>
                   <input className="input" type="month" value={tuThang.split('/').reverse().join('-')}
-                    onChange={e=>{const [y,m]=e.target.value.split('-');setTuThang(m+'/'+y)}}/></div>
+                    onChange={e=>{const [y,m]=e.target.value.split('-');setTuThang(m+'/'+y)}}
+                    disabled={!!editTU} style={{opacity:editTU?0.6:1}}/></div>
                 <div><label className="lbl">Ngày tạm ứng</label>
                   <input className="input" type="date" value={tuNgay} onChange={e=>setTuNgay(e.target.value)}/></div>
               </div>
@@ -1288,6 +1359,21 @@ export default function NhanVienClient({nvList,doiSoatList,donHangList,donHangMa
                   style={{fontWeight:700,fontSize:'15px',color:'#D97706'}}/></div>
               <div><label className="lbl">Ghi chú</label>
                 <input className="input" placeholder="Lý do tạm ứng..." value={tuGhiChu} onChange={e=>setTuGhiChu(e.target.value)}/></div>
+              <div>
+                <label className="lbl">Hình thức chi</label>
+                <div style={{display:'flex',gap:'8px'}}>
+                  {(['Tiền mặt','Chuyển khoản'] as const).map(ht=>(
+                    <button key={ht} onClick={()=>setHinhThucTU(ht)}
+                      style={{flex:1,padding:'8px',borderRadius:'7px',border:'2px solid',
+                        borderColor:hinhThucTU===ht?'#D97706':'var(--border)',
+                        background:hinhThucTU===ht?'#FFFBEB':'white',
+                        color:hinhThucTU===ht?'#D97706':'var(--text-secondary)',
+                        fontWeight:hinhThucTU===ht?700:400,fontSize:'13px',cursor:'pointer'}}>
+                      {ht==='Tiền mặt'?'💵 Tiền mặt':'🏦 Chuyển khoản'}
+                    </button>
+                  ))}
+                </div>
+              </div>
               <div style={{padding:'8px 12px',borderRadius:'6px',background:'#FEF9C3',fontSize:'12px',color:'#92400E'}}>
                 💡 Tổng tạm ứng tháng {tuThang}: <strong>{fVND(tongTamUng)}đ</strong>
                 {tuSoTien>0&&<span> → Sau: <strong>{fVND(tongTamUng+tuSoTien)}đ</strong></span>}
@@ -1295,7 +1381,7 @@ export default function NhanVienClient({nvList,doiSoatList,donHangList,donHangMa
               <div style={{display:'flex',gap:'10px',marginTop:'4px'}}>
                 <button onClick={luuTamUng} disabled={loading||!tuSoTien}
                   style={{flex:1,padding:'11px',borderRadius:'8px',border:'none',background:loading?'#9CA3AF':'#D97706',color:'white',fontWeight:700,cursor:'pointer',fontSize:'14px'}}>
-                  {loading?'⏳':'✅ Ghi tạm ứng'}
+                  {loading?'⏳':editTU?'✅ Cập nhật':'✅ Ghi tạm ứng'}
                 </button>
                 <button onClick={()=>setShowTUModal(false)} style={{padding:'11px 16px',borderRadius:'8px',border:'1px solid var(--border)',background:'white',cursor:'pointer',fontWeight:600}}>Huỷ</button>
               </div>
@@ -1413,12 +1499,6 @@ export default function NhanVienClient({nvList,doiSoatList,donHangList,donHangMa
         </div>
       )}
 
-
-    </div>
-  )
-}
-
-
       {/* ══ MODAL XÓA NV ══ */}
       {xoaNV&&(
         <div className="ov" onClick={()=>{setXoaNV(null);setXoaCheck(null)}}>
@@ -1472,6 +1552,9 @@ export default function NhanVienClient({nvList,doiSoatList,donHangList,donHangMa
         </div>
       )}
 
+    </div>
+  )
+}
 
 function Btn({children,active,disabled,onClick}:any){
   return <button onClick={onClick} disabled={disabled} style={{padding:'4px 10px',borderRadius:'5px',border:'1px solid',borderColor:active?'var(--primary)':'var(--border)',background:active?'var(--primary)':disabled?'#F9FAFB':'white',color:active?'white':disabled?'#CCC':'var(--text-secondary)',cursor:disabled?'not-allowed':'pointer',fontSize:'13px',fontWeight:active?700:400,minWidth:'32px'}}>{children}</button>

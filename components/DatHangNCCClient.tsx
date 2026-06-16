@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 // components/DatHangNCCClient.tsx v2
 import { useRouter } from 'next/navigation'
 import { useState, useMemo, useRef, useEffect } from 'react'
@@ -171,7 +171,7 @@ export default function DatHangNCCClient({donDHList,nccList,sanPhamList,danhMucL
         maSP:sp['Mã SP']||'',
         tenSP:sp['Tên sản phẩm']||'',
         donVi:sp['Đơn vị tính']||'',
-        giaNhap:giaNCC+cpvc,
+        giaNhap:giaNCC,
       }:it)
     })
     setSearchSP(p=>({...p,[id]:sp['Tên sản phẩm']||''}))
@@ -201,7 +201,7 @@ export default function DatHangNCCClient({donDHList,nccList,sanPhamList,danhMucL
       tenSP:spMap[d.maSP]?.['Tên sản phẩm']||d.maSP,
       donVi:spMap[d.maSP]?.['Đơn vị tính']||'',
       soLuong:d.slDat, // số lượng đặt ban đầu (sẽ tính thiếu sau)
-      giaNhap:Number(spMap[d.maSP]?.['Giá nhập NCC']||0)+Number(spMap[d.maSP]?.['CPVC về kho']||0),
+      giaNhap:Number(spMap[d.maSP]?.['Giá nhập NCC']||0),
       ngayVe:'', ghiChu:`Bổ sung thiếu cho ${maDH}`
     })))
     setSearchSP(Object.fromEntries(ds.map((d,i)=>[i+1,spMap[d.maSP]?.['Tên sản phẩm']||d.maSP])))
@@ -371,9 +371,9 @@ export default function DatHangNCCClient({donDHList,nccList,sanPhamList,danhMucL
         .ncc-t th,.ncc-t td{padding:7px 10px;vertical-align:top;}
         .ncc-t tbody tr:hover td{background:#F0F4FF!important;}
         .ov{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;display:flex;align-items:center;justify-content:center;padding:16px;overflow-y:auto;}
-        .mk{background:white;border-radius:12px;padding:28px;width:100%;max-width:1200px;max-height:95vh;overflow-y:auto;}
+        .mk{background:white;border-radius:12px;padding:28px;width:100%;max-width:1300px;max-height:95vh;overflow-y:auto;}
         .mk2{background:white;border-radius:12px;padding:24px;width:100%;max-width:460px;}
-        .sp-row{display:grid;grid-template-columns:2fr 60px 80px 110px 110px 100px 1fr 32px;gap:8px;padding:10px;border:1px solid #E5E7EB;border-radius:8px;margin-bottom:6px;background:#FAFBFD;align-items:start;}
+        .sp-row{display:grid;grid-template-columns:2.5fr 80px 70px 120px 120px 150px 1fr 32px;gap:8px;padding:10px;border:1px solid #E5E7EB;border-radius:8px;margin-bottom:6px;background:#FAFBFD;align-items:start;}
         .db{position:absolute;top:calc(100%+3px);left:0;right:0;z-index:70;background:white;border:1px solid var(--border);border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.12);max-height:200px;overflow-y:auto;}
         .di{padding:8px 12px;cursor:pointer;border-bottom:1px solid #F3F4F6;font-size:13px;}
         .di:hover{background:#F0F9FF;}
@@ -573,8 +573,15 @@ export default function DatHangNCCClient({donDHList,nccList,sanPhamList,danhMucL
               </div>}
             </div>
             {/* Header cột */}
-            <div style={{display:'grid',gridTemplateColumns:'2fr 90px 80px 110px 130px 100px 1fr 32px',gap:'8px',padding:'4px 10px',fontSize:'11px',color:'#6B7280',fontWeight:600}}>
-              <div>Sản phẩm</div><div style={{textAlign:'center'}}>SL</div><div>ĐVT</div><div>Giá nhập (đ)</div><div>Thành tiền</div><div>Ngày hàng về</div><div>Ghi chú</div><div></div>
+            <div style={{display:'grid',gridTemplateColumns:'2.5fr 80px 70px 120px 120px 150px 1fr 32px',gap:'8px',padding:'4px 10px',fontSize:'11px',color:'#6B7280',fontWeight:600}}>
+              <div>Sản phẩm</div>
+              <div style={{textAlign:'center'}}>SL</div>
+              <div>ĐVT</div>
+              <div>Giá nhập NCC (đ)</div>
+              <div>Thành tiền</div>
+              <div>Ngày hàng về</div>
+              <div>Ghi chú</div>
+              <div></div>
             </div>
             {items.map((it)=>(
               <div key={it._id} className="sp-row">
@@ -587,13 +594,13 @@ export default function DatHangNCCClient({donDHList,nccList,sanPhamList,danhMucL
                 {/* Giá nhập */}
                 <div>
                   <input className="input" type="text" inputMode="numeric"
-                    value={it.giaNhap?it.giaNhap.toLocaleString('vi-VN'):''}  placeholder="Nhập giá..."
+                    value={it.giaNhap?it.giaNhap.toLocaleString('vi-VN'):''}  placeholder="Giá NCC..."
                     onChange={e=>{const v=e.target.value.replace(/\./g,'');const n=Number(v);if(!isNaN(n))updItem(it._id,'giaNhap',n)}}
                     style={{fontSize:'12px'}}/>
-                  {it.maSP&&spMap[it.maSP]&&(Number(spMap[it.maSP]['Giá nhập NCC']||0)+Number(spMap[it.maSP]['CPVC về kho']||0))>0&&it.giaNhap===0&&(
+                  {it.maSP&&spMap[it.maSP]&&Number(spMap[it.maSP]['Giá nhập NCC']||0)>0&&it.giaNhap===0&&(
                     <div style={{fontSize:'10px',color:'#6B7280',marginTop:'1px',cursor:'pointer'}}
-                      onClick={()=>updItem(it._id,'giaNhap',Number(spMap[it.maSP]['Giá nhập NCC']||0)+Number(spMap[it.maSP]['CPVC về kho']||0))}>
-                      💡 {(Number(spMap[it.maSP]['Giá nhập NCC']||0)+Number(spMap[it.maSP]['CPVC về kho']||0)).toLocaleString('vi-VN')}đ
+                      onClick={()=>updItem(it._id,'giaNhap',Number(spMap[it.maSP]['Giá nhập NCC']||0))}>
+                      💡 {Number(spMap[it.maSP]['Giá nhập NCC']||0).toLocaleString('vi-VN')}đ
                     </div>
                   )}
                 </div>

@@ -168,7 +168,7 @@ export default function DoiSoatClient({
           maNVDoiTac:    modalGH['Mã NV/đối tác']||'',
           tenNVDoiTac:   modalGH['Tên NV/đối tác']||'',
           hinhThucGiao:  modalGH['Hình thức giao']||'',
-          tienThuKH, hinhThucThu, tienMat, chuyenKhoan, chiPhiVC, chiPhiLap, thuongChuyen, ketQua, ghiChu,
+          tienThuKH, hinhThucThu, chiPhiVC, chiPhiLap, thuongChuyen, ketQua, ghiChu,
           ngayDoiSoat, thanhToanNgay, hinhThucTTDT,
           // ── MỚI: nộp tiền thu hộ ──
           tinhTrangNopTien: tienThuKH > 0 ? (daNopTienThuHo ? 'Đã nộp' : 'Chưa nộp') : null,

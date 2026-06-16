@@ -238,7 +238,7 @@ const VAI_TRO_CHUYEN = ['Vận chuyển+Lắp','Vận chuyển','Lắp đặt']
         .sp-row{display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:6px;border:1px solid #E5E7EB;margin-bottom:5px;background:white;font-size:13px;}
         .sec-title{font-size:11px;font-weight:700;color:var(--primary);text-transform:uppercase;letter-spacing:.05em;margin:0 0 10px;}
         .btn-tao-chuyen{position:relative;display:inline-block;}
-        .btn-tao-chuyen:hover::after{content:'Tạo chuyến giao';position:absolute;bottom:calc(100% + 4px);right:0;background:#1F2937;color:white;font-size:11px;padding:3px 8px;border-radius:4px;white-space:nowrap;pointer-events:none;z-index:10;}
+        .btn-tao-chuyen:hover::after{content:"Tạo chuyến giao";position:absolute;bottom:calc(100% + 4px);right:0;background:#1F2937;color:white;font-size:11px;padding:3px 8px;border-radius:4px;white-space:nowrap;pointer-events:none;z-index:10;}
         @media(max-width:1100px){.col-sp{display:none;}}
         @media(max-width:900px){.col-dia{display:none;}}
         @media(max-width:700px){.col-tt{display:none;}}
@@ -512,10 +512,8 @@ const VAI_TRO_CHUYEN = ['Vận chuyển+Lắp','Vận chuyển','Lắp đặt']
                         </select>
                       </div>
                       <div>
-                        <label style={{fontSize:'11px',fontWeight:600,display:'block',marginBottom:'3px'}}>Vai trò chuyến</label>
-                        <select className="input" value={nguoi.vaiTroChuyen} onChange={e=>updN(nguoi.id,'vaiTroChuyen',e.target.value)}>
-                          {VAI_TRO_CHUYEN.map(v=><option key={v}>{v}</option>)}
-                        </select>
+                        <label style={{fontSize:'11px',fontWeight:600,display:'block',marginBottom:'3px'}}>Ghi chú chuyến</label>
+                        <input className="input" placeholder="VD: Giao buổi sáng, gọi trước..." value={nguoi.vaiTroChuyen} onChange={e=>updN(nguoi.id,'vaiTroChuyen',e.target.value)}/>
                       </div>
                     </div>
                     <div style={{marginBottom:'8px'}}>

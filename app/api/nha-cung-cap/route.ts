@@ -1,6 +1,6 @@
 // app/api/nha-cung-cap/route.ts
 import { NextRequest, NextResponse } from 'next/server'
-import { createRecord, getRecords, updateRecord, deleteRecord, TABLES } from '@/lib/nocodb'
+import { createRecord, getRecords, updateRecord, deleteRecord, TABLES, writeLog } from '@/lib/nocodb'
 import { getSession } from '@/lib/auth'
 
 async function taoMaNCC(): Promise<string> {
@@ -14,6 +14,20 @@ async function taoMaNCC(): Promise<string> {
     }
     return `NCC-${String(maxSo+1).padStart(3,'0')}`
   } catch { return `NCC-${Date.now().toString().slice(-4)}` }
+}
+
+async function taoMaCP(): Promise<string> {
+  try {
+    const year = new Date().getFullYear()
+    const r = await getRecords(TABLES.CHI_PHI, { limit:500, sort:'-Id', fields:'Mã chi phí' })
+    let maxSo = 0
+    for (const item of (r.list||[])) {
+      const ma = item['Mã chi phí'] as string||''
+      const so = parseInt(ma.replace(`CP-${year}-`,''))
+      if (!isNaN(so) && so > maxSo) maxSo = so
+    }
+    return `CP-${year}-${String(maxSo+1).padStart(3,'0')}`
+  } catch { return `CP-${Date.now().toString().slice(-6)}` }
 }
 
 async function taoMaTT(): Promise<string> {
@@ -125,7 +139,7 @@ export async function POST(req: NextRequest) {
       })
 
       const nccList = await getRecords(TABLES.NHA_CUNG_CAP, {
-        where: `(Mã NCC,eq,${maNCC})`, limit:1, fields:'Id,Công nợ NCC'
+        where: `(Mã NCC,eq,${maNCC})`, limit:1, fields:'Id,Công nợ NCC,Tên NCC'
       })
       const nccRec = nccList.list?.[0]
       if (nccRec) {
@@ -135,7 +149,23 @@ export async function POST(req: NextRequest) {
         })
       }
 
-      return NextResponse.json({ success:true, maTT, data:r })
+      // Ghi vào bảng 14 — Thu Chi hoạt động
+      const maCP = await taoMaCP()
+      const tenNCC = nccRec?.['Tên NCC'] || maNCC
+      await createRecord(TABLES.CHI_PHI, {
+        'Mã chi phí':          maCP,
+        'Ngày phát sinh':      body.ngayTra || new Date().toISOString().split('T')[0],
+        'Nội dung':            noiDung || `Thanh toán NCC ${tenNCC}`,
+        'Loại chi phí':        'Thanh toán NCC',
+        'Loại giao dịch':      'Chi',
+        'Số tiền':             Number(soTien),
+        'Hình thức thanh toán': hinhThuc || 'Tiền mặt',
+        'Người chi':           nguoiTra || session.hoTen || session.tenDangNhap,
+        'Trạng thái':          'Đã thanh toán',
+        'Ghi chú':             `Mã TT: ${maTT} | NCC: ${maNCC}${ghiChu?' | '+ghiChu:''}`,
+      })
+
+      return NextResponse.json({ success:true, maTT, maCP, data:r })
     }
 
     if (!body['Tên NCC']?.trim()) return NextResponse.json({message:'Thiếu tên NCC'},{status:400})
@@ -171,6 +201,7 @@ export async function PATCH(req: NextRequest) {
       if (tt && tt['Trạng thái']!=='Huỷ') {
         const maNCC = tt['Mã NCC']
         const soTien = Number(tt['Số tiền trả']||0)
+        const maTTHuy = tt['Mã thanh toán']||''
         await updateRecord(TABLES.THANH_TOAN_NCC, Number(id), {'Trạng thái':'Huỷ'})
         const nccList = await getRecords(TABLES.NHA_CUNG_CAP, {
           where: `(Mã NCC,eq,${maNCC})`, limit:1, fields:'Id,Công nợ NCC'
@@ -179,6 +210,16 @@ export async function PATCH(req: NextRequest) {
         if (nccRec) {
           await updateRecord(TABLES.NHA_CUNG_CAP, Number(nccRec['Id']||nccRec['id']), {
             'Công nợ NCC': Number(nccRec['Công nợ NCC']||0) + soTien
+          })
+        }
+        // Tìm và cập nhật dòng tương ứng trong bảng 14
+        const cpRec = await getRecords(TABLES.CHI_PHI, {
+          where: `(Ghi chú,like,%${maTTHuy}%)`, limit:1, fields:'Id,Trạng thái'
+        })
+        const cp = cpRec.list?.[0]
+        if (cp && cp['Trạng thái']!=='Huỷ') {
+          await updateRecord(TABLES.CHI_PHI, Number(cp['Id']||cp['id']), {
+            'Trạng thái': 'Huỷ'
           })
         }
       }
@@ -212,6 +253,8 @@ export async function DELETE(req: NextRequest) {
     }
 
     await deleteRecord(TABLES.NHA_CUNG_CAP, Number(id))
+    writeLog({maNV:session.maNV||'',tenNV:session.hoTen||'',hanhDong:'Xóa',bang:'Nhà cung cấp',
+      maBanGhi:maNCC||String(id),moTa:'Xóa NCC: '+(maNCC||id)})
     return NextResponse.json({ success:true })
   } catch(e:any) { return NextResponse.json({message:e.message},{status:500}) }
 }

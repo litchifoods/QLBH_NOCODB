@@ -1,6 +1,6 @@
 ﻿import { NextRequest, NextResponse } from 'next/server'
 import { revalidatePath } from 'next/cache'
-import { createRecord, getRecords, updateRecord, deleteRecord, TABLES, writeLog } from '@/lib/nocodb'
+import { createRecord, getRecords, updateRecord, deleteRecord, TABLES } from '@/lib/nocodb'
 import { getSession } from '@/lib/auth'
 
 export async function POST(req: NextRequest) {
@@ -54,20 +54,19 @@ export async function POST(req: NextRequest) {
       'Tên NV/đối tác giao hàng': tenNVDoiTac || '',
       'Còn phải thu KH':          tienThuKH || 0,
       'Đã thu được':              tienThuKH || 0,
-      'Thu tiền mặt':             body.tienMat || 0,
-      'Thu chuyển khoản':         body.chuyenKhoan || 0,
       'Hình thức thu':            hinhThucThu || 'Tiền mặt',
       'Chi phí VC':               chiPhiVC || 0,
       'Chi phí lắp đặt':          chiPhiLap || 0,
       'Thưởng chuyến':            thuongChuyen || 0,
-      'Hình thức thanh toán':     hinhThucTTDT || 'Tiền mặt',
+      'Hình thức thanh toán':     body.hinhThucChi || 'Tiền mặt',
       'Kết quả':                  ketQua || 'Thành công',
       'Tình trạng đối soát':      'Đã đối soát',
       'Ghi chú':                  ghiChu || '',
       'Ngày đối soát':            ngayDoiSoat || new Date().toISOString().split('T')[0],
       'Đã chi trả':               thanhToanNgay ? true : false,
-      'Ngày chi trả':             thanhToanNgay ? (ngayDoiSoat || new Date().toISOString().split('T')[0]) : null,
       'Mã đơn hàng':                maDon || '',
+      'Tình trạng nộp tiền':        body.tinhTrangNopTien || '',
+      'Ngày nộp tiền':              body.ngayNopTien || '',
       'Tình trạng nộp tiền':        body.tinhTrangNopTien || null,
       'Ngày nộp tiền':              body.ngayNopTien || null,
     })
@@ -98,36 +97,36 @@ export async function POST(req: NextRequest) {
       const don = donResult.list?.[0]
       if (don) {
         const rowId    = don['Id'] || don['id']
-        const conPhaiThuHienTai = Number(don['Còn phải thu'] || 0)
-        // Tính tổng đã thu từ các đối soát TRƯỚC (không tính lần này)
+        const datCoc   = Number(don['Đặt cọc'] || 0)
+        const tongTien = Number(don['Tổng tiền đơn'] || 0)
         const ghCuaDon = await getRecords(TABLES.GIAO_HANG, {
           where: `(Mã đơn hàng,eq,${maDon})`,
           limit: 50,
           fields: 'Mã giao hàng',
         })
         const danhSachMaGH = (ghCuaDon.list || []).map((g: any) => g['Mã giao hàng']).filter(Boolean)
-        let tongDaThuTruoc = 0
+        let tongDaThu = 0
         for (const maGH of danhSachMaGH) {
           const dsResult = await getRecords(TABLES.DOI_SOAT, {
             where: `(Mã giao hàng,eq,${maGH})`,
             limit: 10,
-            fields: 'Đã thu được,Hình thức thu,Tình trạng đối soát,Mã đối soát',
+            fields: 'Đã thu được,Hình thức thu,Tình trạng đối soát',
           })
           for (const ds of (dsResult.list || [])) {
             if (ds['Tình trạng đối soát'] === 'Đã đối soát' &&
-                ds['Hình thức thu'] !== 'KH nợ - chưa thu' &&
-                ds['Mã đối soát'] !== maDS) {
-              tongDaThuTruoc += Number(ds['Đã thu được'] || 0)
+                ds['Hình thức thu'] !== 'KH nợ - chưa thu') {
+              tongDaThu += Number(ds['Đã thu được'] || 0)
             }
           }
         }
-        // Tổng còn nợ = (Còn phải thu gốc khi tạo đơn) - đã thu trước - thu lần này
-        const conPhaiThuGoc = Number(don['Tổng tiền đơn'] || 0) - Number(don['Đặt cọc'] || 0)
-        const thuLanNay = hinhThucThu !== 'KH nợ - chưa thu' ? Number(tienThuKH || 0) : 0
-        const conPhaiThu = Math.max(0, conPhaiThuGoc - tongDaThuTruoc - thuLanNay)
+        // Thêm tiền vừa thu
+        if (hinhThucThu !== 'KH nợ - chưa thu') {
+          tongDaThu += Number(tienThuKH || 0)
+        }
+        const conPhaiThu = Math.max(0, tongTien - datCoc - tongDaThu)
         if (rowId) {
           console.log('[DOI-SOAT] cap nhat trang thai don:', rowId, 'ketQua:', ketQua)
-          const ttMoi = ketQua && ketQua.includes('Huỷ') ? 'Hủy' : 'Đã giao'
+          const ttMoi = ketQua && ketQua.includes('Huỷ') ? 'Huỷ' : 'Đã giao'
           await updateRecord(TABLES.DON_HANG, Number(rowId), {
             'Còn phải thu': conPhaiThu,
             'Trạng thái':   ttMoi,
@@ -135,9 +134,6 @@ export async function POST(req: NextRequest) {
         }
       }
     }
-    writeLog({maNV:session.maNV||'',tenNV:session.hoTen||'',hanhDong:'Đối soát',bang:'Đối soát',
-      maBanGhi:body.maDon||body.maGiaoHang||'',
-      moTa:'Đối soát đơn: '+(body.maDon||'')+' — KQ: '+(body.ketQua||body.tinhTrangDoiSoat||'')})
     revalidatePath('/dashboard/chi-tra-nv')
     revalidatePath('/dashboard/doi-soat')
     return NextResponse.json({ success: true })

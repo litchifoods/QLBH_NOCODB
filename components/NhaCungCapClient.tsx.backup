@@ -35,7 +35,6 @@ export default function NhaCungCapClient({nccList,ttList,nhapKhoList,ctList=[],c
   const [editCT,setEditCT]=useState<any>(null)
   const [showCTChiTietModal,setShowCTChiTietModal]=useState(false)
   const [ctDangXem,setCtDangXem]=useState<any>(null)
-  const [ctMoRong,setCtMoRong]=useState<string|null>(null)
   const [ctTen,setCtTen]=useState('')
   const [ctSoThongBao,setCtSoThongBao]=useState('')
   const [ctLoai,setCtLoai]=useState('B - Gói cọc')
@@ -271,13 +270,13 @@ export default function NhaCungCapClient({nccList,ttList,nhapKhoList,ctList=[],c
   const ctChon=useMemo(()=>localCT.filter((ct:any)=>ct['Mã NCC']===nccChon?.['Mã NCC']),[localCT,nccChon])
   const soCtDangTG=ctChon.filter((ct:any)=>ct['Trạng thái']==='Đang tham gia').length
 
-  function resetFormCT(){setCtTen('');setCtSoThongBao('');setCtLoai('B - Gói cọc');setCtNgayBD('');setCtNgayKT('');setCtHanGiaoHang('');setCtCocYeuCau(0);setCtMucTieu(0);setCtDaTichLuy(0);setCtLoaiThuong('Du lịch trong nước');setCtGiaTriThuong(0);setCtTrangThai('Đang tham gia');setCtGhiChu('');setEditCT(null)}
+  function resetFormCT(){setCtTen('');setCtSoThongBao('');setCtLoai('B - Gói cọc');setCtNgayBD('');setCtNgayKT('');setCtHanGiaoHang('');setCtCocYeuCau(0);setCtDaCoc(0);setCtMucTieu(0);setCtDaTichLuy(0);setCtLoaiThuong('Du lịch trong nước');setCtGiaTriThuong(0);setCtTrangThai('Đang tham gia');setCtGhiChu('');setEditCT(null)}
 
   function moSuaCT(ct:any){
     setEditCT(ct);setCtTen(ct['Tên chương trình']||'');setCtSoThongBao(ct['Số thông báo']||'')
     setCtLoai(ct['Loại CT']||'B - Gói cọc');setCtNgayBD((ct['Ngày bắt đầu']||'').split('T')[0])
     setCtNgayKT((ct['Ngày kết thúc']||'').split('T')[0]);setCtHanGiaoHang((ct['Hạn giao hàng']||'').split('T')[0])
-    setCtCocYeuCau(Number(ct['Số tiền cọc yêu cầu']||0))
+    setCtCocYeuCau(Number(ct['Số tiền cọc yêu cầu']||0));setCtDaCoc(Number(ct['Tiền đã cọc']||0))
     setCtMucTieu(Number(ct['Mục tiêu doanh số']||0));setCtDaTichLuy(Number(ct['Đã tích lũy']||0))
     setCtLoaiThuong(ct['Loại thưởng']||'');setCtGiaTriThuong(Number(ct['Giá trị thưởng']||0))
     setCtTrangThai(ct['Trạng thái']||'Đang tham gia');setCtGhiChu(ct['Ghi chú']||'');setShowCTModal(true)
@@ -681,101 +680,71 @@ export default function NhaCungCapClient({nccList,ttList,nhapKhoList,ctList=[],c
           ):ctChon.map((ct:any,cidx:number)=>{
             const spCT=localCTChiTiet.filter((x:any)=>x['Mã CT']===ct['Mã CT'])
             const mucTieu=Number(ct['Mục tiêu doanh số']||0)
+            const daCoc=Number(ct['Tiền đã cọc']||0)
             const ngayBD=(ct['Ngày bắt đầu']||'').split('T')[0]
             const ngayKT=(ct['Ngày kết thúc']||'').split('T')[0]
-            const maCTFilter=ct['Mã CT']||''
-            // Chỉ tính phiếu nhập kho được gắn Mã CT này
-            const daTichLuy=maCTFilter?nhapKhoList.filter((nk:any)=>nk['Mã CT']===maCTFilter)
-              .reduce((s:number,nk:any)=>s+Number(nk['Tổng tiền hàng']||0),0):0
+            const daTichLuy=nhapKhoChon.filter((nk:any)=>{
+              const ngay=(nk['Ngày nhập']||'').split('T')[0]
+              if(ngayBD&&ngay<ngayBD) return false
+              if(ngayKT&&ngay>ngayKT) return false
+              return true
+            }).reduce((s:number,nk:any)=>s+Number(nk['Tổng tiền hàng']||0)+Number(nk['CP vận chuyển về kho']||0),0)
             const phanTram=mucTieu>0?Math.min(100,Math.round(daTichLuy/mucTieu*100)):0
-            const maCT=ct['Mã CT']||''
-            const trangThaiLuuTru=ct['Trạng thái']||'Đang tham gia'
-            const trangThaiHienThi=trangThaiLuuTru==='Huỷ'?'Huỷ':(mucTieu>0&&daTichLuy>=mucTieu)?'Đã đạt':trangThaiLuuTru
             return (
-              <div key={ct['Id']||cidx} className="card" style={{marginBottom:'8px',overflow:'hidden'}}>
-                {/* Header accordion */}
-                <div onClick={()=>setCtMoRong(ctMoRong===maCT?null:maCT)}
-                  style={{padding:'12px 16px',cursor:'pointer',display:'flex',justifyContent:'space-between',alignItems:'center',gap:'8px',
-                    background:ctMoRong===maCT?'#F0F4FF':'white',userSelect:'none' as any}}>
-                  <div style={{flex:1,minWidth:0}}>
-                    <div style={{display:'flex',alignItems:'center',gap:'8px',flexWrap:'wrap' as any}}>
-                      <div style={{fontWeight:700,fontSize:'14px'}}>{ct['Tên chương trình']||'?'}</div>
-                      <span style={{padding:'2px 8px',borderRadius:'10px',fontSize:'11px',fontWeight:700,whiteSpace:'nowrap' as any,
-                          background:trangThaiHienThi==='Đã đạt'?'#FEF3C7':trangThaiHienThi==='Huỷ'?'#FEE2E2':'#D1FAE5',
-                          color:trangThaiHienThi==='Đã đạt'?'#92400E':trangThaiHienThi==='Huỷ'?'#DC2626':'#065F46'}}>
-                        {trangThaiHienThi==='Đã đạt'?'🏆':trangThaiHienThi==='Huỷ'?'❌':'🟢'} {trangThaiHienThi}
-                        {trangThaiHienThi==='Đã đạt'&&trangThaiLuuTru!=='Đã đạt'&&<span style={{fontSize:'10px',marginLeft:'4px',opacity:0.7}}>(tự động)</span>}
-                      </span>
+              <div key={ct['Id']||cidx} className="card" style={{marginBottom:'12px',padding:'16px'}}>
+                <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:'12px',flexWrap:'wrap',gap:'8px'}}>
+                  <div>
+                    <div style={{display:'flex',alignItems:'center',gap:'8px',flexWrap:'wrap'}}>
+                      <div style={{fontWeight:700,fontSize:'15px'}}>{ct['Tên chương trình']||'?'}</div>
+                      {ct['Trạng thái']&&<span style={{padding:'2px 8px',borderRadius:'10px',fontSize:'11px',fontWeight:700,
+                        background:ct['Trạng thái']==='Đang tham gia'?'#D1FAE5':ct['Trạng thái']==='Đã đạt'?'#FEF3C7':ct['Trạng thái']==='Đã nhận thưởng'?'#DBEAFE':ct['Trạng thái']==='Hết hạn'?'#F3F4F6':'#FEE2E2',
+                        color:ct['Trạng thái']==='Đang tham gia'?'#065F46':ct['Trạng thái']==='Đã đạt'?'#92400E':ct['Trạng thái']==='Đã nhận thưởng'?'#1E40AF':ct['Trạng thái']==='Hết hạn'?'#6B7280':'#DC2626'}}>
+                        {ct['Trạng thái']==='Đang tham gia'?'🟢':ct['Trạng thái']==='Đã đạt'?'🏆':ct['Trạng thái']==='Đã nhận thưởng'?'✅':ct['Trạng thái']==='Hết hạn'?'⏰':'❌'} {ct['Trạng thái']}
+                      </span>}
                     </div>
-                    <div style={{fontSize:'11px',color:'#6B7280',marginTop:'2px',display:'flex',gap:'10px',flexWrap:'wrap' as any}}>
-                      <span>{ct['Mã CT']}{ct['Số thông báo']?' · '+ct['Số thông báo']:''}</span>
-                      {(ct['Ngày bắt đầu']||ct['Ngày kết thúc'])&&<span>📅 {ct['Ngày bắt đầu']?fDate(ct['Ngày bắt đầu']):''}{ct['Ngày kết thúc']?' → '+fDate(ct['Ngày kết thúc']):''}</span>}
-                      {mucTieu>0&&<span style={{color:'#16A34A',fontWeight:600}}>🛒 {fVND(daTichLuy)}đ/{fVND(mucTieu)}đ ({phanTram}%)</span>}
-                      {Number(ct['Giá trị thưởng']||0)>0&&<span style={{color:'#D97706',fontWeight:600}}>🎁 {fVND(ct['Giá trị thưởng']||0)}đ</span>}
-                      <span style={{color:'#6B7280'}}>📦 {spCT.length} SP</span>
-                    </div>
+                    <div style={{fontSize:'11px',color:'#6B7280'}}>{ct['Mã CT']} {ct['Số thông báo']?'· '+ct['Số thông báo']:''}</div>
                   </div>
-                  <div style={{display:'flex',gap:'6px',alignItems:'center'}}>
-                    {isOwner&&<button onClick={(e:any)=>{e.stopPropagation();moSuaCT(ct)}} style={{padding:'4px 10px',borderRadius:'6px',border:'1px solid #FCD34D',background:'#FFFBEB',color:'#92400E',fontSize:'11px',cursor:'pointer',fontWeight:600}}>✏️ Sửa</button>}
-                    {isOwner&&<button onClick={(e:any)=>{e.stopPropagation();xoaCT(ct)}} style={{padding:'4px 10px',borderRadius:'6px',border:'1px solid #FCA5A5',background:'#FEF2F2',color:'#DC2626',fontSize:'11px',cursor:'pointer',fontWeight:600}}>🗑️ Xóa</button>}
-                    <span style={{fontSize:'18px',color:'#9CA3AF',display:'inline-block',transform:ctMoRong===maCT?'rotate(180deg)':'rotate(0deg)',transition:'transform 0.2s'}}>▾</span>
+                  <div style={{display:'flex',gap:'6px'}}>
+                    {isOwner&&<button onClick={()=>moSuaCT(ct)} style={{padding:'4px 10px',borderRadius:'6px',border:'1px solid #FCD34D',background:'#FFFBEB',color:'#92400E',fontSize:'11px',cursor:'pointer',fontWeight:600}}>✏️ Sửa</button>}
+                    {isOwner&&<button onClick={()=>xoaCT(ct)} style={{padding:'4px 10px',borderRadius:'6px',border:'1px solid #FCA5A5',background:'#FEF2F2',color:'#DC2626',fontSize:'11px',cursor:'pointer',fontWeight:600}}>🗑️ Xóa</button>}
                   </div>
                 </div>
-                {ctMoRong===maCT&&(
-                  <div style={{padding:'12px 16px',borderTop:'1px solid #F0F0F0'}}>
-                    <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(130px,1fr))',gap:'8px',marginBottom:'12px'}}>
-                      {mucTieu>0&&<div style={{background:'#F0FDF4',borderRadius:'8px',padding:'10px 12px',border:'1px solid #BBF7D0'}}>
-                        <div style={{fontSize:'10px',color:'#16A34A',fontWeight:600,marginBottom:'3px'}}>🛒 Đã mua / Mục tiêu</div>
-                        <div style={{fontWeight:700,color:'#16A34A'}}>{fVND(daTichLuy)}đ <span style={{fontWeight:400,fontSize:'11px',color:'#6B7280'}}>/ {fVND(mucTieu)}đ</span></div>
-                        <div style={{height:'5px',background:'#E5E7EB',borderRadius:'3px',overflow:'hidden',marginTop:'6px'}}><div style={{height:'100%',width:phanTram+'%',background:phanTram>=100?'#16A34A':'#34D399',borderRadius:'3px'}}></div></div>
-                        <div style={{fontSize:'11px',color:phanTram>=100?'#16A34A':'#6B7280',marginTop:'3px',fontWeight:phanTram>=100?700:400}}>{phanTram>=100?'✅ Đã đạt mục tiêu!':phanTram+'%'}</div>
-                      </div>}
-                      {(Number(ct['Giá trị thưởng']||0)>0||ct['Ghi chú'])&&<div style={{background:'#FFFBEB',borderRadius:'8px',padding:'10px 12px',border:'1px solid #FCD34D'}}>
-                        <div style={{fontSize:'10px',color:'#D97706',fontWeight:600,marginBottom:'3px'}}>🎁 Thưởng</div>
-                        {Number(ct['Giá trị thưởng']||0)>0&&<div style={{fontWeight:700,color:'#D97706'}}>{fVND(ct['Giá trị thưởng']||0)}đ</div>}
-                        {ct['Ghi chú']&&<div style={{fontSize:'11px',color:'#92400E',marginTop:'2px'}}>{ct['Ghi chú']}</div>}
-                      </div>}
-                      {ct['Hạn giao hàng']&&<div style={{background:'#FEF2F2',borderRadius:'8px',padding:'10px 12px',border:'1px solid #FECACA'}}>
-                        <div style={{fontSize:'10px',color:'#DC2626',fontWeight:600,marginBottom:'3px'}}>🚚 Hạn GH</div>
-                        <div style={{fontWeight:700,color:'#DC2626',fontSize:'12px'}}>{fDate(ct['Hạn giao hàng'])}</div>
-                      </div>}
-                    </div>
-                    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'8px'}}>
-                      <span style={{fontSize:'12px',fontWeight:600,color:'#6B7280'}}>Sản phẩm trong chương trình ({spCT.length})</span>
-                      <button onClick={()=>{setCtDangXem(ct);setCtctTenSP('');setCtctMaSP('');setCtctGiaNY(0);setCtctCKCB(0);setCtctCKThem(0);setCtctGhiChu('');setEditCTCT(null);setShowCTChiTietModal(true)}} style={{padding:'3px 8px',borderRadius:'5px',border:'1px solid var(--primary)',background:'white',color:'var(--primary)',fontSize:'11px',cursor:'pointer',fontWeight:600}}>+ Thêm SP</button>
-                    </div>
-                    {spCT.length===0
-                      ?<div style={{fontSize:'12px',color:'#9CA3AF',fontStyle:'italic',padding:'8px 0'}}>Chưa có SP nào</div>
-                      :<div style={{maxHeight:'400px',overflowY:'auto'}}>
-                        <table style={{width:'100%',borderCollapse:'collapse',fontSize:'12px'}}>
-                          <thead><tr style={{background:'#F8FAFC',borderBottom:'1px solid #E5E7EB'}}>
-                            <th style={{padding:'6px 8px',textAlign:'left',color:'#6B7280',fontWeight:600}}>Tên SP</th>
-                            <th style={{padding:'6px 8px',textAlign:'right',color:'#6B7280',fontWeight:600}}>Giá Niêm Yết</th>
-                            <th style={{padding:'6px 8px',textAlign:'center',color:'#7C3AED',fontWeight:600}}>CK cơ bản</th>
-                            <th style={{padding:'6px 8px',textAlign:'center',color:'#7C3AED',fontWeight:600}}>CK thêm</th>
-                            <th style={{padding:'6px 8px',textAlign:'right',color:'#16A34A',fontWeight:600}}>Giá sau CK</th>
-                            <th style={{width:'56px'}}></th>
-                          </tr></thead>
-                          <tbody>{spCT.map((sp:any,j:number)=>{
-                            const ckTong=Number(sp['% CK tổng']||0)||(Number(sp['% CK cơ bản']||0)+Number(sp['% CK thêm']||0))
-                            const giaSauCK=Number(sp['Giá sau CK']||0)||(Number(sp['Giá niêm yết']||0)*(1-ckTong/100))
-                            return <tr key={sp['Id']||j} style={{borderBottom:'1px solid #F0F0F0',background:j%2===0?'white':'#FAFBFD'}}>
-                              <td style={{padding:'6px 8px',fontWeight:600}}>{sp['Tên dòng SP']||'?'}</td>
-                              <td style={{padding:'6px 8px',textAlign:'right',color:'#6B7280'}}>{Number(sp['Giá niêm yết']||0)>0?fVND(sp['Giá niêm yết'])+'đ':'—'}</td>
-                              <td style={{padding:'6px 8px',textAlign:'center',color:'#7C3AED',fontWeight:600}}>{Number(sp['% CK cơ bản']||0)>0?Number(sp['% CK cơ bản']||0)+'%':'—'}</td>
-                              <td style={{padding:'6px 8px',textAlign:'center',color:'#7C3AED',fontWeight:600}}>{Number(sp['% CK thêm']||0)>0?Number(sp['% CK thêm']||0)+'%':'—'}</td>
-                              <td style={{padding:'6px 8px',textAlign:'right',fontWeight:700,color:'#16A34A'}}>{giaSauCK>0?fVND(Math.round(giaSauCK))+'đ':'—'}</td>
-                              <td style={{padding:'6px 8px',textAlign:'center'}}><div style={{display:'flex',gap:'2px'}}>
-                                <button onClick={()=>{setCtDangXem(ct);setEditCTCT(sp);setCtctTenSP(sp['Tên dòng SP']||'');setCtctMaSP(sp['Mã SP']||'');setCtctGiaNY(Number(sp['Gia niem yet']||sp['Giá niêm yết']||0));setCtctCKCB(Number(sp['% CK cơ bản']||0));setCtctCKThem(Number(sp['% CK thêm']||0));setCtctGhiChu(sp['Ghi chú kích thước']||'');setShowCTChiTietModal(true)}} style={{padding:'2px 4px',borderRadius:'4px',border:'1px solid #FCD34D',background:'#FFFBEB',color:'#92400E',fontSize:'10px',cursor:'pointer'}}>✏️</button>
-                                <button onClick={async()=>{if(!confirm('Xoa?'))return;await fetch('/api/chuong-trinh-ncc?id='+Number(sp['Id']||sp['id'])+'&loai=chi-tiet',{method:'DELETE'});setLocalCTChiTiet(p=>p.filter(x=>(x['Id']||x['id'])!==(sp['Id']||sp['id'])))}} style={{padding:'2px 4px',borderRadius:'4px',border:'1px solid #FCA5A5',background:'#FEF2F2',color:'#DC2626',fontSize:'10px',cursor:'pointer'}}>🗑️</button>
-                              </div></td>
-                            </tr>
-                          })}</tbody>
-                        </table>
-                      </div>
-                    }
+                <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(130px,1fr))',gap:'8px',marginBottom:'10px'}}>
+                  {daCoc>0&&<div style={{background:'#F5F3FF',borderRadius:'8px',padding:'10px 12px',border:'1px solid #DDD6FE'}}><div style={{fontSize:'10px',color:'#7C3AED',fontWeight:600,marginBottom:'3px'}}>💜 Đã cọc</div><div style={{fontWeight:700,color:'#7C3AED'}}>{fVND(daCoc)}đ</div></div>}
+                  {mucTieu>0&&<div style={{background:'#F0FDF4',borderRadius:'8px',padding:'10px 12px',border:'1px solid #BBF7D0'}}>
+                    <div style={{fontSize:'10px',color:'#16A34A',fontWeight:600,marginBottom:'3px'}}>🎯 Tích lũy / Mục tiêu</div>
+                    <div style={{fontWeight:700,color:'#16A34A'}}>{fVND(daTichLuy)}đ <span style={{fontWeight:400,fontSize:'11px',color:'#6B7280'}}>/ {fVND(mucTieu)}đ</span></div>
+                    <div style={{height:'5px',background:'#E5E7EB',borderRadius:'3px',overflow:'hidden',marginTop:'6px'}}><div style={{height:'100%',width:phanTram+'%',background:phanTram>=100?'#16A34A':'#34D399',borderRadius:'3px'}}></div></div>
+                    <div style={{fontSize:'11px',color:phanTram>=100?'#16A34A':'#6B7280',marginTop:'3px',fontWeight:phanTram>=100?700:400}}>{phanTram>=100?'✅ Đã đạt mục tiêu!':phanTram+'%'}</div>
+                  </div>}
+                  {(Number(ct['Giá trị thưởng']||0)>0||ct['Ghi chú'])&&<div style={{background:'#FFFBEB',borderRadius:'8px',padding:'10px 12px',border:'1px solid #FCD34D'}}><div style={{fontSize:'10px',color:'#D97706',fontWeight:600,marginBottom:'3px'}}>🎁 Thưởng</div>{Number(ct['Giá trị thưởng']||0)>0&&<div style={{fontWeight:700,color:'#D97706'}}>{fVND(ct['Giá trị thưởng']||0)}đ</div>}{ct['Ghi chú']&&<div style={{fontSize:'11px',color:'#92400E',marginTop:'2px'}}>{ct['Ghi chú']}</div>}</div>}
+                </div>
+                <div style={{borderTop:'1px solid #F0F0F0',paddingTop:'8px'}}>
+                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'6px'}}>
+                    <span style={{fontSize:'12px',fontWeight:600,color:'#6B7280'}}>SP trong CT ({spCT.length})</span>
+                    <button onClick={()=>{setCtDangXem(ct);setCtctTenSP('');setCtctMaSP('');setCtctGiaNY(0);setCtctCKCB(0);setCtctCKThem(0);setCtctGhiChu('');setEditCTCT(null);setShowCTChiTietModal(true)}} style={{padding:'3px 8px',borderRadius:'5px',border:'1px solid var(--primary)',background:'white',color:'var(--primary)',fontSize:'11px',cursor:'pointer',fontWeight:600}}>+ Thêm SP</button>
                   </div>
-                )}
+                  {spCT.length===0?<div style={{fontSize:'12px',color:'#9CA3AF',fontStyle:'italic'}}>Chưa có SP nào</div>:(
+                    <table style={{width:'100%',borderCollapse:'collapse',fontSize:'12px'}}>
+                      <thead><tr style={{background:'#F8FAFC'}}><th style={{padding:'4px 6px',textAlign:'left',color:'#6B7280',fontWeight:600}}>Tên SP</th><th style={{padding:'4px 6px',textAlign:'right',color:'#6B7280',fontWeight:600}}>Giá NL</th><th style={{padding:'4px 6px',textAlign:'center',color:'#6B7280',fontWeight:600}}>CK%</th><th style={{padding:'4px 6px',textAlign:'right',color:'#16A34A',fontWeight:600}}>Giá sau CK</th><th style={{width:'50px'}}></th></tr></thead>
+                      <tbody>{spCT.map((sp:any,j:number)=>{
+                        const ckTong=Number(sp['% CK tổng']||0)||(Number(sp['% CK cơ bản']||0)+Number(sp['% CK thêm']||0))
+                        const giaSauCK=Number(sp['Giá sau CK']||0)||(Number(sp['Giá niêm yết']||0)*(1-ckTong/100))
+                        return <tr key={sp['Id']||j} style={{borderBottom:'1px solid #F0F0F0'}}>
+                          <td style={{padding:'5px 6px',fontWeight:600}}>{sp['Tên dòng SP']||'?'}</td>
+                          <td style={{padding:'5px 6px',textAlign:'right',color:'#6B7280'}}>{Number(sp['Giá niêm yết']||0)>0?fVND(sp['Giá niêm yết'])+'đ':'?'}</td>
+                          <td style={{padding:'5px 6px',textAlign:'center',color:'#7C3AED',fontWeight:600}}>{ckTong>0?ckTong+'%':'?'}</td>
+                          <td style={{padding:'5px 6px',textAlign:'right',fontWeight:700,color:'#16A34A'}}>{giaSauCK>0?fVND(Math.round(giaSauCK))+'đ':'?'}</td>
+                          
+                          <td style={{padding:'5px 6px',textAlign:'center'}}><div style={{display:'flex',gap:'2px'}}>
+                            <button onClick={()=>{setCtDangXem(ct);setEditCTCT(sp);setCtctTenSP(sp['Tên dòng SP']||sp['Tên dòng SP']||'');setCtctMaSP(sp['Mã SP']||sp['Mã SP']||'');setCtctGiaNY(Number(sp['Gia niem yet']||sp['Giá niêm yết']||0));setCtctCKCB(Number(sp['% CK cơ bản']||sp['% CK cơ bản']||0));setCtctCKThem(Number(sp['% CK thêm']||sp['% CK thêm']||0));setCtctGhiChu(sp['Ghi chú kích thước']||sp['Ghi chú kích thước']||'');setShowCTChiTietModal(true)}} style={{padding:'2px 4px',borderRadius:'4px',border:'1px solid #FCD34D',background:'#FFFBEB',color:'#92400E',fontSize:'10px',cursor:'pointer'}}>✏️</button>
+                            <button onClick={async()=>{if(!confirm('Xoa?'))return;await fetch('/api/chuong-trinh-ncc?id='+Number(sp['Id']||sp['id'])+'&loai=chi-tiet',{method:'DELETE'});setLocalCTChiTiet(p=>p.filter(x=>(x['Id']||x['id'])!==(sp['Id']||sp['id'])))}} style={{padding:'2px 4px',borderRadius:'4px',border:'1px solid #FCA5A5',background:'#FEF2F2',color:'#DC2626',fontSize:'10px',cursor:'pointer'}}>🗑️</button>
+                          </div></td>
+                        </tr>
+                      })}</tbody>
+                    </table>
+                  )}
+                </div>
               </div>
             )
           })}
@@ -801,8 +770,8 @@ export default function NhaCungCapClient({nccList,ttList,nhapKhoList,ctList=[],c
                 <div><label className="lbl">🚚 Hạn giao hàng</label><input className="input" type="date" value={ctHanGiaoHang} onChange={e=>setCtHanGiaoHang(e.target.value)}/></div>
               </div>
               <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'10px',padding:'10px',background:'#F5F3FF',borderRadius:'8px'}}>
-                
-                <div style={{gridColumn:'1/-1'}}><label className="lbl">🎯 Mục tiêu doanh số (đ)</label><input className="input" type="text" value={ctMucTieu?ctMucTieu.toLocaleString('vi-VN'):''} onChange={e=>{const v=e.target.value.replace(/\./g,'').replace(/[^0-9]/g,'');setCtMucTieu(Number(v)||0)}}/></div>
+                <div><label className="lbl">💜 Tiền đã cọc (đ)</label><input className="input" type="text" value={ctDaCoc?ctDaCoc.toLocaleString('vi-VN'):''} onChange={e=>{const v=e.target.value.replace(/\./g,'').replace(/[^0-9]/g,'');setCtDaCoc(Number(v)||0)}}/></div>
+                <div><label className="lbl">🎯 Mục tiêu doanh số (đ)</label><input className="input" type="text" value={ctMucTieu?ctMucTieu.toLocaleString('vi-VN'):''} onChange={e=>{const v=e.target.value.replace(/\./g,'').replace(/[^0-9]/g,'');setCtMucTieu(Number(v)||0)}}/></div>
               </div>
 
               <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'10px',padding:'10px',background:'#FFFBEB',borderRadius:'8px'}}>
@@ -812,14 +781,14 @@ export default function NhaCungCapClient({nccList,ttList,nhapKhoList,ctList=[],c
               <div>
                 <label className="lbl">📌 Trạng thái</label>
                 <div style={{display:'flex',gap:'6px',flexWrap:'wrap'}}>
-                  {(['Đang tham gia','Đã đạt','Huỷ'] as const).map(tt=>(
+                  {(['Đang tham gia','Đã đạt','Đã nhận thưởng','Hết hạn','Huỷ'] as const).map(tt=>(
                     <button key={tt} onClick={()=>setCtTrangThai(tt as any)}
                       style={{padding:'6px 12px',borderRadius:'20px',border:'2px solid',
                         borderColor:ctTrangThai===tt?'var(--primary)':'var(--border)',
                         background:ctTrangThai===tt?'var(--primary-pale)':'white',
                         color:ctTrangThai===tt?'var(--primary)':'var(--text-secondary)',
                         fontWeight:ctTrangThai===tt?700:400,fontSize:'12px',cursor:'pointer'}}>
-                      {tt==='Đang tham gia'?'🟢':tt==='Đã đạt'?'🏆':'❌'} {tt}
+                      {tt==='Đang tham gia'?'🟢':tt==='Đã đạt'?'🏆':tt==='Đã nhận thưởng'?'✅':tt==='Hết hạn'?'⏰':'❌'} {tt}
                     </button>
                   ))}
                 </div>

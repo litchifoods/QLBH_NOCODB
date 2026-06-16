@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 // components/TaoDonHangForm.tsx — v2.4
 // Sửa lỗi 404: đọc maDon từ json.maDon (API đã query lại sau khi tạo)
 
@@ -242,47 +242,6 @@ export default function TaoDonHangForm({
     return true
   }
 
-  async function suaDon(): Promise<string|null> {
-    setError('')
-    let htCoc=''
-    if(tienMat>0&&ckCoc>0) htCoc=`TM ${tienMat.toLocaleString()}đ + CK ${ckCoc.toLocaleString()}đ`
-    else if(tienMat>0) htCoc='Tiền mặt'
-    else if(ckCoc>0)   htCoc='Chuyển khoản'
-    try {
-      const res = await fetch('/api/don-hang', {
-        method:'PATCH', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({
-          id: Number(donHangSua!.rowId),
-          'Ngày bán':ngayDat,'Mã KH':maKH,
-          'Tên khách hàng':tenKH||searchKH,'Kênh bán':kenhBan,
-          'Hình thức giao hàng':htGiao,'Ngày hẹn giao':ngayHenGiao||null,
-          'Địa chỉ giao':diaChiKH,'Tổng tiền đơn':tongTien-soTienGiam,
-          'Giảm giá':soTienGiam||0,'Loại giảm giá':giamGia>0?loaiGiam:'','Giá trị giảm':giamGia||0,
-          'Đặt cọc':datCocTong,'Hình thức cọc':htCoc,'Cọc tiền mặt':tienMat,'Cọc chuyển khoản':ckCoc,
-          'Còn phải thu':conPhaiThu,'CP giao hàng':cpGiaoHang,
-          'Mã NV':maNV||'','Nhân viên bán':searchNV,'Ghi chú':ghiChu,
-        }),
-      })
-      if (!res.ok) { const e=await res.json().catch(()=>({})); throw new Error(e.message||'Lỗi PATCH đơn') }
-      if (donHangSua?.chiTiet?.length) {
-        for (const ct of donHangSua.chiTiet) {
-          if (ct.id) await fetch(`/api/chi-tiet-don?id=${ct.id}`, { method:'DELETE' })
-        }
-      }
-      for (const d of dongSP.filter(x=>(x.maSP||x.tenSP?.trim()))) {
-        await fetch('/api/chi-tiet-don', {
-          method:'POST', headers:{'Content-Type':'application/json'},
-          body: JSON.stringify({
-            'Mã đơn hàng':donHangSua!.maDon,'Mã SP':d.maSP,
-            'Tên SP (ghi nhanh)':d.tenSP,'Số lượng':d.soLuong,
-            'Đơn giá':d.donGia,'Giá nhập':d.giaNhap||0,'Thành tiền':d.thanhTien,'Ghi chú SP':d.ghiChu,
-          }),
-        })
-      }
-      return donHangSua!.maDon
-    } catch(err:any) { setError(err.message||'Lỗi sửa đơn'); return null }
-  }
-
   async function taoDon(): Promise<string|null> {
     setError('')
     let htCoc=''
@@ -301,8 +260,8 @@ export default function TaoDonHangForm({
           'Giảm giá': soTienGiam||0,
           'Loại giảm giá': giamGia>0 ? loaiGiam : '',
           'Giá trị giảm': giamGia||0,
-          'Đặt cọc':datCocTong,'Hình thức cọc':htCoc,'Cọc tiền mặt':tienMat,'Cọc chuyển khoản':ckCoc,
-          'Còn phải thu':conPhaiThu,'CP giao hàng':cpGiaoHang,'Trạng thái':htGiao==='Bán tại cửa hàng'?'Hoàn thành':'Chờ giao',
+          'Đặt cọc':datCocTong,'Hình thức cọc':htCoc,
+          'Còn phải thu':conPhaiThu,'CP giao hàng':cpGiaoHang,'Trạng thái':'Chờ giao',
           'Mã NV':maNV||'','Nhân viên bán':searchNV,
           'Ghi chú':ghiChu,
         }),
@@ -346,7 +305,7 @@ export default function TaoDonHangForm({
     if (dangLuu.current) return
     dangLuu.current = true
     setLoadingLuu(true)
-    const ma = isSuaMode ? await suaDon() : await taoDon()
+    const ma = await taoDon()
     setLoadingLuu(false)
     dangLuu.current = false
     if (ma) {

@@ -4,10 +4,14 @@ import { UserSession } from '@/lib/auth'
 import Link from 'next/link'
 
 function formatVND(num: number) {
-  if (num >= 1_000_000_000) return (num / 1_000_000_000).toFixed(1) + ' tỷ'
-  if (num >= 1_000_000) return (num / 1_000_000).toFixed(1) + ' tr'
-  if (num >= 1_000) return (num / 1_000).toFixed(0) + 'k'
-  return num.toLocaleString('vi-VN')
+  return Number(num||0).toLocaleString('vi-VN')
+}
+function fontSizeVND(num: number) {
+  const n = Number(num||0)
+  if (n >= 10_000_000_000) return '16px'
+  if (n >= 1_000_000_000)  return '18px'
+  if (n >= 100_000_000)    return '20px'
+  return '24px'
 }
 
 function formatDate(dateStr: string) {
@@ -28,10 +32,10 @@ function getTrangThaiBadge(tt: string) {
 }
 
 function StatCard({
-  icon, label, value, sub, color, href
+  icon, label, value, sub, color, href, valueSize
 }: {
   icon: string, label: string, value: string,
-  sub?: string, color: string, href?: string
+  sub?: string, color: string, href?: string, valueSize?: string
 }) {
   const content = (
     <div className="card" style={{
@@ -61,7 +65,7 @@ function StatCard({
           {label}
         </div>
         <div className="stat-value" style={{
-          fontSize: '24px', fontWeight: 800, color: 'var(--text-primary)', lineHeight: 1
+          fontSize: valueSize||'24px', fontWeight: 800, color: 'var(--text-primary)', lineHeight: 1
         }}>{value}</div>
         {sub && <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>{sub}</div>}
       </div>
@@ -110,6 +114,7 @@ export default function DashboardClient({
     donHoanThanh: number
     donHuy: number
     donSapGiao: any[]
+    donNhapGap: any[]
     donGanNhat: any[]
     spHetHang: number
     spSapHet: number
@@ -163,11 +168,13 @@ export default function DashboardClient({
         <StatCard
           icon="💰" label="Doanh thu hôm nay"
           value={formatVND(data.doanhThuHomNay) + 'đ'}
+          valueSize={fontSizeVND(data.doanhThuHomNay)}
           color="linear-gradient(135deg, #DCFCE7, #86EFAC)"
         />
         <StatCard
           icon="📅" label="Doanh thu tháng này"
           value={formatVND(data.doanhThuThang) + 'đ'}
+          valueSize={fontSizeVND(data.doanhThuThang)}
           sub={`Đã thu: ${formatVND(data.daThuthuThang)}đ`}
           color="linear-gradient(135deg, #DBEAFE, #93C5FD)"
         />
@@ -311,7 +318,8 @@ export default function DashboardClient({
               🔔 Cảnh báo cần xử lý
             </h3>
             {data.donSapGiao.length === 0 && data.spHetHang === 0 &&
-             data.spSapHet === 0 && data.giaoChuaDoiSoat === 0 ? (
+             data.spSapHet === 0 && data.giaoChuaDoiSoat === 0 &&
+             (data.donNhapGap||[]).length === 0 ? (
               <div style={{
                 textAlign: 'center', padding: '20px',
                 color: 'var(--text-muted)', fontSize: '13px',
@@ -320,6 +328,12 @@ export default function DashboardClient({
               </div>
             ) : (
               <>
+                <AlertBadge
+                  count={(data.donNhapGap||[]).length}
+                  label="📦 Đơn cần nhập hàng gấp"
+                  color="#FEF3C7"
+                  href="/dashboard/don-hang"
+                />
                 <AlertBadge
                   count={data.donSapGiao.length}
                   label="⚡ Đơn cần giao trong 3 ngày"
@@ -348,6 +362,40 @@ export default function DashboardClient({
             )}
           </div>
 
+          {/* Nhập hàng gấp */}
+          {(data.donNhapGap||[]).length > 0 && (
+            <div className="card" style={{ padding: '18px' }}>
+              <h3 style={{ fontSize: '14px', fontWeight: 700, marginBottom: '12px', color: '#92400E' }}>
+                📦 Đơn cần nhập hàng gấp
+              </h3>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {(data.donNhapGap||[]).slice(0, 5).map((don: any, i: number) => (
+                  <Link key={i} href={'/dashboard/don-hang/'+don['Mã đơn hàng']}
+                    style={{ textDecoration: 'none' }}>
+                    <div style={{
+                      padding: '10px 12px', borderRadius: '8px', background: '#FEF3C7',
+                      display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                    }}
+                    onMouseEnter={e=>(e.currentTarget as HTMLDivElement).style.opacity='0.8'}
+                    onMouseLeave={e=>(e.currentTarget as HTMLDivElement).style.opacity='1'}>
+                      <div>
+                        <div style={{ fontSize: '13px', fontWeight: 700, color: '#92400E' }}>
+                          {don['Mã đơn hàng']}
+                        </div>
+                        <div style={{ fontSize: '11px', color: '#6B7280' }}>
+                          {don['Tên khách hàng']||don['Mã KH']||'—'} · SP hết kho: <strong style={{color:'#DC2626'}}>{don.spThieu}</strong>
+                        </div>
+                      </div>
+                      <span style={{ fontSize: '11px', fontWeight: 700, color: '#DC2626',
+                        background: '#FEE2E2', padding: '2px 8px', borderRadius: '10px' }}>
+                        Nhập gấp
+                      </span>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          )}
           {/* Giao hàng sắp tới */}
           {data.donSapGiao.length > 0 && (
             <div className="card" style={{ padding: '18px' }}>
@@ -416,7 +464,7 @@ export default function DashboardClient({
               {[
                 { icon: '➕', label: 'Tạo đơn', href: '/dashboard/don-hang/tao', color: '#DBEAFE' },
                 { icon: '📦', label: 'Nhập kho', href: '/dashboard/nhap-kho/tao', color: '#DCFCE7' },
-                { icon: '🔍', label: 'Kiểm kho', href: '/dashboard/kiem-kho', color: '#FEF3C7' },
+                { icon: '💰', label: 'Đối soát', href: '/dashboard/doi-soat', color: '#FEF3C7' },
                 { icon: '📊', label: 'Báo cáo', href: '/dashboard/bao-cao', color: '#F3E8FF' },
               ].map(item => (
                 <Link key={item.href} href={item.href} style={{ textDecoration: 'none' }}>

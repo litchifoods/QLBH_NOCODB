@@ -19,8 +19,8 @@ export async function POST(req: NextRequest) {
 
     const data = {
       'Tháng':           thang,
-      'Năm':             String(nam),
-      'Quý':             `Quý ${quy}`,
+      'Năm':             Number(nam),
+      'Qúy':             Number(quy),
       'Tổng doanh thu':  tongDT,
       'DT trực tiếp':    dtTrucTiep,
       'DT online':       dtOnline,

@@ -1,7 +1,7 @@
 // app/api/nhan-vien/route.ts
 import { NextRequest, NextResponse } from 'next/server'
 import { revalidatePath } from 'next/cache'
-import { createRecord, getRecords, updateRecord, deleteRecord, TABLES } from '@/lib/nocodb'
+import { createRecord, getRecords, updateRecord, deleteRecord, TABLES, writeLog } from '@/lib/nocodb'
 import { getSession } from '@/lib/auth'
 
 async function taoMaNV(loai: string): Promise<string> {
@@ -67,7 +67,7 @@ export async function GET(req: NextRequest) {
     if (loai === 'thuong-khac' && maNV) {
       const r = await getRecords(TABLES.THUONG_KHAC, {
         where: `(Mã nhân viên,eq,${maNV})`, limit:200, sort:'-Id',
-        fields: 'Id,Mã thưởng,Tháng,Mã nhân viên,Tên NV,Loại thưởng,Số tiền,Lý do,Người duyệt,Ngày thưởng'
+        fields: 'Id,Mã thưởng,Tháng,Mã nhân viên,Tên NV,Loại thưởng,Số tiền,Hình thức,Lý do,Người duyệt,Ngày thưởng'
       })
       return NextResponse.json(r)
     }
@@ -78,7 +78,7 @@ export async function GET(req: NextRequest) {
         : `(Mã NV/đối tác,eq,${maNV})`
       const r = await getRecords(TABLES.TAM_UNG_NV, {
         where, limit:200, sort:'-Id',
-        fields: 'Id,Mã tạm ứng,Tháng,Mã NV/đối tác,Tên NV,Ngày tạm ứng,Số tiền,Người duyệt,Ghi chú'
+        fields: 'Id,Mã tạm ứng,Tháng,Mã NV/đối tác,Tên NV,Ngày tạm ứng,Số tiền,Hình thức,Người duyệt,Ghi chú'
       })
       return NextResponse.json(r)
     }
@@ -141,6 +141,7 @@ export async function POST(req: NextRequest) {
         'Tên NV':        body.tenNV||'',
         'Loại thưởng':   body.loaiThuong||'Thưởng khác',
         'Số tiền':       Number(body.soTien||0),
+        'Hình thức':     body.hinhThuc||'Tiền mặt',
         'Lý do':         body.lyDo||'',
         'Người duyệt':   body.nguoiDuyet || session.hoTen || session.tenDangNhap,
         'Ngày thưởng':   body.ngayThuong || new Date().toISOString().split('T')[0],
@@ -157,9 +158,12 @@ export async function POST(req: NextRequest) {
         'Tên NV':        body.tenNV||'',
         'Ngày tạm ứng':  body.ngayTamUng || new Date().toISOString().split('T')[0],
         'Số tiền':       Number(body.soTien||0),
+        'Hình thức':     body.hinhThuc||'Tiền mặt',
         'Người duyệt':   body.nguoiDuyet || session.hoTen || session.tenDangNhap,
         'Ghi chú':       body.ghiChu||'',
       })
+      writeLog({maNV:session.maNV||'',tenNV:session.hoTen||'',hanhDong:'Tạm ứng',bang:'Tạm ứng NV',
+        maBanGhi:body.maNV||'',moTa:'Ghi tạm ứng: '+(body.tenNV||body.maNV||'')+' — '+(body.soTien||0)+'đ'})
       return NextResponse.json({ success:true, maTU, data:r })
     }
 
@@ -180,6 +184,8 @@ export async function POST(req: NextRequest) {
       'Trạng thái':       'Đang làm',
       'Ghi chú':          body['Ghi chú']||'',
     })
+    writeLog({maNV:session.maNV||'',tenNV:session.hoTen||'',hanhDong:'Tạo',bang:'Nhân viên',
+      maBanGhi:maNV,moTa:'Thêm NV/ĐT: '+(body['Họ và Tên']||maNV)})
     revalidatePath('/dashboard/nhan-vien')
     return NextResponse.json({ success:true, maNV, data:r })
   } catch(e:any) { return NextResponse.json({message:e.message},{status:500}) }
@@ -199,9 +205,13 @@ export async function PATCH(req: NextRequest) {
     }
     if (loai === 'tam-ung') {
       const r = await updateRecord(TABLES.TAM_UNG_NV, Number(id), data)
+      writeLog({maNV:session.maNV||'',tenNV:session.hoTen||'',hanhDong:'Sửa',bang:'Tạm ứng NV',
+        maBanGhi:String(id),moTa:'Sửa tạm ứng id='+id})
       return NextResponse.json({ success:true, data:r })
     }
     const r = await updateRecord(TABLES.NHAN_VIEN, Number(id), data)
+    writeLog({maNV:session.maNV||'',tenNV:session.hoTen||'',hanhDong:'Sửa',bang:'Nhân viên',
+      maBanGhi:String(id),moTa:'Sửa NV id='+id})
     revalidatePath('/dashboard/nhan-vien')
     return NextResponse.json({ success:true, data:r })
   } catch(e:any) { return NextResponse.json({message:e.message},{status:500}) }

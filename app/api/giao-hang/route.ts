@@ -1,7 +1,7 @@
 // app/api/giao-hang/route.ts -- v3.2
 // Fix: bảng 8 lưu Mã giao hàng = GH-xxx (giống bảng 7), không phải maChuyen
 import { NextRequest, NextResponse } from 'next/server'
-import { createRecord, getRecords, updateRecord, deleteRecord, TABLES } from '@/lib/nocodb'
+import { createRecord, getRecords, updateRecord, deleteRecord, TABLES, writeLog } from '@/lib/nocodb'
 import { getSession } from '@/lib/auth'
 
 export async function GET(request: NextRequest) {
@@ -152,6 +152,8 @@ export async function DELETE(request: NextRequest) {
       }
     }
 
+    writeLog({maNV:session.maNV||'',tenNV:session.hoTen||'',hanhDong:'Tạo',bang:'Giao hàng',
+      maBanGhi:'',moTa:'Tạo chuyến giao hàng'})
     return NextResponse.json({ success: true })
   } catch (error: any) {
     return NextResponse.json({ message: error.message }, { status: 500 })

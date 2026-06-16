@@ -1,7 +1,18 @@
 // app/api/cai-dat/route.ts
 import { NextRequest, NextResponse } from 'next/server'
-import { updateRecord, TABLES } from '@/lib/nocodb'
+import { getRecords, updateRecord, TABLES } from '@/lib/nocodb'
 import { getSession } from '@/lib/auth'
+
+export async function GET(req: NextRequest) {
+  try {
+    const data = await getRecords(TABLES.CAI_DAT, { limit: 1 })
+    const record = data.list?.[0] || null
+    if (!record) return NextResponse.json({ ok: false, data: null })
+    return NextResponse.json({ ok: true, data: record, id: record['Id']||record['id'] })
+  } catch (e: any) {
+    return NextResponse.json({ ok: false, message: e.message })
+  }
+}
 
 export async function PATCH(req: NextRequest) {
   try {

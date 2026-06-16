@@ -2,7 +2,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getRecords, TABLES } from '@/lib/nocodb'
 import { createToken, UserSession } from '@/lib/auth'
-import { DEFAULT_QUYEN } from '@/lib/quyen-config'
 
 async function hashPwd(password: string): Promise<string> {
   const encoder = new TextEncoder()
@@ -31,7 +30,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ message: 'Tên đăng nhập không tồn tại' }, { status: 401 })
     }
 
-    if (account['Trạng thái'] === 'Khóa') {
+    if (account['Trạng thái'] === 'Khoá') {
       return NextResponse.json({ message: 'Tài khoản đã bị khoá. Liên hệ chủ cửa hàng.' }, { status: 403 })
     }
 
@@ -58,12 +57,6 @@ export async function POST(request: NextRequest) {
       vaiTro:      account['Vai trò'] || 'Nhân viên',
       quyenHan:    account['Quyền hạn'] || '',
       telegramId:  account['Telegram ID'] || '',
-      quyen: (() => {
-        try {
-          const raw = account['Quyền'] || ''
-          return raw ? JSON.parse(raw) : { ...DEFAULT_QUYEN }
-        } catch { return { ...DEFAULT_QUYEN } }
-      })(),
     }
 
     const token = await createToken(user)

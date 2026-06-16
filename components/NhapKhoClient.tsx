@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 // components/NhapKhoClient.tsx
 import { useState, useMemo, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
@@ -33,8 +33,8 @@ function getTTColor(tt:string):{bg:string,c:string}{
 }
 const SO_DONG = 10
 
-export default function NhapKhoClient({nhapKhoList,nccList,sanPhamList,datHangList,danhMucList=[],user}:{
-  nhapKhoList:any[]; nccList:any[]; sanPhamList:any[]; datHangList:any[]; danhMucList:any[]; user:UserSession
+export default function NhapKhoClient({nhapKhoList,nccList,sanPhamList,datHangList,danhMucList=[],chuongTrinhList=[],user}:{
+  nhapKhoList:any[]; nccList:any[]; sanPhamList:any[]; datHangList:any[]; danhMucList:any[]; chuongTrinhList?:any[]; user:UserSession
 }) {
   const router = useRouter()
   const isOwner = user.vaiTro === 'Chủ cửa hàng'
@@ -163,6 +163,9 @@ export default function NhapKhoClient({nhapKhoList,nccList,sanPhamList,datHangLi
   const [showModal, setShowModal] = useState(false)
   const [editItem,  setEditItem]  = useState<any>(null)
   const [xoaItem,   setXoaItem]   = useState<any>(null)
+  const [confirmTraCP, setConfirmTraCP] = useState<any>(null)
+  const [ngayTraCP, setNgayTraCP] = useState(new Date().toISOString().split('T')[0])
+  const [hinhThucTraCP, setHinhThucTraCP] = useState<'Tiền mặt'|'Chuyển khoản'>('Tiền mặt')
   const [loading,   setLoading]   = useState(false)
   const [msgModal,  setMsgModal]  = useState('')
   const [msgModalOk,setMsgModalOk]= useState(true)
@@ -170,6 +173,7 @@ export default function NhapKhoClient({nhapKhoList,nccList,sanPhamList,datHangLi
   const [loaiNhap, setLoaiNhap] = useState<'truc-tiep'|'tu-don'>('truc-tiep')
 
   const [maNCC,     setMaNCC]     = useState('')
+  const [maCTChon,  setMaCTChon]  = useState('')
   const [tenNCC,    setTenNCC]    = useState('')
   const [ngayNhap,  setNgayNhap]  = useState(new Date().toISOString().split('T')[0])
   const [ghiChu,    setGhiChu]    = useState('')
@@ -179,6 +183,8 @@ export default function NhapKhoClient({nhapKhoList,nccList,sanPhamList,datHangLi
   const [slThucNhan, setSlThucNhan] = useState<number>(1)
   const [giaNhapNCC, setGiaNhapNCC] = useState<number>(0)
   const [cpvcKho,    setCpvcKho]    = useState<number>(0)
+  const [hinhThucCPVC, setHinhThucCPVC] = useState<'Tiền mặt'|'Chuyển khoản'>('Tiền mặt')
+  const [trangThaiCPVC, setTrangThaiCPVC] = useState<'Đã trả'|'Chưa trả'>('Đã trả')
   const [tinhTrang,  setTinhTrang]  = useState('Đủ')
   const [slLoi,      setSlLoi]      = useState<number>(0)
   const [slChoiPK,   setSlChoiPK]   = useState<number>(0)
@@ -247,8 +253,8 @@ export default function NhapKhoClient({nhapKhoList,nccList,sanPhamList,datHangLi
     const m:Record<string,number>={}
     for(const item of [...local].reverse()){
       const maSP=item['Mã SP']||''
-      const gia=Number(item['Giá nhập thực tế']||0)
-      if(maSP&&gia>0) m[maSP]=gia
+      const giaNCC=Number(item['Giá nhập thực tế']||0)
+      if(maSP&&giaNCC>0) m[maSP]=giaNCC
     }
     return m
   },[local])
@@ -291,6 +297,8 @@ export default function NhapKhoClient({nhapKhoList,nccList,sanPhamList,datHangLi
       sl:Number(d['Số lượng đặt']||0),
       giaNCC:Number(spMap[d['Mã SP']]?.['Giá nhập NCC']||d['Giá nhập dự kiến']||0),
       cpvc:Number(spMap[d['Mã SP']]?.['CPVC về kho']||0),
+      hinhThucCPVC:'Tiền mặt',
+      trangThaiCPVC:'Đã trả',
       tinhTrang:'Đủ',
       ghiChu:'',
       checked:true,
@@ -328,8 +336,8 @@ export default function NhapKhoClient({nhapKhoList,nccList,sanPhamList,datHangLi
     setNgayNhap(new Date().toISOString().split('T')[0])
     setGhiChu('')
     setMaSP('');setTenSP('');setQSP('');setDsSP([])
-    setSlThucNhan(1);setGiaNhapNCC(0);setCpvcKho(0);setTinhTrang('Đủ');setSlLoi(0);setSlChoiPK(0)
-    setMaDonChon('');setSpItems([])
+    setSlThucNhan(1);setGiaNhapNCC(0);setCpvcKho(0);setHinhThucCPVC('Tiền mặt');setTrangThaiCPVC('Đã trả');setTinhTrang('Đủ');setSlLoi(0);setSlChoiPK(0)
+    setMaDonChon('');setSpItems([]);setMaCTChon('')
     setShowNCC(false);setShowSP(false)
     setMsgModal('')
     setEditItem(null)
@@ -349,6 +357,8 @@ export default function NhapKhoClient({nhapKhoList,nccList,sanPhamList,datHangLi
             'Giá nhập thực tế':giaNhapNCC+cpvcKho,
             'Số lượng thực nhận':slThucNhan,
             'CP vận chuyển về kho':cpvcKho,
+            'Hình thức TT CP VC':cpvcKho>0?hinhThucCPVC:'',
+            'Trạng thái CP VC':cpvcKho>0?trangThaiCPVC:'',
             'Tình trạng hàng':tinhTrang,'Ghi chú':ghiChu,
           })})
         if(!res.ok)throw new Error((await res.json()).message)
@@ -367,8 +377,10 @@ export default function NhapKhoClient({nhapKhoList,nccList,sanPhamList,datHangLi
             : it.tinhTrang.startsWith('Thừa') ? 'Thừa'
             : it.tinhTrang
           const res=await fetch('/api/nhap-kho',{method:'POST',headers:{'Content-Type':'application/json'},
-            body:JSON.stringify({maNCC,maSP:it.maSP,maDatHang:maDonChon,ngayNhap,
+            body:JSON.stringify({maNCC,maSP:it.maSP,maDatHang:maDonChon,maCT:maCTChon||'',ngayNhap,
               slDat:it.slDat,slThucNhan:it.sl,giaNhapTT:it.giaNCC,cpVC:it.cpvc,
+              hinhThucCPVC:it.cpvc>0?(it.hinhThucCPVC||'Tiền mặt'):'',
+              trangThaiCPVC:it.cpvc>0?(it.trangThaiCPVC||'Đã trả'):'',
               tinhTrang:ttLuu,
               ghiChu:(it.ghiChu||ghiChu)+(it.tinhTrang.startsWith('Thiếu')||it.tinhTrang.startsWith('Thừa')?` [${it.tinhTrang}]`:''),
               nguoiNhap:user.hoTen||user.tenDangNhap})})
@@ -410,8 +422,10 @@ export default function NhapKhoClient({nhapKhoList,nccList,sanPhamList,datHangLi
         if(!allSP.length){showMsgM('Thêm ít nhất 1 sản phẩm',false);setLoading(false);return}
         const results2 = await Promise.all(allSP.map(async sp=>{
           const res=await fetch('/api/nhap-kho',{method:'POST',headers:{'Content-Type':'application/json'},
-            body:JSON.stringify({maNCC,maSP:sp.maSP,maDatHang:'',ngayNhap,slDat:0,
+            body:JSON.stringify({maNCC,maSP:sp.maSP,maDatHang:'',maCT:maCTChon||'',ngayNhap,slDat:0,
               slThucNhan:sp.slThucNhan,giaNhapTT:sp.giaNhapNCC,cpVC:sp.cpvcKho,
+              hinhThucCPVC:sp.cpvcKho>0?hinhThucCPVC:'',
+              trangThaiCPVC:sp.cpvcKho>0?trangThaiCPVC:'',
               slLoi:0,slChoiPK:0,tinhTrang:'Đủ',
               ghiChu:sp.ghiChu||ghiChu,nguoiNhap:user.hoTen||user.tenDangNhap})})
           const d=await res.json()
@@ -428,6 +442,23 @@ export default function NhapKhoClient({nhapKhoList,nccList,sanPhamList,datHangLi
       setShowModal(false);resetForm()
     }catch(e:any){showMsgM('❌ '+(e.message||'Lỗi'),false)}
     finally{setLoading(false)}
+  }
+
+  async function xacNhanTraCP(){
+    if(!confirmTraCP)return
+    try{
+      const res=await fetch('/api/nhap-kho',{method:'PATCH',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({id:Number(confirmTraCP['Id']||confirmTraCP['id']),
+          'Trạng thái CP VC':'Đã trả',
+          'Hình thức TT CP VC':hinhThucTraCP,
+          'Ngày trả CP VC':ngayTraCP,
+        })})
+      if(!res.ok)throw new Error((await res.json()).message)
+      setLocal(prev=>prev.map(d=>(d['Id']||d['id'])===(confirmTraCP['Id']||confirmTraCP['id'])
+        ?{...d,'Trạng thái CP VC':'Đã trả','Hình thức TT CP VC':hinhThucTraCP,'Ngày trả CP VC':ngayTraCP}:d))
+      showMsg2('✅ Đã ghi nhận thanh toán CP VC')
+      setConfirmTraCP(null)
+    }catch(e:any){showMsg2('❌ '+(e.message||'Lỗi'),false)}
   }
 
   async function xacNhanXoa(){
@@ -587,7 +618,7 @@ export default function NhapKhoClient({nhapKhoList,nccList,sanPhamList,datHangLi
         .nk-t th,.nk-t td{padding:8px 10px;vertical-align:middle;}
         .nk-t tbody tr:hover td{background:#F0F4FF!important;}
         .ov{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:200;display:flex;align-items:center;justify-content:center;padding:16px;overflow-y:auto;}
-        .mk{background:white;border-radius:12px;padding:28px;width:100%;max-width:860px;max-height:95vh;overflow-y:auto;}
+        .mk{background:white;border-radius:12px;padding:28px;width:100%;max-width:1150px;max-height:95vh;overflow-y:auto;}
         .mk2{background:white;border-radius:12px;padding:24px;width:100%;max-width:560px;max-height:90vh;overflow-y:auto;}
         .db{position:absolute;top:calc(100% + 2px);left:0;right:0;z-index:300;background:white;border:1px solid #E5E7EB;border-radius:8px;box-shadow:0 4px 20px rgba(0,0,0,.15);max-height:220px;overflow-y:auto;}
         .di{padding:9px 12px;cursor:pointer;border-bottom:1px solid #F3F4F6;font-size:13px;}
@@ -738,6 +769,10 @@ export default function NhapKhoClient({nhapKhoList,nccList,sanPhamList,datHangLi
                           style={{padding:'5px',borderRadius:'5px',border:'1px solid #D97706',background:'#FEF3C7',color:'#92400E',fontSize:'11px',cursor:'pointer',fontWeight:600,width:'100%'}}>⚙️ Xử lý</button>}
                         {(tt==='Đủ'||tt==='Đã xử lý')&&<button onClick={()=>{setPopupBaoCao(item);setBcSoLuong(1)}}
                           style={{padding:'5px',borderRadius:'5px',border:'1px solid #DC2626',background:'#FEF2F2',color:'#DC2626',fontSize:'11px',cursor:'pointer',fontWeight:600,width:'100%'}}>⚠️ Báo cáo vấn đề</button>}
+                        {Number(item['CP vận chuyển về kho']||0)>0&&item['Trạng thái CP VC']==='Chưa trả'&&(
+                          <button onClick={()=>{setConfirmTraCP(item);setNgayTraCP(new Date().toISOString().split('T')[0]);setHinhThucTraCP('Tiền mặt')}}
+                            style={{padding:'5px',borderRadius:'5px',border:'1px solid #7C3AED',background:'#F5F3FF',color:'#7C3AED',fontSize:'11px',cursor:'pointer',fontWeight:600,width:'100%'}}>💸 Trả CP VC</button>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -757,6 +792,45 @@ export default function NhapKhoClient({nhapKhoList,nccList,sanPhamList,datHangLi
           </div>
         )}
       </div>
+
+      {/* Modal xác nhận trả CP VC */}
+      {confirmTraCP&&(
+        <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.5)',zIndex:300,display:'flex',alignItems:'center',justifyContent:'center',padding:'16px'}}>
+          <div style={{background:'white',borderRadius:'12px',padding:'24px',width:'100%',maxWidth:'420px'}}>
+            <h2 style={{fontSize:'16px',fontWeight:700,margin:'0 0 16px'}}>💸 Xác nhận thanh toán CP vận chuyển</h2>
+            <div style={{background:'#F5F3FF',borderRadius:'8px',padding:'12px',marginBottom:'16px'}}>
+              <div style={{fontSize:'13px',color:'#6B7280'}}>Phiếu nhập: <strong>{confirmTraCP['Mã phiếu nhập']}</strong></div>
+              <div style={{fontSize:'13px',color:'#6B7280'}}>Sản phẩm: <strong>{confirmTraCP['Mã SP']}</strong></div>
+              <div style={{fontSize:'20px',fontWeight:800,color:'#7C3AED',marginTop:'6px'}}>{Number(confirmTraCP['CP vận chuyển về kho']||0).toLocaleString('vi-VN')}đ</div>
+            </div>
+            <div style={{display:'flex',flexDirection:'column',gap:'10px',marginBottom:'16px'}}>
+              <div>
+                <label style={{fontSize:'12px',fontWeight:600,display:'block',marginBottom:'4px'}}>📅 Ngày trả</label>
+                <input className="input" type="date" value={ngayTraCP} onChange={e=>setNgayTraCP(e.target.value)}/>
+              </div>
+              <div>
+                <label style={{fontSize:'12px',fontWeight:600,display:'block',marginBottom:'4px'}}>💳 Hình thức</label>
+                <div style={{display:'flex',gap:'8px'}}>
+                  {(['Tiền mặt','Chuyển khoản'] as const).map(ht=>(
+                    <button key={ht} onClick={()=>setHinhThucTraCP(ht)}
+                      style={{flex:1,padding:'8px',borderRadius:'7px',border:'2px solid',
+                        borderColor:hinhThucTraCP===ht?'#7C3AED':'var(--border)',
+                        background:hinhThucTraCP===ht?'#F5F3FF':'white',
+                        color:hinhThucTraCP===ht?'#7C3AED':'var(--text-secondary)',
+                        fontWeight:hinhThucTraCP===ht?700:400,fontSize:'13px',cursor:'pointer'}}>
+                      {ht==='Tiền mặt'?'💵 Tiền mặt':'🏦 Chuyển khoản'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+            <div style={{display:'flex',gap:'10px'}}>
+              <button onClick={()=>setConfirmTraCP(null)} style={{flex:1,padding:'10px',borderRadius:'8px',border:'1px solid var(--border)',background:'white',fontSize:'13px',cursor:'pointer'}}>Hủy</button>
+              <button onClick={xacNhanTraCP} style={{flex:1,padding:'10px',borderRadius:'8px',border:'none',background:'#7C3AED',color:'white',fontWeight:700,fontSize:'13px',cursor:'pointer'}}>✅ Xác nhận đã trả</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ══ MODAL TẠO/SỬA PHIẾU ══ */}
       {showModal&&(
@@ -794,6 +868,40 @@ export default function NhapKhoClient({nhapKhoList,nccList,sanPhamList,datHangLi
                 </div>
               </div>
             </div>
+            {!editItem&&maNCC&&(chuongTrinhList as any[]).filter((ct:any)=>ct['Mã NCC']===maNCC&&ct['Trạng thái']==='Đang tham gia').length>0&&(()=>{
+              const ctNCC=(chuongTrinhList as any[]).filter((ct:any)=>ct['Mã NCC']===maNCC&&ct['Trạng thái']==='Đang tham gia')
+              const ctDangChon=ctNCC.find((ct:any)=>ct['Mã CT']===maCTChon)
+              const daTL=Number(ctDangChon?.['Đã tích lũy']||0)
+              const mucTieu=Number(ctDangChon?.['Mục tiêu doanh số']||0)
+              const phanTram=mucTieu>0?Math.min(100,Math.round(daTL/mucTieu*100)):0
+              return (
+                <div style={{background:'#F5F3FF',borderRadius:'8px',padding:'12px 14px',marginBottom:'14px',border:'1px solid #DDD6FE'}}>
+                  <label className='lbl' style={{color:'#7C3AED'}}>🎁 Chương trình KM (tùy chọn)</label>
+                  <select className='input' value={maCTChon} onChange={e=>setMaCTChon(e.target.value)}>
+                    <option value=''>-- Không gán vào CT nào --</option>
+                    {ctNCC.filter((ct:any)=>ct['Trạng thái']!=='Huỷ'&&ct['Trạng thái']!=='Đã đạt').map((ct:any)=>(
+                      <option key={ct['Mã CT']} value={ct['Mã CT']}>{ct['Tên chương trình']} ({ct['Mã CT']})</option>
+                    ))}
+                  </select>
+                  {ctDangChon&&(
+                    <div style={{marginTop:'8px',fontSize:'12px'}}>
+                      {mucTieu>0&&(
+                        <div>
+                          <div style={{display:'flex',justifyContent:'space-between',marginBottom:'3px'}}>
+                            <span style={{color:'#6B7280'}}>Tích lũy: {(daTL/1000000).toFixed(1)}tr / {(mucTieu/1000000).toFixed(0)}tr</span>
+                            <span style={{fontWeight:700,color:'#7C3AED'}}>{phanTram}%</span>
+                          </div>
+                          <div style={{height:'6px',background:'#E5E7EB',borderRadius:'3px',overflow:'hidden'}}>
+                            <div style={{height:'100%',width:phanTram+'%',background:phanTram>=100?'#16A34A':'#8B5CF6',borderRadius:'3px'}}></div>
+                          </div>
+                        </div>
+                      )}
+                      {ctDangChon['Hạn giao hàng']&&<div style={{marginTop:'5px',color:'#D97706',fontWeight:600}}>🚚 Hạn giao hàng: {(ctDangChon['Hạn giao hàng']||'').split('T')[0].split('-').reverse().join('/')}</div>}
+                    </div>
+                  )}
+                </div>
+              )
+            })()}
             {loaiNhap==='tu-don'&&!editItem&&(
               <div style={{background:'#F8FAFC',borderRadius:'8px',padding:'14px',marginBottom:'14px',border:'1px solid #E5E7EB'}}>
                 <label className="lbl">Chọn đơn đặt hàng NCC *</label>
@@ -820,24 +928,45 @@ export default function NhapKhoClient({nhapKhoList,nccList,sanPhamList,datHangLi
                 </select>
                 {spItems.length>0&&(
                   <>
-                    <div style={{display:'grid',gridTemplateColumns:'24px 2fr 70px 70px 110px 100px 110px 1fr',gap:'6px',padding:'4px 6px',fontSize:'11px',color:'#6B7280',fontWeight:600}}>
-                      <div></div><div>Sản phẩm</div><div style={{textAlign:'center'}}>SL đặt</div><div style={{textAlign:'center'}}>SL nhận</div><div>Giá nhập (đ)</div><div>Tình trạng</div><div>Thành tiền</div><div>Ghi chú</div>
+                    <div style={{display:'grid',gridTemplateColumns:'24px 2.5fr 60px 65px 110px 95px 105px 90px 90px 80px',gap:'6px',padding:'4px 6px',fontSize:'11px',color:'#6B7280',fontWeight:600}}>
+                      <div></div>
+                      <div>Sản phẩm</div>
+                      <div style={{textAlign:'center'}}>SL đặt</div>
+                      <div style={{textAlign:'center'}}>SL nhận</div>
+                      <div>Giá nhập (đ)</div>
+                      <div style={{textAlign:'right'}}>CP VC (đ)</div>
+                      <div>Hình thức</div>
+                      <div>TT thanh toán</div>
+                      <div>Thành tiền</div>
+                      <div>Tình trạng</div>
                     </div>
                     {spItems.map((it,i)=>(
-                      <div key={i} style={{display:'grid',gridTemplateColumns:'24px 2fr 70px 70px 110px 100px 110px 1fr',gap:'6px',padding:'6px',borderTop:'1px solid #E5E7EB',alignItems:'center'}}>
+                      <div key={i} style={{display:'grid',gridTemplateColumns:'24px 2.5fr 60px 65px 110px 95px 105px 90px 90px 80px',gap:'6px',padding:'6px',borderTop:'1px solid #E5E7EB',alignItems:'center'}}>
                         <input type="checkbox" checked={it.checked} onChange={e=>updItem(i,'checked',e.target.checked)} style={{width:'16px',height:'16px',accentColor:'var(--primary)'}}/>
-                        <div><div style={{fontWeight:600,fontSize:'12px'}}>{it.tenSP}</div><div style={{fontSize:'10px',color:'#6B7280'}}>{it.maSP} · {it.donVi}</div></div>
+                        <div>
+                          <div style={{fontWeight:600,fontSize:'12px'}}>{it.tenSP}</div>
+                          <div style={{fontSize:'10px',color:'#6B7280'}}>{it.maSP} · {it.donVi}</div>
+                        </div>
                         <div style={{textAlign:'center',fontSize:'12px',color:'#6B7280'}}>{it.slDat}</div>
                         <input type="number" min="0" value={it.sl===0?'0':it.sl||''} disabled={!it.checked}
                           onChange={e=>updItem(i,'sl',e.target.value===''?0:Number(e.target.value))}
                           style={{padding:'4px 6px',border:'1px solid var(--border)',borderRadius:'5px',fontSize:'12px',textAlign:'center',width:'100%',opacity:it.checked?1:0.5}}/>
                         <MoneyInput value={Number(it.giaNCC)||0} onChange={v=>updItem(i,'giaNCC',v)}
                           style={{padding:'4px 6px',border:'1px solid var(--border)',borderRadius:'5px',fontSize:'12px',width:'100%',opacity:it.checked?1:0.5}}/>
-                        <div style={{padding:'4px 6px',borderRadius:'5px',fontSize:'11px',fontWeight:700,background:getTTColor(it.tinhTrang).bg,color:getTTColor(it.tinhTrang).c,textAlign:'center',opacity:it.checked?1:0.5,border:'1px solid '+getTTColor(it.tinhTrang).c}}>{it.tinhTrang||'Đủ'}</div>
+                        <MoneyInput value={Number(it.cpvc)||0} onChange={v=>updItem(i,'cpvc',v)}
+                          style={{padding:'4px 6px',border:'1px solid var(--border)',borderRadius:'5px',fontSize:'12px',width:'100%',opacity:it.checked?1:0.5}}/>
+                        <select disabled={!it.checked||!it.cpvc} value={it.hinhThucCPVC||'Tiền mặt'} onChange={e=>updItem(i,'hinhThucCPVC',e.target.value)}
+                          style={{padding:'4px 4px',border:'1px solid var(--border)',borderRadius:'5px',fontSize:'11px',width:'100%',opacity:(it.checked&&it.cpvc>0)?1:0.3}}>
+                          <option>Tiền mặt</option>
+                          <option>Chuyển khoản</option>
+                        </select>
+                        <select disabled={!it.checked||!it.cpvc} value={it.trangThaiCPVC||'Đã trả'} onChange={e=>updItem(i,'trangThaiCPVC',e.target.value)}
+                          style={{padding:'4px 4px',border:'1px solid var(--border)',borderRadius:'5px',fontSize:'11px',width:'100%',opacity:(it.checked&&it.cpvc>0)?1:0.3}}>
+                          <option>Đã trả</option>
+                          <option>Chưa trả</option>
+                        </select>
                         <div style={{fontSize:'12px',fontWeight:600,color:'var(--primary)'}}>{fVND(it.sl*(it.giaNCC+it.cpvc))}đ</div>
-                        <input type="text" value={it.ghiChu} disabled={!it.checked} placeholder="Ghi chú..."
-                          onChange={e=>updItem(i,'ghiChu',e.target.value)}
-                          style={{padding:'4px 6px',border:'1px solid var(--border)',borderRadius:'5px',fontSize:'11px',width:'100%',opacity:it.checked?1:0.5}}/>
+                        <div style={{padding:'3px 4px',borderRadius:'5px',fontSize:'10px',fontWeight:700,background:getTTColor(it.tinhTrang).bg,color:getTTColor(it.tinhTrang).c,textAlign:'center',opacity:it.checked?1:0.5,border:'1px solid '+getTTColor(it.tinhTrang).c}}>{it.tinhTrang||'Đủ'}</div>
                       </div>
                     ))}
                     <div style={{marginTop:'8px',padding:'8px 12px',background:'#EFF6FF',borderRadius:'6px',display:'flex',justifyContent:'space-between',fontSize:'12px'}}>
@@ -904,6 +1033,18 @@ export default function NhapKhoClient({nhapKhoList,nccList,sanPhamList,datHangLi
                   <div>
                     <label className="lbl">🚚 CPVC về kho (đ)</label>
                     <MoneyInput value={cpvcKho} onChange={setCpvcKho}/>
+                    {cpvcKho>0&&<div style={{display:'flex',gap:'6px',marginTop:'6px'}}>
+                      <select className="input" value={hinhThucCPVC} onChange={e=>setHinhThucCPVC(e.target.value as any)}
+                        style={{flex:1,fontSize:'12px'}}>
+                        <option>Tiền mặt</option>
+                        <option>Chuyển khoản</option>
+                      </select>
+                      <select className="input" value={trangThaiCPVC} onChange={e=>setTrangThaiCPVC(e.target.value as any)}
+                        style={{flex:1,fontSize:'12px'}}>
+                        <option>Đã trả</option>
+                        <option>Chưa trả</option>
+                      </select>
+                    </div>}
                   </div>
                   <div style={{display:'flex',flexDirection:'column',justifyContent:'flex-start'}}>
                     <label className="lbl" style={{visibility:'hidden'}}>_</label>

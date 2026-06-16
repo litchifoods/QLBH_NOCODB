@@ -1,6 +1,6 @@
 // app/api/san-pham/route.ts
 import { NextRequest, NextResponse } from 'next/server'
-import { createRecord, getRecords, updateRecord, deleteRecord, TABLES } from '@/lib/nocodb'
+import { createRecord, getRecords, updateRecord, deleteRecord, TABLES, writeLog } from '@/lib/nocodb'
 import { getSession } from '@/lib/auth'
 
 async function taoMaSPMoi(): Promise<string> {
@@ -63,6 +63,8 @@ export async function PATCH(request: NextRequest) {
     const { id, ...data } = body
     if (!id) return NextResponse.json({message:'Thiếu id'},{status:400})
     const result = await updateRecord(TABLES.SAN_PHAM, id, data)
+    writeLog({maNV:session.maNV||'',tenNV:session.hoTen||'',hanhDong:'Sửa',bang:'Sản phẩm',
+      maBanGhi:String(id),moTa:'Sửa sản phẩm id='+id})
     return NextResponse.json({ success:true, data:result })
   } catch(e:any) { return NextResponse.json({message:e.message},{status:500}) }
 }
@@ -88,6 +90,8 @@ export async function DELETE(request: NextRequest) {
     }
 
     await deleteRecord(TABLES.SAN_PHAM, Number(id))
+    writeLog({maNV:session.maNV||'',tenNV:session.hoTen||'',hanhDong:'Xóa',bang:'Sản phẩm',
+      maBanGhi:maSP||String(id),moTa:'Xóa sản phẩm: '+(maSP||id)})
     return NextResponse.json({ success:true })
   } catch(e:any) { return NextResponse.json({message:e.message},{status:500}) }
 }

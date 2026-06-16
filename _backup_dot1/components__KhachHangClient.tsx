@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 // components/KhachHangClient.tsx — v7.0
 // Popup thu nợ: to hơn, thêm tab Lịch sử mua + Lịch sử trả
 
@@ -25,7 +25,7 @@ function fDate(s: string) {
   try { const d = new Date(s); return d.toLocaleDateString('vi-VN') } catch { return s }
 }
 
-const LOAI    = ['Tất cả','Cá nhân','Cơ quan','Công ty','Khách còn nợ','CH nợ KH']
+const LOAI    = ['Tất cả','Cá nhân','Cơ quan','Công ty','Khách còn nợ']
 const SO_DONG = 10
 
 export default function KhachHangClient({ khachHang, donHuyCanHoan, congNoMap, donHangTheoKH, tatCaDonTheoKH, user }: {
@@ -97,7 +97,6 @@ export default function KhachHangClient({ khachHang, donHuyCanHoan, congNoMap, d
 
   const filtered = useMemo(() => localKH.filter((kh:any) => {
     if (filterLoai === 'Khách còn nợ') return (congNoMap[kh['Mã KH']]||0) > 0
-    if (filterLoai === 'CH nợ KH') return !!(donHuyCanHoan[kh['Mã KH']]?.tinhTrang==='Chờ hoàn')
     if (filterLoai !== 'Tất cả' && kh['Đối tượng khách hàng'] !== filterLoai) return false
     if (!search.trim()) return true
     const q = boDau(search)
@@ -220,17 +219,6 @@ export default function KhachHangClient({ khachHang, donHuyCanHoan, congNoMap, d
         method: 'PATCH', headers: {'Content-Type':'application/json'},
         body: JSON.stringify({ id: donNoChon['Id']||donNoChon['id'], 'Còn phải thu': conMoi }),
       })
-      // Ghi lịch sử thu nợ vào sổ Thu chi (bảng 14) — mỗi hình thức 1 dòng
-      const ngayThuNo = new Date().toISOString().split('T')[0]
-      const ghiThuNo = async (soTien:number, hinhThuc:string) => {
-        if (!soTien || soTien<=0) return
-        await fetch('/api/chi-phi', { method:'POST', headers:{'Content-Type':'application/json'},
-          body: JSON.stringify({ ngayPhatSinh: ngayThuNo, loaiGiaoDich:'Thu', loaiThu:'Thu nợ KH',
-            noiDung:'Thu nợ '+(popupNoKH?.['Tên khách hàng']||'')+' — đơn '+(donNoChon['Mã đơn hàng']||''),
-            soTien, hinhThuc, trangThai:'Đã thanh toán', maDonHang: donNoChon['Mã đơn hàng']||'' }) })
-      }
-      await ghiThuNo(tienMatThu||0, 'Tiền mặt')
-      await ghiThuNo(ckThu||0, 'Chuyển khoản')
       setMsgModal(`✅ Đã thu ${tongThu.toLocaleString('vi-VN')}đ từ ${popupNoKH['Tên khách hàng']}`); setMsgModalOk(true); setTimeout(()=>setMsgModal(''),5000)
       setPopupNoKH(null); setDonNoChon(null); setTienMatThu(0); setCkThu(0)
       window.location.reload()
@@ -250,13 +238,13 @@ export default function KhachHangClient({ khachHang, donHuyCanHoan, congNoMap, d
       if (donHuy) {
         await fetch('/api/don-hang', {
           method:'PATCH', headers:{'Content-Type':'application/json'},
-          body: JSON.stringify({ id: donHuy['Id']||donHuy['id'], 'Tình trạng hoàn cọc':'Đã hoàn', 'Hình thức hoàn cọc': hinhThucHoan, 'Ngày hoàn cọc': new Date().toISOString().split('T')[0] }),
+          body: JSON.stringify({ id: donHuy['Id']||donHuy['id'], 'Tình trạng hoàn cọc':'Đã hoàn', 'Hình thức hoàn cọc': hinhThucHoan }),
         })
       }
             if (!donHuy && donAm) {
         await fetch('/api/don-hang', {
           method:'PATCH', headers:{'Content-Type':'application/json'},
-          body: JSON.stringify({ id: donAm['Id']||donAm['id'], 'Còn phải thu': 0, 'Tình trạng hoàn cọc': 'Đã hoàn', 'Hình thức hoàn cọc': hinhThucHoan, 'Ngày hoàn cọc': new Date().toISOString().split('T')[0] }),
+          body: JSON.stringify({ id: donAm['Id']||donAm['id'], 'Còn phải thu': 0, 'Tình trạng hoàn cọc': 'Đã hoàn', 'Hình thức hoàn cọc': hinhThucHoan }),
         })
       }
       showMsg(`✅ Đã hoàn ${hoan?.tienHoan.toLocaleString('vi-VN')}đ cho ${popupHoanKH['Tên khách hàng']}`, true)

@@ -29,7 +29,7 @@ function badgeColor(tt: string) {
 }
 
 const TRANG_THAI = ['Tất cả','Chờ giao','Đang giao 1 phần','Đang giao','Đã giao 1 phần','Đã giao','Hoàn thành','Huỷ']
-const KENH       = ['Tất cả','Trực tiếp','Zalo','Facebook','Điện thoại','Online']
+const KENH       = ['Tất cả','Trực tiếp','Online']
 const SO_TRANG   = 10
 
 export default function DonHangClient({
@@ -113,9 +113,10 @@ export default function DonHangClient({
   const tongTrang      = Math.max(1, Math.ceil(filtered.length / SO_TRANG))
   const trangHienTai   = Math.min(trang, tongTrang)
   const danhSachTrang  = filtered.slice((trangHienTai-1)*SO_TRANG, trangHienTai*SO_TRANG)
-  const tongTien    = filtered.reduce((s:number,d:any)=>s+Number(d['Tổng tiền đơn']||0)+Number(d['CP giao hàng']||0),0)
-  const tongDaThu   = filtered.reduce((s:number,d:any)=>s+Number(d['Đặt cọc']||0)+Number(thuKHMap[d['Mã đơn hàng']]||0),0)
-  const tongConNo   = filtered.reduce((s:number,d:any)=>{const doanhThu=Number(d['Tổng tiền đơn']||0)+Number(d['CP giao hàng']||0);const daThu=Number(d['Đặt cọc']||0)+Number(thuKHMap[d['Mã đơn hàng']]||0);return s+Math.max(0,doanhThu-daThu)},0)
+  const filteredKhongHuy = filtered.filter((d:any)=>!['Huỷ','Hủy'].includes(d['Trạng thái']))
+  const tongTien    = filteredKhongHuy.reduce((s:number,d:any)=>s+Number(d['Tổng tiền đơn']||0)+Number(d['CP giao hàng']||0),0)
+  const tongDaThu   = filteredKhongHuy.reduce((s:number,d:any)=>s+Number(d['Đặt cọc']||0)+Number(thuKHMap[d['Mã đơn hàng']]||0),0)
+  const tongConNo   = filteredKhongHuy.reduce((s:number,d:any)=>{const doanhThu=Number(d['Tổng tiền đơn']||0)+Number(d['CP giao hàng']||0);const daThu=Number(d['Đặt cọc']||0)+Number(thuKHMap[d['Mã đơn hàng']]||0);return s+Math.max(0,doanhThu-daThu)},0)
 
   async function handleNhap(rows: Record<string,string>[]) {
     const res = await fetch('/api/import/don-hang', {
@@ -306,7 +307,7 @@ export default function DonHangClient({
                 const tenKH  = getTenKH(don)
                 const diaChi = getDiaChiGiao(don)
                 const maKH   = don['Mã KH'] || ''
-                const isHuy  = tt === 'Huỷ' || tt === 'Hủy'
+                const isHuy  = tt === 'Huỷ' || tt === 'Hủy'  // đã đúng
                 return (
                   <tr key={don['Mã đơn hàng']||i} style={{ borderBottom:'1px solid #F0F0F0', background:isHuy?'#FFF5F5':i%2===0?'white':'#FAFBFD', opacity:isHuy?0.6:1 }}>
                     <td>

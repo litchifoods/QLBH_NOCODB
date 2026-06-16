@@ -1,6 +1,6 @@
 // app/api/khach-hang/route.ts — v5.0
 import { NextRequest, NextResponse } from 'next/server'
-import { createRecord, getRecords, updateRecord, deleteRecord, TABLES } from '@/lib/nocodb'
+import { createRecord, getRecords, updateRecord, deleteRecord, TABLES, writeLog } from '@/lib/nocodb'
 import { getSession } from '@/lib/auth'
 
 async function taoMaKHMoi(): Promise<string> {
@@ -88,6 +88,8 @@ export async function PATCH(request: NextRequest) {
     if (!id) return NextResponse.json({ message: 'Thiếu id' }, { status: 400 })
 
     const result = await updateRecord(TABLES.KHACH_HANG, Number(id), upd)
+    writeLog({maNV:session.maNV||'',tenNV:session.hoTen||'',hanhDong:'Sửa',bang:'Khách hàng',
+      maBanGhi:String(id),moTa:'Sửa KH: '+(upd['Tên khách hàng']||String(id))})
     return NextResponse.json({ success: true, data: result })
   } catch (error: any) {
     return NextResponse.json({ message: error.message }, { status: 500 })

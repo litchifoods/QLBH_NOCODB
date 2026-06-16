@@ -38,6 +38,7 @@ export const TABLES = {
   THUONG_KHAC:    '13c_Thưởng khác',
   DANH_MUC:       'CaiDat_DanhMuc',
   CAI_DAT:        'CaiDat',
+  NHAT_KY:        '18_Nhật ký thao tác',
 }
 
 let tableCache: Record<string, string> = {}
@@ -124,6 +125,43 @@ export async function deleteRecord(tableName: string, rowId: number) {
     )
     return res.ok
   } catch { return false }
+}
+
+// ── WRITE LOG ──────────────────────────────────────────────────────────────
+export interface LogParams {
+  maNV:      string
+  tenNV:     string
+  hanhDong:  string   // 'Tạo' | 'Sửa' | 'Xóa' | 'Hủy' | 'Duyệt' | 'Nộp tiền' | ...
+  bang:      string   // Tên bảng bị tác động
+  maBanGhi:  string   // Mã đơn, mã CP, ...
+  moTa:      string   // Diễn giải ngắn gọn
+  duLieuCu?: any      // Object trước khi sửa
+  duLieuMoi?: any     // Object sau khi sửa
+}
+export async function writeLog(params: LogParams): Promise<void> {
+  try {
+    const now = new Date()
+    const pad = (n:number) => String(n).padStart(2,'0')
+    const maLog = 'LOG-' + now.getFullYear().toString().slice(2)
+      + pad(now.getMonth()+1) + pad(now.getDate())
+      + pad(now.getHours()) + pad(now.getMinutes()) + pad(now.getSeconds())
+      + '-' + Math.floor(Math.random()*9000+1000)
+    await createRecord(TABLES.NHAT_KY, {
+      'Mã log':       maLog,
+      'Thời gian':    now.toISOString(),
+      'Mã NV':        params.maNV,
+      'Tên NV':       params.tenNV,
+      'Hành động':    params.hanhDong,
+      'Bảng':         params.bang,
+      'Mã bản ghi':   params.maBanGhi,
+      'Mô tả':        params.moTa,
+      'Dữ liệu cũ':   params.duLieuCu  ? JSON.stringify(params.duLieuCu)  : '',
+      'Dữ liệu mới':  params.duLieuMoi ? JSON.stringify(params.duLieuMoi) : '',
+    })
+  } catch(e) {
+    console.error('[writeLog] Lỗi ghi log:', e)
+    // Không throw — lỗi log không được ảnh hưởng response
+  }
 }
 
 

@@ -3,10 +3,9 @@ export const dynamic = 'force-dynamic'
 import { getRecords, TABLES } from '@/lib/nocodb'
 import { getSession } from '@/lib/auth'
 import NhaCungCapClient from '@/components/NhaCungCapClient'
-
 export default async function NhaCungCapPage() {
   const session = await getSession()
-  const [nccResult, ttResult, nhapKhoResult] = await Promise.all([
+  const [nccResult, ttResult, nhapKhoResult, ctResult, ctctResult] = await Promise.all([
     getRecords(TABLES.NHA_CUNG_CAP, {
       limit: 200, sort: '-Id',
       fields: 'Id,Mã NCC,Tên NCC,Số điện thoại,Địa chỉ,Số TK ngân hàng,Công nợ NCC,Ghi chú'
@@ -17,14 +16,18 @@ export default async function NhaCungCapPage() {
     }),
     getRecords(TABLES.NHAP_KHO, {
       limit: 1000, sort: '-Id',
-      fields: 'Id,Mã phiếu nhập,Ngày nhập,Mã NCC,Mã SP,Số lượng thực nhận,Giá nhập thực tế,CP vận chuyển về kho,Tổng tiền hàng'
+      fields: 'Id,Mã phiếu nhập,Ngày nhập,Mã NCC,Mã SP,Mã CT,Số lượng thực nhận,Giá nhập thực tế,CP vận chuyển về kho,Tổng tiền hàng'
     }),
+    getRecords('19_Chương trình NCC', { limit: 500, sort: '-Id' }),
+    getRecords('20_Chi tiết CT NCC', { limit: 2000, sort: '-Id' }),
   ])
   return (
     <NhaCungCapClient
       nccList={nccResult.list||[]}
       ttList={ttResult.list||[]}
       nhapKhoList={nhapKhoResult.list||[]}
+      ctList={ctResult.list||[]}
+      chiTietCTList={ctctResult.list||[]}
       user={session!}
     />
   )

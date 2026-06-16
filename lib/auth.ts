@@ -1,6 +1,7 @@
 // lib/auth.ts - Xác thực và phân quyền
 
 import { SignJWT, jwtVerify } from 'jose'
+import { DEFAULT_QUYEN } from '@/lib/quyen-config'
 import { cookies } from 'next/headers'
 
 const SECRET = new TextEncoder().encode(
@@ -15,6 +16,7 @@ export interface UserSession {
   vaiTro: 'Chủ cửa hàng' | 'Nhân viên'
   quyenHan: string
   telegramId: string
+  quyen: Record<string, boolean>
 }
 
 // Tạo JWT token
@@ -50,7 +52,7 @@ export function hasPermission(
   permission: string
 ): boolean {
   if (user.vaiTro === 'Chủ cửa hàng') return true
-  return user.quyenHan.includes(permission)
+  return user.quyen?.[permission] === true
 }
 
 // Mã hoá mật khẩu (dùng bcrypt-like với Web Crypto)

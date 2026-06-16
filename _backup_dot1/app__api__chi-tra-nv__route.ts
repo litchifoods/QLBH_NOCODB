@@ -52,7 +52,7 @@ export async function PATCH(req: NextRequest) {
 
     // Nếu là cập nhật bảng đối soát (đánh dấu đã chi trả)
     if (table === 'doi-soat') {
-      const updateData: any = { 'Đã chi trả': true, 'Ghi chú': ghiChu||'', 'Ngày chi trả': body.ngayChi||new Date().toISOString().split('T')[0], 'Hình thức thanh toán': hinhThucTT||'Tiền mặt' }
+      const updateData: any = { 'Đã chi trả': true, 'Ghi chú': ghiChu||'', 'Ngày chi trả': body.ngayChi||new Date().toISOString().split('T')[0] }
       if (body.cpVC !== undefined) updateData['Chi phí VC'] = Number(body.cpVC||0)
       if (body.cpLap !== undefined) updateData['Chi phí lắp đặt'] = Number(body.cpLap||0)
       if (body.thuong !== undefined) updateData['Thưởng chuyến'] = Number(body.thuong||0)

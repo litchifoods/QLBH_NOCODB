@@ -1,5 +1,5 @@
 ﻿import { NextRequest, NextResponse } from 'next/server'
-import { createRecord, getRecords, updateRecord, deleteRecord, TABLES } from '@/lib/nocodb'
+import { createRecord, getRecords, updateRecord, deleteRecord, TABLES, writeLog } from '@/lib/nocodb'
 import { getSession } from '@/lib/auth'
 import { revalidatePath } from 'next/cache'
 
@@ -44,6 +44,10 @@ export async function POST(req: NextRequest) {
       'Loại thu':              body.loaiThu || '',
       'Mã đơn hàng':           body.maDonHang || '',
     })
+    writeLog({maNV:session.maNV||'',tenNV:session.hoTen||'',
+      hanhDong:body.loaiGiaoDich==='Thu'?'Tạo khoản thu':'Tạo chi phí',
+      bang:'Thu chi',maBanGhi:maCPMoi,
+      moTa:(body.loaiGiaoDich==='Thu'?'Thu: ':'Chi: ')+(body.noiDung||body.loaiThu||body.loaiChiPhi||'')+' — '+(body.soTien||0)+'đ'})
     revalidatePath('/dashboard/chi-phi')
     return NextResponse.json({ success: true, data: record })
   } catch (e: any) {
@@ -58,6 +62,8 @@ export async function PATCH(req: NextRequest) {
     const body = await req.json()
     const { id, ...data } = body
     const record = await updateRecord(TABLES.CHI_PHI, Number(id), data)
+    writeLog({maNV:session.maNV||'',tenNV:session.hoTen||'',hanhDong:'Sửa',bang:'Thu chi',
+      maBanGhi:String(id),moTa:'Sửa thu/chi id='+id})
     revalidatePath('/dashboard/chi-phi')
     return NextResponse.json({ success: true, data: record })
   } catch (e: any) {
@@ -74,6 +80,7 @@ export async function DELETE(req: NextRequest) {
     const id = searchParams.get('id')
     if (!id) return NextResponse.json({ message: 'Thiếu id' }, { status: 400 })
     await deleteRecord(TABLES.CHI_PHI, Number(id))
+    writeLog({maNV:session.maNV||'',tenNV:session.hoTen||'',hanhDong:'Xóa',bang:'Thu chi',maBanGhi:id,moTa:'Xóa khoản thu/chi'})
     revalidatePath('/dashboard/chi-phi')
     return NextResponse.json({ success: true })
   } catch (e: any) {

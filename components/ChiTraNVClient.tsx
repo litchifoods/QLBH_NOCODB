@@ -271,7 +271,7 @@ export default function ChiTraNVClient({
                 <thead>
                   <tr style={{background:'#F0F4FF',borderBottom:'2px solid var(--border)'}}>
                     <th style={{textAlign:'left',fontWeight:700}}>Đối tác</th>
-                    <th style={{textAlign:'left',fontWeight:700,whiteSpace:'nowrap'}}>Mã đối soát</th>
+                    <th style={{textAlign:'left',fontWeight:700,whiteSpace:'nowrap'}}>Mã đơn hàng</th>
                     <th style={{textAlign:'left',fontWeight:700}}>Tên KH</th>
                     <th style={{textAlign:'left',fontWeight:700}}>Địa chỉ</th>
                     <th style={{textAlign:'left',fontWeight:700,whiteSpace:'nowrap'}}>Ngày đối soát</th>
@@ -292,18 +292,13 @@ export default function ChiTraNVClient({
                           <div style={{fontWeight:700,fontSize:'13px'}}>{c.dtInfo?.['Họ và Tên']||c.maNV}</div>
                           <div style={{fontSize:'11px',color:'#6B7280'}}>{c.maNV}</div>
                         </td>
-                        <td>
-                          <button onClick={()=>setPopupDS(c)} title={c.ds['Mã đối soát']||''}
-                            style={{background:'#EFF6FF',border:'1px solid #BFDBFE',borderRadius:'6px',padding:'4px 8px',cursor:'pointer',color:'var(--primary)',fontWeight:700,fontSize:'11px',whiteSpace:'nowrap'}}>
-                            {(c.ds['Mã đối soát']||'').slice(0,2)}...{(c.ds['Mã đối soát']||'').slice(-4)}
-                          </button>
-                        </td>
+                        <td style={{fontWeight:700,color:'var(--primary)',fontSize:'12px',whiteSpace:'nowrap'}}>{c.maDon||'—'}</td>
                         <td style={{fontSize:'12px',fontWeight:600,maxWidth:'130px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{c.tenKH}</td>
                         <td style={{fontSize:'11px',color:'#6B7280',maxWidth:'150px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{c.diaChi}</td>
                         <td style={{fontSize:'12px',color:'#6B7280',whiteSpace:'nowrap'}}>{fDate(c.ds['Ngày đối soát'])}</td>
                         <td style={{textAlign:'right',fontWeight:800,fontSize:'13px',color:'#7C3AED',whiteSpace:'nowrap'}}>{fVND(c.tong)}đ</td>
                         <td style={{fontSize:'12px',color:'#16A34A',whiteSpace:'nowrap',fontWeight:600}}>
-                          {daChiTra&&c.ds['Ngày chi trả']?fDate(c.ds['Ngày chi trả']):<span style={{color:'#D1D5DB'}}>—</span>}
+                          {daChiTra?(c.ds['Ngày chi trả']?fDate(c.ds['Ngày chi trả']):fDate(c.ds['Ngày đối soát'])||'—'):<span style={{color:'#D1D5DB'}}>—</span>}
                         </td>
                         <td style={{textAlign:'center'}}>
                           {daChiTra

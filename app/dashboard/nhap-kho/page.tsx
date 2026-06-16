@@ -6,7 +6,7 @@ import NhapKhoClient from '@/components/NhapKhoClient'
 
 export default async function NhapKhoPage() {
   const session = await getSession()
-  const [nhapKho, ncc, sanPham, datHangNCC, danhMuc] = await Promise.all([
+  const [nhapKho, ncc, sanPham, datHangNCC, danhMuc, chuongTrinhNCC] = await Promise.all([
     getRecords(TABLES.NHAP_KHO, {
       limit: 500, sort: '-Id',
       fields: 'Id,Mã phiếu nhập,Ngày nhập,Mã đặt hàng,Mã NCC,Mã SP,Số lượng đặt,Giá nhập thực tế,Số lượng thực nhận,Tổng tiền hàng,CP vận chuyển về kho,Tình trạng hàng,Ghi chú,Người nhập',
@@ -15,7 +15,7 @@ export default async function NhapKhoPage() {
       limit: 200, fields: 'Id,Mã NCC,Tên NCC,Số điện thoại,Địa chỉ,Số TK ngân hàng',
     }),
     getRecords(TABLES.SAN_PHAM, {
-      limit: 500, fields: 'Id,Mã SP,Tên sản phẩm,Đơn vị tính,Giá bán buôn,Tồn kho',
+      limit: 500, fields: 'Id,Mã SP,Tên sản phẩm,Đơn vị tính,Giá nhập NCC,CPVC về kho,Giá bán buôn,Tồn kho',
     }),
     getRecords(TABLES.DAT_HANG_NCC, {
       limit: 500, sort: '-Id',
@@ -23,6 +23,10 @@ export default async function NhapKhoPage() {
     }),
     getRecords(TABLES.DANH_MUC, {
       limit: 200, sort: 'Thứ tự', fields: 'Id,Tên danh mục,Thứ tự',
+    }),
+    getRecords('19_Chương trình NCC', {
+      limit: 500, sort: '-Id',
+      fields: 'Id,Mã CT,Mã NCC,Tên NCC,Tên chương trình,Loại CT,Mục tiêu doanh số,Đã tích lũy,Số tiền cọc yêu cầu,Tiền đã cọc,Trạng thái,Ngày bắt đầu,Ngày kết thúc,Hạn giao hàng',
     }),
   ])
   return (
@@ -32,6 +36,7 @@ export default async function NhapKhoPage() {
       sanPhamList={sanPham.list||[]}
       datHangList={datHangNCC.list||[]}
       danhMucList={danhMuc.list||[]}
+      chuongTrinhList={chuongTrinhNCC.list||[]}
       user={session!}
     />
   )

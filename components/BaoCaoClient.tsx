@@ -1,12 +1,29 @@
-﻿'use client'
+'use client'
 import { useState, useMemo } from 'react'
 import { UserSession } from '@/lib/auth'
 
+function Tt({label,tip,color}:{label:string,tip:string,color?:string}){
+  return (
+    <span className="tt-wrap">
+      <span style={{fontSize:'11px',color:color||'#6B7280'}}>{label}</span>
+      <span style={{fontSize:'10px',color:'#9CA3AF',marginLeft:'2px'}}>ⓘ</span>
+      <span className="tt">{tip}</span>
+    </span>
+  )
+}
 function fVND(n:any){return Number(n||0).toLocaleString('vi-VN')}
 function fDate(s:string){
   if(!s)return'—'
   try{const d=new Date(s);return`${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`}
   catch{return s}
+}
+function getLocalDate(){
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
+}
+function getLocalMonth(){
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-01`
 }
 function inRange(dateStr:string, tuNgay:string, denNgay:string){
   const d=(dateStr||'').split('T')[0]
@@ -15,15 +32,18 @@ function inRange(dateStr:string, tuNgay:string, denNgay:string){
 
 export default function BaoCaoClient({
   donHangList, doiSoatList, chiTraNVList, thanhToanNCCList,
-  chiPhiList, baoCaoList, chiTietDonList, nhapKhoList, user
+  chiPhiList, baoCaoList, chiTietDonList, nhapKhoList,
+  tamUngNVList=[], thuongKhacNVList=[],
+  soDuTienMat=0, soDuNganHang=0, user
 }:{
   donHangList:any[]; doiSoatList:any[]; chiTraNVList:any[];
-  thanhToanNCCList:any[]; chiPhiList:any[]; baoCaoList:any[]; chiTietDonList:any[]; nhapKhoList:any[]; user:UserSession
+  thanhToanNCCList:any[]; chiPhiList:any[]; baoCaoList:any[]; chiTietDonList:any[]; nhapKhoList:any[];
+  tamUngNVList?:any[]; thuongKhacNVList?:any[];
+  soDuTienMat?:number; soDuNganHang?:number; user:UserSession
 }) {
   const isOwner = user.vaiTro === 'Chủ cửa hàng'
-  const now = new Date()
-  const [tuNgay, setTuNgay] = useState(`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-01`)
-  const [denNgay, setDenNgay] = useState(now.toISOString().split('T')[0])
+  const [tuNgay, setTuNgay] = useState(getLocalMonth())
+  const [denNgay, setDenNgay] = useState(getLocalDate())
   const [loading, setLoading] = useState(false)
   const [msg, setMsg] = useState('')
   const [msgOk, setMsgOk] = useState(true)
@@ -41,12 +61,12 @@ export default function BaoCaoClient({
     const donTrongKy = donHangList.filter(d=>{
       if(!inRange(d['Ngày bán']||'',tuNgay,denNgay)) return false
       if(filterKenh==='Trực tiếp') return d['Kênh bán']==='Trực tiếp'
-      if(filterKenh==='Online') return d['Kênh bán']==='Online'
+      if(filterKenh==='Online') return d['Kênh bán']!=='Trực tiếp'
       return true
     })
-    const donKhongHuy = donTrongKy.filter(d=>d['Trạng thái']!=='Huỷ')
+    const donKhongHuy = donTrongKy.filter(d=>d['Trạng thái']!=='Huỷ'&&d['Trạng thái']!=='Hủy')
     const donHoanThanh = donTrongKy.filter(d=>['Hoàn thành','Đã giao','Đã thu chưa đối soát','Đang giao'].includes(d['Trạng thái']))
-    const donHuy = donTrongKy.filter(d=>d['Trạng thái']==='Huỷ')
+    const donHuy = donTrongKy.filter(d=>d['Trạng thái']==='Huỷ'||d['Trạng thái']==='Hủy')
     // Doanh thu = tổng tiền đơn không hủy
     const tongDT = donKhongHuy.reduce((s,d)=>s+Number(d['Tổng tiền đơn']||0),0)
     const dtTrucTiep = donKhongHuy.filter(d=>d['Kênh bán']==='Trực tiếp').reduce((s,d)=>s+Number(d['Tổng tiền đơn']||0),0)
@@ -57,8 +77,27 @@ export default function BaoCaoClient({
     const tongDaThu = tongDT - khConNo
     // Phân loại tiền mặt/CK từ đối soát
     const daThuDS = doiSoatList.filter(ds=>inRange(ds['Ngày đối soát']||'',tuNgay,denNgay)&&ds['Tình trạng đối soát']==='Đã đối soát')
-    const daThuTM = daThuDS.filter(ds=>ds['Hình thức thu']==='Tiền mặt').reduce((s,ds)=>s+Number(ds['Đã thu được']||0),0)
-    const daThuCK = daThuDS.filter(ds=>ds['Hình thức thu']==='Chuyển khoản').reduce((s,ds)=>s+Number(ds['Đã thu được']||0),0)
+    const daThuTM = daThuDS.reduce((s,ds)=>s+Number(ds['Thu tiền mặt']||0),0)
+    const daThuCK = daThuDS.reduce((s,ds)=>s+Number(ds['Thu chuyển khoản']||0),0)
+    // Thu bù CP từ đơn hủy KH chịu CP (Kết quả = Huỷ — khách trả CP)
+    const dsThuBuCP = doiSoatList.filter(ds=>
+      inRange(ds['Ngày đối soát']||'',tuNgay,denNgay) &&
+      ds['Tình trạng đối soát']==='Đã đối soát' &&
+      (ds['Kết quả']||'').includes('khách trả CP')
+    )
+    const thuBuCP = dsThuBuCP.reduce((s:any,ds:any)=>s+Number(ds['Đã thu được']||0),0)
+    // Cộng thêm Thu bù CP từ bảng 14 (khi hủy đơn có KH chịu CP)
+    const thuBuCPBang14 = chiPhiList.filter((cp:any)=>
+      inRange(cp['Ngày phát sinh']||'',tuNgay,denNgay) &&
+      cp['Loại giao dịch']==='Thu' &&
+      (cp['Loại thu']||'').includes('CP đổi trả') &&
+      cp['Trạng thái']==='Đã thanh toán'
+    ).reduce((s:any,cp:any)=>s+Number(cp['Số tiền']||0),0)
+    const thuBuCPTong = thuBuCP + thuBuCPBang14
+
+    // Tỷ lệ kênh — dùng để phân bổ chi phí chung khi lọc kênh cụ thể
+    const tongDTTatCa = donHangList.filter(d=>inRange(d['Ngày bán']||'',tuNgay,denNgay)&&d['Trạng thái']!=='Huỷ'&&d['Trạng thái']!=='Hủy').reduce((s:number,d:any)=>s+Number(d['Tổng tiền đơn']||0),0)
+    const tyLeKenh = (filterKenh!=='Tất cả' && tongDTTatCa>0) ? tongDT/tongDTTatCa : 1
 
     // Chi lương NV (bảng 13) — lọc theo Tháng vì Ngày thanh toán thường trống
     const luongNV = chiTraNVList.filter(ct=>{
@@ -68,17 +107,22 @@ export default function BaoCaoClient({
       const thang=ct['Tháng']||''
       return thang>=tuNgay.substring(0,7)&&thang<=denNgay.substring(0,7)
     })
-    const tongLuong = luongNV.reduce((s,ct)=>s+Number(ct['Tổng chi trả']||0),0)
-    const luongTM = luongNV.filter(ct=>ct['Hình thức TT']==='Tiền mặt').reduce((s,ct)=>s+Number(ct['Tổng chi trả']||0),0)
-    const luongCK = luongNV.filter(ct=>ct['Hình thức TT']==='Chuyển khoản').reduce((s,ct)=>s+Number(ct['Tổng chi trả']||0),0)
+    const tongLuongRaw = luongNV.reduce((s,ct)=>s+Number(ct['Tổng chi trả']||0),0)
+    const tongLuong = Math.round(tongLuongRaw * tyLeKenh)
+    const luongTM = Math.round(luongNV.filter((ct:any)=>ct['Hình thức TT']==='Tiền mặt').reduce((s:number,ct:any)=>s+Number(ct['Tổng chi trả']||0),0) * tyLeKenh)
+    const luongCK = Math.round(luongNV.filter((ct:any)=>ct['Hình thức TT']==='Chuyển khoản').reduce((s:number,ct:any)=>s+Number(ct['Tổng chi trả']||0),0) * tyLeKenh)
 
-    // CP giao hàng ĐT (bảng 9) — lọc theo Ngày đối soát
+    // CP giao hàng ĐT (bảng 9) — lọc theo Ngày đối soát + kênh bán
+    const maDonTrongKy = new Set(donKhongHuy.map((d:any)=>d['Mã đơn hàng']))
     const cpGiao = doiSoatList.filter(ds=>{
       const ngay=(ds['Ngày đối soát']||ds['Ngày chi trả']||'').split('T')[0]
-      return ngay>=tuNgay&&ngay<=denNgay&&ds['Tình trạng đối soát']==='Đã đối soát'
+      if(ngay<tuNgay||ngay>denNgay||ds['Tình trạng đối soát']!=='Đã đối soát') return false
+      // Nếu lọc kênh cụ thể → chỉ tính CP giao của đơn thuộc kênh đó
+      if(filterKenh!=='Tất cả' && ds['Mã đơn hàng'] && !maDonTrongKy.has(ds['Mã đơn hàng'])) return false
+      return true
     })
-    const tongCPGiao = cpGiao.reduce((s,ds)=>s+Number(ds['Chi phí VC']||0)+Number(ds['Chi phí lắp đặt']||0)+Number(ds['Thưởng chuyến']||0),0)
-    const cpGiaoTM = cpGiao.filter(ds=>ds['Hình thức TT']==='Tiền mặt').reduce((s,ds)=>s+Number(ds['Chi phí VC']||0)+Number(ds['Chi phí lắp đặt']||0)+Number(ds['Thưởng chuyến']||0),0)
+    const tongCPGiao = cpGiao.filter((ds:any)=>ds['Đã chi trả']).reduce((s,ds)=>s+Number(ds['Chi phí VC']||0)+Number(ds['Chi phí lắp đặt']||0)+Number(ds['Thưởng chuyến']||0),0)
+    const cpGiaoTM = cpGiao.filter(ds=>ds['Hình thức thanh toán']==='Tiền mặt'&&ds['Đã chi trả']).reduce((s,ds)=>s+Number(ds['Chi phí VC']||0)+Number(ds['Chi phí lắp đặt']||0)+Number(ds['Thưởng chuyến']||0),0)
     const cpGiaoCK = tongCPGiao - cpGiaoTM
 
     // Thanh toán NCC (bảng 12)
@@ -88,11 +132,20 @@ export default function BaoCaoClient({
     const ttNCCCK = tongTTNCC - ttNCCTM
 
     // Chi phí vận hành (bảng 14)
-    const cpVH = chiPhiList.filter(cp=>inRange(cp['Ngày phát sinh']||'',tuNgay,denNgay)&&cp['Trạng thái']==='Đã thanh toán')
-    const tongCPVH = cpVH.reduce((s,cp)=>s+Number(cp['Số tiền']||0),0)
-    const cpVHTM = cpVH.filter(cp=>cp['Hình thức thanh toán']==='Tiền mặt').reduce((s,cp)=>s+Number(cp['Số tiền']||0),0)
+    const cpVH = chiPhiList.filter(cp=>inRange(cp['Ngày phát sinh']||'',tuNgay,denNgay)&&cp['Trạng thái']==='Đã thanh toán'&&(cp['Loại giao dịch']||'Chi')==='Chi')
+    const tongCPVHRaw = cpVH.reduce((s:number,cp:any)=>s+Number(cp['Số tiền']||0),0)
+    const tongCPVH = Math.round(tongCPVHRaw * tyLeKenh)
+    const cpVHTM = Math.round(cpVH.filter((cp:any)=>cp['Hình thức thanh toán']==='Tiền mặt').reduce((s:number,cp:any)=>s+Number(cp['Số tiền']||0),0) * tyLeKenh)
     const cpVHCK = tongCPVH - cpVHTM
 
+    // Tạm ứng NV (bảng 13b)
+    const tamUngTM = (tamUngNVList as any[]).filter(tu=>inRange(tu['Ngày tạm ứng']||'',tuNgay,denNgay)&&tu['Hình thức']!=='Chuyển khoản').reduce((s:number,tu:any)=>s+Number(tu['Số tiền']||0),0)
+    const tamUngCK = (tamUngNVList as any[]).filter(tu=>inRange(tu['Ngày tạm ứng']||'',tuNgay,denNgay)&&tu['Hình thức']==='Chuyển khoản').reduce((s:number,tu:any)=>s+Number(tu['Số tiền']||0),0)
+    const tongTamUng = tamUngTM + tamUngCK
+    // Thưởng khác NV (bảng 13c)
+    const thuongKhacTM = (thuongKhacNVList as any[]).filter(tk=>inRange(tk['Ngày thưởng']||'',tuNgay,denNgay)&&tk['Hình thức']!=='Chuyển khoản').reduce((s:number,tk:any)=>s+Number(tk['Số tiền']||0),0)
+    const thuongKhacCK = (thuongKhacNVList as any[]).filter(tk=>inRange(tk['Ngày thưởng']||'',tuNgay,denNgay)&&tk['Hình thức']==='Chuyển khoản').reduce((s:number,tk:any)=>s+Number(tk['Số tiền']||0),0)
+    const tongThuongKhac = thuongKhacTM + thuongKhacCK
     // Giá vốn bình quân từ bảng 11 (nhập kho)
     const nhapTheoSP:Record<string,{tongTien:number,tongSL:number}>={}
     nhapKhoList.forEach((nk:any)=>{
@@ -113,7 +166,7 @@ export default function BaoCaoClient({
       const {tongTien,tongSL}=nhapTheoSP[maSP]
       giaBinhQuan[maSP]=tongSL>0?Math.round(tongTien/tongSL):0
     })
-    const maDonTrongKy=new Set(donKhongHuy.map((d:any)=>d['Mã đơn hàng']))
+    // maDonTrongKy đã khai báo ở trên
     const giaVon=chiTietDonList
       .filter((ct:any)=>maDonTrongKy.has(ct['Mã đơn hàng'])&&ct['Trạng thái SP']!=='Huỷ')
       .reduce((s:number,ct:any)=>{
@@ -122,28 +175,44 @@ export default function BaoCaoClient({
         return s+giaBQ*Number(ct['Số lượng']||1)
       },0)
 
+    // Thu khác ngoài bán hàng (bảng 14)
+    const thuKhac = chiPhiList.filter((cp)=>inRange(cp["Ngày phát sinh"]||"",tuNgay,denNgay)&&cp["Loại giao dịch"]==="Thu"&&cp["Trạng thái"]==="Đã thanh toán").reduce((s,cp)=>s+Number(cp["Số tiền"]||0),0)
+
     // Tổng chi
-    const tongChi = tongLuong + tongCPGiao + tongTTNCC + tongCPVH
+    const tongChiVH = tongLuong + tongCPGiao + tongTTNCC + tongCPVH
+    const tongChi = tongChiVH
 
     // Lợi nhuận gộp
-    const loiNhuan = tongDT - tongChi
+    const loiNhuan = tongDT + thuKhac - giaVon - tongChi
 
-    // Sổ quỹ — tính từ tổng thu/chi theo hình thức TM/CK
+    // Sổ quỹ — tính từ tổng thu/chi theo hình thức TM/CK (đồng bộ với Sổ quỹ chi tiết)
+    // Cọc TM/CK từ đơn hàng trong kỳ
+    const donTrongKyTatCa = donHangList.filter((d:any)=>inRange(d['Ngày bán']||'',tuNgay,denNgay))
+    const cocTM = donTrongKyTatCa.reduce((s:number,d:any)=>s+Number(d['Cọc tiền mặt']||0),0)
+    const cocCK = donTrongKyTatCa.reduce((s:number,d:any)=>s+Number(d['Cọc chuyển khoản']||0),0)
     // Thu TM/CK từ KH (dựa trên đối soát)
-    const thuTM = daThuDS.filter(ds=>ds['Hình thức thu']==='Tiền mặt').reduce((s,ds)=>s+Number(ds['Đã thu được']||0),0)
-    const thuCK = daThuDS.filter(ds=>ds['Hình thức thu']==='Chuyển khoản').reduce((s,ds)=>s+Number(ds['Đã thu được']||0),0)
+    const thuTM = daThuDS.reduce((s,ds)=>s+Number(ds['Thu tiền mặt']||0),0)
+    const thuCK = daThuDS.reduce((s,ds)=>s+Number(ds['Thu chuyển khoản']||0),0)
     // Chi TM/CK
-    const chiTM = luongTM + cpGiaoTM + ttNCCTM + cpVHTM
-    const chiCK = luongCK + cpGiaoCK + ttNCCCK + cpVHCK
-    const quyTM = thuTM - chiTM
-    const soDuNH = thuCK - chiCK
+    // CP vận chuyển nhập kho (Đã trả, theo ngày trả)
+    const cpvcNhapTM = (nhapKhoList as any[]).filter(nk=>Number(nk['CP vận chuyển về kho']||0)>0&&nk['Trạng thái CP VC']==='Đã trả'&&inRange(nk['Ngày trả CP VC']||nk['Ngày nhập']||'',tuNgay,denNgay)&&nk['Hình thức TT CP VC']!=='Chuyển khoản').reduce((s:number,nk:any)=>s+Number(nk['CP vận chuyển về kho']||0),0)
+    const cpvcNhapCK = (nhapKhoList as any[]).filter(nk=>Number(nk['CP vận chuyển về kho']||0)>0&&nk['Trạng thái CP VC']==='Đã trả'&&inRange(nk['Ngày trả CP VC']||nk['Ngày nhập']||'',tuNgay,denNgay)&&nk['Hình thức TT CP VC']==='Chuyển khoản').reduce((s:number,nk:any)=>s+Number(nk['CP vận chuyển về kho']||0),0)
+    const tongCPVCNhap = cpvcNhapTM + cpvcNhapCK
+    const chiTM = luongTM + cpGiaoTM + ttNCCTM + cpVHTM + tamUngTM + thuongKhacTM + cpvcNhapTM
+    const chiCK = luongCK + cpGiaoCK + ttNCCCK + cpVHCK + tamUngCK + thuongKhacCK + cpvcNhapCK
+    // Thu từ bảng 14 (Khoản thu, Thu bù CP...) theo hình thức TM/CK
+    const thuB14TM = chiPhiList.filter((cp:any)=>inRange(cp['Ngày phát sinh']||'',tuNgay,denNgay)&&cp['Loại giao dịch']==='Thu'&&cp['Trạng thái']==='Đã thanh toán'&&(cp['Hình thức thanh toán']||'').includes('Tiền mặt')).reduce((s:number,cp:any)=>s+Number(cp['Số tiền']||0),0)
+    const thuB14CK = chiPhiList.filter((cp:any)=>inRange(cp['Ngày phát sinh']||'',tuNgay,denNgay)&&cp['Loại giao dịch']==='Thu'&&cp['Trạng thái']==='Đã thanh toán'&&(cp['Hình thức thanh toán']||'').includes('Chuyển khoản')).reduce((s:number,cp:any)=>s+Number(cp['Số tiền']||0),0)
+    const quyTM = soDuTienMat + cocTM + thuTM + thuB14TM - chiTM
+    const soDuNH = soDuNganHang + cocCK + thuCK + thuB14CK - chiCK
 
     return {
       // DT
-      tongDT, dtTrucTiep, dtOnline, tongDaThu, khConNo,
+      tongDT, dtTrucTiep, dtOnline, tongDaThu, khConNo, thuBuCP: thuBuCPTong, thuKhac,
       soDon:donTrongKy.length, donHoanThanh:donHoanThanh.length, donHuy:donHuy.length,
       // Chi
       tongLuong, tongCPGiao, tongTTNCC, tongCPVH, tongChi,
+      tongTamUng, tongThuongKhac, tongCPVCNhap,
       // Giá vốn
       giaVon,
       // Lợi nhuận
@@ -151,10 +220,11 @@ export default function BaoCaoClient({
       // Sổ quỹ
       quyTM, soDuNH,
     }
-  },[donHangList,doiSoatList,chiTraNVList,thanhToanNCCList,chiPhiList,chiTietDonList,nhapKhoList,tuNgay,denNgay,filterKenh])
+  },[donHangList,doiSoatList,chiTraNVList,thanhToanNCCList,chiPhiList,chiTietDonList,nhapKhoList,tamUngNVList,thuongKhacNVList,tuNgay,denNgay,filterKenh])
 
   // Biểu đồ cột 6 tháng
   const bieu6Thang = useMemo(()=>{
+    const now = new Date()
     const result = []
     for(let i=5;i>=0;i--){
       const d = new Date(now.getFullYear(), now.getMonth()-i, 1)
@@ -202,6 +272,10 @@ export default function BaoCaoClient({
       <style>{`
         .ov{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;display:flex;align-items:center;justify-content:center;padding:16px;}
         .bc-card{background:white;border-radius:10px;border:1px solid var(--border);padding:14px 16px;}
+        .tt-wrap{position:relative;display:inline-flex;align-items:center;gap:4px;cursor:help;}
+        .tt-wrap .tt{display:none;position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%);background:#1F2937;color:white;font-size:11px;padding:7px 10px;border-radius:7px;white-space:pre-line;min-width:220px;max-width:300px;line-height:1.6;z-index:999;box-shadow:0 4px 12px rgba(0,0,0,.25);pointer-events:none;}
+        .tt-wrap:hover .tt{display:block;}
+        .tt-wrap .tt::after{content:'';position:absolute;top:100%;left:50%;transform:translateX(-50%);border:5px solid transparent;border-top-color:#1F2937;}
       `}</style>
 
       {/* Header */}
@@ -215,7 +289,7 @@ export default function BaoCaoClient({
           <input type="date" value={tuNgay} onChange={e=>setTuNgay(e.target.value)} style={{padding:'6px 10px',borderRadius:'6px',border:'1px solid var(--border)',fontSize:'12px'}}/>
           <span style={{fontSize:'12px',color:'var(--text-secondary)',fontWeight:600}}>Đến:</span>
           <input type="date" value={denNgay} onChange={e=>setDenNgay(e.target.value)} style={{padding:'6px 10px',borderRadius:'6px',border:'1px solid var(--border)',fontSize:'12px'}}/>
-          <button onClick={()=>{const n=new Date();setTuNgay(`${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}-01`);setDenNgay(n.toISOString().split('T')[0])}}
+          <button onClick={()=>{setTuNgay(getLocalMonth());setDenNgay(getLocalDate())}}
             style={{padding:'6px 12px',borderRadius:'6px',border:'1px solid var(--border)',background:'white',fontSize:'12px',cursor:'pointer'}}>📅 Tháng này</button>
           <button onClick={()=>{const n=new Date();const q=Math.ceil((n.getMonth()+1)/3);const m1=(q-1)*3;setTuNgay(`${n.getFullYear()}-${String(m1+1).padStart(2,'0')}-01`);setDenNgay(new Date(n.getFullYear(),m1+3,0).toISOString().split('T')[0])}}
             style={{padding:'6px 12px',borderRadius:'6px',border:'1px solid var(--border)',background:'white',fontSize:'12px',cursor:'pointer'}}>📅 Quý này</button>
@@ -239,75 +313,97 @@ export default function BaoCaoClient({
             const bgMap:any={'Tất cả':'#EFF6FF','Trực tiếp':'#F0FDF4','Online':'#F5F3FF'}
             const cMap:any={'Tất cả':'#1E40AF','Trực tiếp':'#16A34A','Online':'#7C3AED'}
             const iconMap:any={'Tất cả':'📊','Trực tiếp':'🏪','Online':'🌐'}
-            const donKenh=donHangList.filter((d:any)=>inRange(d['Ngày bán']||'',tuNgay,denNgay)&&d['Trạng thái']!=='Huỷ'&&(k==='Tất cả'||d['Kênh bán']===k))
+            const donKenh=donHangList.filter((d:any)=>inRange(d['Ngày bán']||'',tuNgay,denNgay)&&d['Trạng thái']!=='Huỷ'&&d['Trạng thái']!=='Hủy'&&(k==='Tất cả'||d['Kênh bán']===k))
             const dtKenh=donKenh.reduce((s:number,d:any)=>s+Number(d['Tổng tiền đơn']||0),0)
             return (<button key={k} onClick={()=>setFilterKenh(k)} style={{padding:'8px 16px',borderRadius:'20px',border:'2px solid '+(isActive?cMap[k]:'var(--border)'),background:isActive?bgMap[k]:'white',color:isActive?cMap[k]:'var(--text-secondary)',fontWeight:isActive?700:400,cursor:'pointer',fontSize:'13px',display:'flex',flexDirection:'column',alignItems:'center',gap:'2px',minWidth:'100px'}}><span style={{fontWeight:700}}>{iconMap[k]} {k}</span><span style={{fontSize:'11px',opacity:0.85}}>{donKenh.length} đơn · {fVND(Math.round(dtKenh/1000))}K</span></button>)
           })}
-          {filterKenh!=='Tất cả'&&(<div style={{marginLeft:'auto',padding:'6px 12px',borderRadius:'8px',background:'#FEF9C3',border:'1px solid #FCD34D',fontSize:'12px',color:'#92400E',fontWeight:600}}>⚠️ Đang xem kênh: <strong>{filterKenh}</strong> — chi phí vẫn tính toàn bộ</div>)}
+          {filterKenh!=='Tất cả'&&(<div style={{marginLeft:'auto',padding:'6px 12px',borderRadius:'8px',background:'#EFF6FF',border:'1px solid #BFDBFE',fontSize:'12px',color:'#1E40AF',fontWeight:500}}>📊 Kênh: <strong>{filterKenh}</strong> — chi phí chung phân bổ theo tỷ lệ doanh thu</div>)}
         </div>
       </div>
 
-      {/* Phần 1 — Doanh thu */}
-      <div style={{marginBottom:'16px'}}>
-        <div style={{fontSize:'12px',fontWeight:700,color:'var(--text-secondary)',marginBottom:'10px',letterSpacing:'0.05em'}}>DOANH THU</div>
-        <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:'10px'}}>
+      {/* DOANH THU */}
+      <div style={{marginBottom:'12px'}}>
+        <div style={{fontSize:'11px',fontWeight:700,color:'var(--text-secondary)',marginBottom:'8px',letterSpacing:'0.05em'}}>DOANH THU</div>
+        <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:'8px',marginBottom:'8px'}}>
           <div className="bc-card" style={{borderLeft:'4px solid #16A34A'}}>
-            <div style={{fontSize:'11px',color:'#6B7280',marginBottom:'4px'}}>💰 Tổng doanh thu</div>
-            <div style={{fontSize:'20px',fontWeight:800,color:'#16A34A'}}>{fVND(stats.tongDT)}đ</div>
-            <div style={{fontSize:'11px',color:'#6B7280',marginTop:'4px'}}>
+            <Tt label="🛒 Doanh thu bán hàng" tip={"Tổng giá trị đơn hàng trong kỳ\n(không tính đơn hủy)\n\nBao gồm cả phần khách chưa trả"} />
+            <div style={{fontSize:'18px',fontWeight:800,color:'#16A34A',marginTop:'2px'}}>{fVND(stats.tongDT)}đ</div>
+            <div style={{fontSize:'11px',color:'#6B7280',marginTop:'2px'}}>
               {filterKenh==='Tất cả'?<>Trực tiếp: {fVND(stats.dtTrucTiep)}đ · Online: {fVND(stats.dtOnline)}đ</>:<>Kênh: <strong>{filterKenh}</strong> · {stats.soDon} đơn</>}
             </div>
           </div>
-          <div className="bc-card" style={{borderLeft:'4px solid #2563EB'}}>
-            <div style={{fontSize:'11px',color:'#6B7280',marginBottom:'4px'}}>💵 Đã thu thực tế</div>
-            <div style={{fontSize:'20px',fontWeight:800,color:'#2563EB'}}>{fVND(stats.tongDaThu)}đ</div>
-            <div style={{fontSize:'11px',color:'#6B7280',marginTop:'4px'}}>{stats.donHoanThanh} đơn hoàn thành · {stats.donHuy} đơn hủy</div>
+          <div className="bc-card" style={{borderLeft:'4px solid #0284C7'}}>
+            <Tt label="💰 Thu khác" tip={"Các khoản thu ngoài bán hàng (bảng 14)\nVD: Thu phí lắp đặt, Thu bù CP đổi trả,\nThu nợ KH, khoản thu bất thường...\n\nĐã cộng vào Tổng thu & Lợi nhuận"} />
+            <div style={{fontSize:'18px',fontWeight:800,color:'#0284C7',marginTop:'2px'}}>{fVND(stats.thuKhac)}đ</div>
+            <div style={{fontSize:'11px',color:'#6B7280',marginTop:'2px'}}>Từ tab Khoản thu (bảng 14)</div>
           </div>
           <div className="bc-card" style={{borderLeft:'4px solid #D97706'}}>
-            <div style={{fontSize:'11px',color:'#6B7280',marginBottom:'4px'}}>📦 Khách còn nợ</div>
-            <div style={{fontSize:'20px',fontWeight:800,color:'#D97706'}}>{fVND(stats.khConNo)}đ</div>
-            <div style={{fontSize:'11px',color:'#6B7280',marginTop:'4px'}}>{stats.soDon} đơn trong kỳ</div>
+            <Tt label="📦 Khách còn nợ" color="#D97706" tip={"Tổng tiền KH chưa thanh toán trong kỳ\n(cột Còn phải thu của đơn hàng)\n\nSố âm = cửa hàng cần hoàn tiền lại KH"} />
+            <div style={{fontSize:'18px',fontWeight:800,color:'#D97706',marginTop:'2px'}}>{fVND(stats.khConNo)}đ</div>
+            <div style={{fontSize:'11px',color:'#6B7280',marginTop:'2px'}}>{stats.soDon} đơn trong kỳ · {stats.donHuy} đơn hủy</div>
+          </div>
+        </div>
+        <div className="bc-card" style={{background:'#F0FDF4',borderLeft:'4px solid #16A34A'}}>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+            <div>
+              <Tt label="💵 Tổng thu" tip={"= Doanh thu bán hàng + Thu khác\n\nĐây là tổng tiền thu về của cửa hàng\ntrong kỳ (trước khi trừ chi phí)"} />
+              <div style={{fontSize:'22px',fontWeight:800,color:'#16A34A'}}>{fVND(stats.tongDT+stats.thuKhac)}đ</div>
+            </div>
+            <div style={{textAlign:'right',fontSize:'12px',color:'#6B7280',lineHeight:'1.8'}}>
+              <div>{fVND(stats.tongDT)}đ bán hàng</div>
+              {stats.thuKhac>0&&<div style={{color:'#0284C7'}}>+ {fVND(stats.thuKhac)}đ thu khác</div>}
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Phần 2 — Chi phí */}
-      <div style={{marginBottom:'16px'}}>
-        <div style={{fontSize:'12px',fontWeight:700,color:'var(--text-secondary)',marginBottom:'10px',letterSpacing:'0.05em'}}>CHI PHÍ</div>
-        <div style={{display:'grid',gridTemplateColumns:'repeat(5,1fr)',gap:'10px'}}>
+      {/* CHI PHÍ */}
+      <div style={{marginBottom:'12px'}}>
+        <div style={{fontSize:'11px',fontWeight:700,color:'var(--text-secondary)',marginBottom:'8px',letterSpacing:'0.05em'}}>CHI PHÍ</div>
+        <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(160px,1fr))',gap:'8px',marginBottom:'8px'}}>
           {[
-            {icon:'📦',label:'Giá vốn (bình quân)',val:stats.giaVon,c:'#DC2626'},
-            {icon:'👥',label:'Lương & thưởng NV',val:stats.tongLuong,c:'#1E40AF'},
-            {icon:'🚚',label:'CP giao hàng đối tác',val:stats.tongCPGiao,c:'#7C3AED'},
-            {icon:'🏭',label:'TT NCC (tham khảo)',val:stats.tongTTNCC,c:'#B45309'},
-            {icon:'💼',label:'Chi phí vận hành',val:stats.tongCPVH,c:'#D97706'},
-          ].map(({icon,label,val,c})=>(
+            {icon:'📦',label:'Giá vốn',val:stats.giaVon,c:'#DC2626',tip:'Giá vốn = Số lượng bán × Giá nhập bình quân\n(tính từ phiếu nhập kho bảng 11)\n\nNếu chưa nhập kho, dùng giá nhập trong đơn'},
+            {icon:'👥',label:'Lương & thưởng NV',val:stats.tongLuong,c:'#1E40AF',tip:'Tổng lương + thưởng đã chi trả\ncho nhân viên cửa hàng (bảng 13)\n(chỉ tính dòng Trạng thái = Đã trả)'},
+            {icon:'🚚',label:'CP giao hàng',val:stats.tongCPGiao,c:'#7C3AED',tip:'CP vận chuyển + CP lắp đặt + thưởng chuyến\nchi trả cho đối tác ngoài (bảng 9)\n(chỉ tính chuyến đã chi trả trong kỳ)'},
+            {icon:'💼',label:'CP vận hành',val:stats.tongCPVH,c:'#D97706',tip:'Điện nước, mặt bằng, văn phòng phẩm,\nxăng xe, tiếp khách, marketing...\n(bảng 14 — chỉ tính Đã thanh toán)'},
+            {icon:'🚛',label:'CP VC nhập kho',val:stats.tongCPVCNhap,c:'#0369A1',tip:'Chi phí vận chuyển hàng về kho\n(bảng 11 — chỉ tính Đã trả trong kỳ)\n\nĐã được phân bổ vào giá vốn từng SP\nHiển thị riêng để theo dõi dòng tiền thực tế'},
+          ].map(({icon,label,val,c,tip}:any)=>(
             <div key={label} className="bc-card" style={{borderLeft:`4px solid ${c}`}}>
-              <div style={{fontSize:'11px',color:'#6B7280',marginBottom:'4px'}}>{icon} {label}</div>
-              <div style={{fontSize:'16px',fontWeight:800,color:c}}>{fVND(val)}đ</div>
+              <Tt label={`${icon} ${label}`} tip={tip||label} color="#6B7280" />
+              <div style={{fontSize:'16px',fontWeight:800,color:c,marginTop:'2px'}}>{fVND(val)}đ</div>
             </div>
           ))}
         </div>
-        <div className="bc-card" style={{marginTop:'10px',background:'#FEF2F2',borderLeft:'4px solid #DC2626'}}>
-          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-            <div>
-              <div style={{fontSize:'11px',color:'#6B7280',marginBottom:'2px'}}>💸 Tổng chi phí</div>
-              <div style={{fontSize:'22px',fontWeight:800,color:'#DC2626'}}>{fVND(stats.tongChi)}đ</div>
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'8px'}}>
+          <div className="bc-card" style={{background:'#FEF2F2',borderLeft:'4px solid #DC2626'}}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+              <div>
+                <Tt label="💸 Tổng chi" tip={"= Giá vốn + Lương NV + CP giao hàng + CP vận hành\n\nTT NCC hiển thị riêng bên cạnh để tham khảo\nvì không tính vào lợi nhuận"} />
+                <div style={{fontSize:'20px',fontWeight:800,color:'#DC2626'}}>{fVND(stats.giaVon+stats.tongChi)}đ</div>
+              </div>
+              <div style={{textAlign:'right',fontSize:'11px',color:'#9CA3AF',lineHeight:'1.8'}}>
+                <div>Giá vốn: {fVND(stats.giaVon)}đ</div>
+                <div>CP HĐ & GH: {fVND(stats.tongChi)}đ</div>
+              </div>
             </div>
-            <div style={{textAlign:'right'}}>
-              <div style={{fontSize:'11px',color:'#6B7280',marginBottom:'2px'}}>Chiếm {stats.tongDT>0?Math.round(stats.tongChi/stats.tongDT*100):0}% doanh thu</div>
-            </div>
+          </div>
+          <div className="bc-card" style={{borderLeft:'4px solid #B45309',background:'#FFFBEB'}}>
+            <Tt label="🏭 TT NCC (tham khảo)" color="#B45309" tip={"Tổng tiền đã thanh toán cho nhà cung cấp\ntrong kỳ (bảng 12 — chỉ tính Đã xác nhận)\n\n⚠️ Không tính vào lợi nhuận vì tiền trả NCC\nlà thanh toán hàng tồn kho — đã được\nphản ánh qua Giá vốn khi bán ra\n\nDùng để theo dõi công nợ & dòng tiền NCC"} />
+            <div style={{fontSize:'20px',fontWeight:800,color:'#B45309',marginTop:'2px'}}>{fVND(stats.tongTTNCC)}đ</div>
+            <div style={{fontSize:'11px',color:'#92400E',marginTop:'2px'}}>Không ảnh hưởng lợi nhuận</div>
           </div>
         </div>
       </div>
 
-      {/* Phần 3 — Lợi nhuận + Sổ quỹ */}
+      {/* KẾT QUẢ */}
       <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'10px',marginBottom:'16px'}}>
-        {/* Lợi nhuận */}
         <div className="bc-card" style={{borderLeft:`4px solid ${stats.loiNhuan>=0?'#16A34A':'#DC2626'}`,background:stats.loiNhuan>=0?'#F0FDF4':'#FEF2F2'}}>
-          <div style={{fontSize:'11px',color:'#6B7280',marginBottom:'4px'}}>📈 Tổng lợi nhuận</div>
-          <div style={{fontSize:'26px',fontWeight:800,color:stats.loiNhuan>=0?'#16A34A':'#DC2626'}}>
+          <Tt label="📈 Lợi nhuận" tip={"= Tổng thu − Tổng chi\n= (DT bán hàng + Thu khác)\n  − (Giá vốn + Lương NV + CP giao + CP vận hành)\n\nTT NCC không trừ vào đây vì Giá vốn\nđã phản ánh chi phí hàng hóa rồi"} />
+          <div style={{fontSize:'26px',fontWeight:800,color:stats.loiNhuan>=0?'#16A34A':'#DC2626',marginTop:'2px'}}>
             {stats.loiNhuan>=0?'+':''}{fVND(stats.loiNhuan)}đ
+          </div>
+          <div style={{fontSize:'11px',color:'#6B7280',marginTop:'4px'}}>
+            {fVND(stats.tongDT+stats.thuKhac)}đ thu − {fVND(stats.giaVon+stats.tongChi)}đ chi
           </div>
           <div style={{marginTop:'8px'}}>
             <div style={{display:'flex',justifyContent:'space-between',fontSize:'12px',marginBottom:'4px'}}>
@@ -319,25 +415,21 @@ export default function BaoCaoClient({
             </div>
           </div>
         </div>
-
-        {/* Sổ quỹ */}
         <div className="bc-card">
-          <div style={{fontSize:'11px',fontWeight:700,color:'var(--text-secondary)',marginBottom:'10px',letterSpacing:'0.05em'}}>SỔ QUỸ ƯỚC TÍNH</div>
+          <div style={{fontSize:'11px',fontWeight:700,color:'var(--text-secondary)',marginBottom:'10px',letterSpacing:'0.05em'}}>SỔ QUỸ</div>
           <div style={{display:'flex',gap:'12px'}}>
             <div style={{flex:1,background:'#F0FDF4',borderRadius:'8px',padding:'10px 12px',border:'1px solid #BBF7D0'}}>
-              <div style={{fontSize:'11px',color:'#6B7280',marginBottom:'3px'}}>💵 Tiền mặt</div>
+              <Tt label="💵 Tiền mặt" tip={"= Cọc TM + Thu TM (đối soát) + Thu khác TM\n  − Chi TM (lương + CP giao + vận hành)\n\nĐối chiếu với Sổ quỹ chi tiết trong Thu Chi"} />
               <div style={{fontSize:'18px',fontWeight:800,color:stats.quyTM>=0?'#16A34A':'#DC2626'}}>{fVND(stats.quyTM)}đ</div>
             </div>
             <div style={{flex:1,background:'#EFF6FF',borderRadius:'8px',padding:'10px 12px',border:'1px solid #BFDBFE'}}>
-              <div style={{fontSize:'11px',color:'#6B7280',marginBottom:'3px'}}>🏦 Ngân hàng</div>
+              <Tt label="🏦 Ngân hàng" tip={"= Cọc CK + Thu CK (đối soát) + Thu khác CK\n  − Chi CK\n\nĐối chiếu với Sổ quỹ chi tiết trong Thu Chi"} />
               <div style={{fontSize:'18px',fontWeight:800,color:stats.soDuNH>=0?'#2563EB':'#DC2626'}}>{fVND(stats.soDuNH)}đ</div>
             </div>
           </div>
-          <div style={{fontSize:'10px',color:'#9CA3AF',marginTop:'8px',fontStyle:'italic',lineHeight:'1.5'}}>
-            * Số liệu <strong>ước tính</strong> từ dữ liệu hệ thống — cần đối chiếu thực tế<br/>
-            * Tiền mặt = Thu TM (đối soát) - Chi TM (lương + CP giao + NCC + vận hành)<br/>
-            * Ngân hàng = Thu CK (đối soát) - Chi CK<br/>
-            * Lưu ý: Đơn khách trả trực tiếp cho chủ không qua đối soát sẽ không được tính vào đây
+          <div style={{fontSize:'10px',color:'#9CA3AF',marginTop:'8px',lineHeight:'1.6'}}>
+            <div>Số dư đầu kỳ: TM {fVND(soDuTienMat)}đ · NH {fVND(soDuNganHang)}đ</div>
+            * Đối chiếu chi tiết: trang Thu Chi → tab Sổ quỹ
           </div>
         </div>
       </div>

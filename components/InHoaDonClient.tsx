@@ -32,66 +32,47 @@ const MAC_DINH = {
 type Settings = typeof MAC_DINH
 
 export default function InHoaDonClient({
-  don, chiTiet, khInfo, user,
-}: { don:any; chiTiet:any[]; khInfo:any; user:UserSession }) {
+  don, chiTiet, khInfo, user, caiDatId:initCaiDatId=0, initSettings={},
+}: { don:any; chiTiet:any[]; khInfo:any; user:UserSession; caiDatId?:number; initSettings?:any }) {
   const router  = useRouter()
   const hdRef   = useRef<HTMLDivElement>(null)
-  const [ST, setST]                     = useState<Settings>(MAC_DINH)
+  const [ST, setST]                     = useState<Settings>({...MAC_DINH,...initSettings})
   const [showSettings, setShowSettings] = useState(false)
+  const [caiDatId, setCaiDatId] = useState<number|null>(initCaiDatId||null)
+  const [khoGiay, setKhoGiay] = useState<'a4'|'a3'>('a4')
   const [xuatPDF, setXuatPDF]           = useState(false)
 
-  useEffect(() => {
-    fetch('/api/cai-dat').then(r=>r.json()).then(res => {
-      if (res.ok && res.data) {
-        const d = res.data
-        setST(p => ({
-          ...p,
-          tenCH:        d['hoadon_tenCH']        ?? p.tenCH,
-          coChuTenCH:   d['hoadon_coChuTenCH']   ?? p.coChuTenCH,
-          diaChiCH:     d['hoadon_diaChiCH']     ?? p.diaChiCH,
-          sdtCH:        d['hoadon_sdtCH']        ?? p.sdtCH,
-          gioiThieu:    d['hoadon_gioiThieu']    ?? p.gioiThieu,
-          mangXH:       d['hoadon_mangXH']       ?? p.mangXH,
-          chanTrang:    d['hoadon_chanTrang']    ?? p.chanTrang,
-          ghiChuHoaDon: d['hoadon_ghiChuHoaDon'] ?? p.ghiChuHoaDon,
-          logo:         d['hoadon_logo']         ?? p.logo,
-          logoSize:     d['hoadon_logoSize']     ?? p.logoSize,
-          mauChinh:     d['hoadon_mauChinh']     ?? p.mauChinh,
-          paddingTrang: d['hoadon_paddingTrang']  ?? p.paddingTrang,
-          coChuBang:    d['hoadon_coChuBang']    ?? p.coChuBang,
-          coChuND:      d['hoadon_coChuND']      ?? p.coChuND,
-          canChanTrang: d['hoadon_canChanTrang'] ?? p.canChanTrang,
-        }))
-      }
-    }).catch(() => {
-      try {
-        const s = localStorage.getItem('qlbh_in_hoadon_settings')
-        if (s) setST(p => ({...p,...JSON.parse(s)}))
-      } catch {}
-    })
-  }, [])
+  // Settings đã load từ server-side (initSettings prop)
 
   async function handleSave(s: Settings) {
     setST(s); setShowSettings(false)
     try {
+      if (!caiDatId) { console.warn('Chưa có caiDatId'); return }
       await fetch('/api/cai-dat', {
-        method:'POST', headers:{'Content-Type':'application/json'},
+        method:'PATCH', headers:{'Content-Type':'application/json'},
         body: JSON.stringify({
-          hoadon_tenCH:        s.tenCH,
-          hoadon_coChuTenCH:   s.coChuTenCH,
-          hoadon_diaChiCH:     s.diaChiCH,
-          hoadon_sdtCH:        s.sdtCH,
-          hoadon_gioiThieu:    s.gioiThieu,
-          hoadon_mangXH:       s.mangXH,
-          hoadon_chanTrang:    s.chanTrang,
-          hoadon_ghiChuHoaDon: s.ghiChuHoaDon,
-          hoadon_logo:         s.logo,
-          hoadon_logoSize:     s.logoSize,
-          hoadon_mauChinh:     s.mauChinh,
-          hoadon_paddingTrang: s.paddingTrang,
-          hoadon_coChuBang:    s.coChuBang,
-          hoadon_coChuND:      s.coChuND,
-          hoadon_canChanTrang: s.canChanTrang,
+          id: caiDatId,
+          theme: JSON.stringify({
+            tenCH:        s.tenCH,
+            coChuTenCH:   s.coChuTenCH,
+            diaChiCH:     s.diaChiCH,
+            sdtCH:        s.sdtCH,
+            gioiThieu:    s.gioiThieu,
+            mangXH:       s.mangXH,
+            chanTrang:    s.chanTrang,
+            ghiChuHoaDon: s.ghiChuHoaDon,
+            logo:         s.logo,
+            logoSize:     s.logoSize,
+            mauChinh:     s.mauChinh,
+            paddingTrang: s.paddingTrang,
+            coChuBang:    s.coChuBang,
+            coChuND:      s.coChuND,
+            canChanTrang: s.canChanTrang,
+            showBorder:   s.showBorder,
+            canThongTinCH:s.canThongTinCH,
+            canTieuDe:    s.canTieuDe,
+            logoPart:     s.logoPart,
+          }),
         }),
       })
     } catch {
@@ -157,9 +138,10 @@ export default function InHoaDonClient({
       }
       *{box-sizing:border-box;}
       body{background:#E5E7EB;}
-      .hd-root{background:white;max-width:794px;margin:0 auto;font-family:'Arial',Helvetica,sans-serif;}
+      .hd-root{background:white;max-width:${khoGiay==='a3'?'1123px':'794px'};margin:0 auto;font-family:'Arial',Helvetica,sans-serif;}
       .sp-tb{width:100%;border-collapse:collapse;}
     `}</style>
+    <style>{`@page{margin:0;size:${khoGiay==='a3'?'A3':'A4'};}`}</style>
 
     {/* THANH ĐIỀU KHIỂN */}
     <div className="no-print" style={{
@@ -520,7 +502,7 @@ function ModalCaiDat({settings,onSave,onClose}:{settings:Settings;onSave:(s:Sett
 
   return (
     <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.6)',zIndex:200,display:'flex',alignItems:'center',justifyContent:'center',padding:'16px'}} onClick={onClose}>
-      <div style={{background:'white',borderRadius:'12px',width:'100%',maxWidth:'460px',maxHeight:'90vh',overflow:'hidden',display:'flex',flexDirection:'column'}} onClick={e=>e.stopPropagation()}>
+      <div style={{background:'white',borderRadius:'12px',width:'100%',maxWidth:'680px',maxHeight:'90vh',overflow:'hidden',display:'flex',flexDirection:'column'}} onClick={e=>e.stopPropagation()}>
 
         <div style={{padding:'14px 16px 0',borderBottom:'1px solid #F0F0F0'}}>
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'10px'}}>

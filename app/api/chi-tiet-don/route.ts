@@ -60,3 +60,18 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ message: error.message }, { status: 500 })
   }
 }
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const session = await getSession()
+    if (!session) return NextResponse.json({ message: 'Chưa đăng nhập' }, { status: 401 })
+    const { searchParams } = new URL(request.url)
+    const id = searchParams.get('id')
+    if (!id) return NextResponse.json({ message: 'Thiếu id' }, { status: 400 })
+    const { deleteRecord } = await import('@/lib/nocodb')
+    await deleteRecord(TABLES.CHI_TIET_DON, Number(id))
+    return NextResponse.json({ success: true })
+  } catch (error: any) {
+    return NextResponse.json({ message: error.message }, { status: 500 })
+  }
+}
