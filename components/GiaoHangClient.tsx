@@ -167,7 +167,7 @@ const VAI_TRO_CHUYEN = ['Vận chuyển+Lắp','Vận chuyển','Lắp đặt']
   function themNguoi() { setDanhSachNguoi(prev=>[...prev,{id:Date.now().toString(),hinhThuc:'NV cửa hàng',maNV:'',tenNV:'',vaiTroNocoDB:'',vaiTroChuyen:'Vận chuyển',ghiChu:'',showSearch:false,searchText:''}]) }
   function xoaNguoi(id:string) { setDanhSachNguoi(prev=>prev.filter(n=>n.id!==id)) }
   function updN(id:string,k:keyof Nguoi,v:any) { setDanhSachNguoi(prev=>prev.map(n=>n.id===id?{...n,[k]:v}:n)) }
-  function chonNguoi(nid:string,nv:any) { setDanhSachNguoi(prev=>prev.map(n=>n.id===nid?{...n,tenNV:nv['Họ và Tên']||nv['Họ tên']||'',maNV:nv['Mã NV']||'',tenNV:nv['Họ tên']||'',vaiTroNocoDB:nv['Vai trò']||'',hinhThuc:(nv['Mã NV']||'').startsWith('DT-')?'Đối tác':'NV cửa hàng',searchText:nv['Họ tên']||'',showSearch:false}:n)) }
+  function chonNguoi(nid:string,nv:any) { setDanhSachNguoi(prev=>prev.map(n=>n.id===nid?{...n,tenNV:nv['Họ và Tên']||nv['Họ tên']||'',maNV:nv['Mã NV']||'',vaiTroNocoDB:nv['Vai trò']||'',hinhThuc:(nv['Mã NV']||'').startsWith('DT-')?'Đối tác':'NV cửa hàng',searchText:nv['Họ tên']||'',showSearch:false}:n)) }
   function updSP(idx:number,k:keyof SPGiao,v:any) { setDanhSachSP(prev=>prev.map((sp,i)=>i===idx?{...sp,[k]:v}:sp)) }
   function showMsgModal2(t:string,ok=true){setMsgModal(t);setMsgModalOk(ok);setTimeout(()=>setMsgModal(''),5000)}
 
