@@ -444,11 +444,11 @@ export default function NhaCungCapClient({nccList,ttList,nhapKhoList,ctList=[],c
                           </button>
                           <button
                             onClick={()=>{setNccChon(ncc);setShowTTModal(true);setTtSoTien(Math.max(0,conNo))}}
-                            title={coNo>0?'Thanh toán công nợ: '+fVND(conNo)+'đ':'Đặt cọc / Thanh toán trước'}
+                            title={coNo?'Thanh toán công nợ: '+fVND(conNo)+'đ':'Đặt cọc / Thanh toán trước'}
                             style={{padding:'5px 8px',borderRadius:'5px',border:'1px solid',
-                              borderColor:coNo>0?'#BBF7D0':'#BFDBFE',
-                              background:coNo>0?'#F0FDF4':'#EFF6FF',
-                              color:coNo>0?'#16A34A':'#1E40AF',
+                              borderColor:coNo?'#BBF7D0':'#BFDBFE',
+                              background:coNo?'#F0FDF4':'#EFF6FF',
+                              color:coNo?'#16A34A':'#1E40AF',
                               fontSize:'11px',cursor:'pointer',
                               fontWeight:600,whiteSpace:'nowrap',lineHeight:'1.4'}}>
                             💳 TT
