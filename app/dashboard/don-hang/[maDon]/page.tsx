@@ -95,7 +95,7 @@ export default async function ChiTietDonHangPage({ params }: { params: { maDon: 
   const maGHDaSoat = new Set(
     ghList.filter((gh:any) => gh['Tình trạng đối soát'] === 'Đã đối soát').map((gh:any) => gh['Mã giao hàng'])
   )
-  const spDaSoatSet = new Set(
+  const spDaSoatSet = new Set<string>(
     (chiTietGiaoResult.list||[])
       .filter((ct:any) => maGHDaSoat.has(ct['Mã giao hàng']))
       .map((ct:any) => ct['Tên SP (ghi nhanh)']||ct['Mã SP']||'')
