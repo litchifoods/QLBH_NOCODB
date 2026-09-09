@@ -338,7 +338,7 @@ export default function NhaCungCapClient({nccList,ttList,nhapKhoList,ctList=[],c
   }
 
   return (
-    <div style={{padding:'20px',position:'relative'}}>
+    <div style={{padding:'20px',position:'relative'}} suppressHydrationWarning>
       <style>{`
         .ncc-t th,.ncc-t td{padding:8px 10px;vertical-align:middle;}
         .ncc-t tbody tr:hover td{background:#F0F4FF!important;}
