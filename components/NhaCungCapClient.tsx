@@ -342,7 +342,7 @@ export default function NhaCungCapClient({nccList,ttList,nhapKhoList,ctList=[],c
       <style>{`
         .ncc-t th,.ncc-t td{padding:8px 10px;vertical-align:middle;}
         .ncc-t tbody tr:hover td{background:#F0F4FF!important;}
-        .ov{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:200;display:flex;align-items:center;justify-content:center;padding:16px;overflow-y:auto;}
+        .ov{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:1000;display:flex;align-items:center;justify-content:center;padding:16px;overflow-y:auto;}
         .mk{background:white;border-radius:12px;padding:24px;width:100%;max-width:520px;max-height:90vh;overflow-y:auto;}
         label.lbl{display:block;font-size:11px;font-weight:600;margin-bottom:3px;}
       `}</style>
