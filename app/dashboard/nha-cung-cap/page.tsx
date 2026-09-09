@@ -22,7 +22,7 @@ export default async function NhaCungCapPage() {
     getRecords('20_Chi tiết CT NCC', { limit: 2000, sort: '-Id' }),
   ])
   return (
-    <NhaCungCapClient
+    <NhaCungCapClient key="nha-cung-cap"
       nccList={nccResult.list||[]}
       ttList={ttResult.list||[]}
       nhapKhoList={nhapKhoResult.list||[]}
